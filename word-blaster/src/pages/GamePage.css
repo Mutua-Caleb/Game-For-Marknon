@@ -1,0 +1,340 @@
+.game-page {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    radial-gradient(2px 2px at 100px 50px, rgba(255,255,255,0.3), transparent),
+    radial-gradient(2px 2px at 200px 150px, rgba(255,255,255,0.2), transparent),
+    radial-gradient(2px 2px at 300px 250px, rgba(255,255,255,0.3), transparent),
+    radial-gradient(2px 2px at 400px 100px, rgba(255,255,255,0.2), transparent),
+    radial-gradient(2px 2px at 500px 300px, rgba(255,255,255,0.3), transparent);
+  background-size: 500px 400px;
+  animation: twinkle 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Countdown */
+.countdown-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.countdown-number {
+  font-family: 'Fredoka One', cursive;
+  font-size: 10rem;
+  color: #00cec9;
+  text-shadow: 0 0 50px rgba(0, 206, 201, 0.5);
+}
+
+.countdown-text {
+  font-size: 2rem;
+  color: white;
+  margin-top: 1rem;
+  font-weight: 600;
+}
+
+/* Game Header */
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  z-index: 50;
+}
+
+.pause-button {
+  background: rgba(255, 255, 255, 0.1);
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.pause-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.lives-display {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.life-heart {
+  font-size: 1.8rem;
+  transition: all 0.3s ease;
+}
+
+.life-heart.lost {
+  opacity: 0.3;
+  filter: grayscale(1);
+}
+
+/* Game Area */
+.game-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ground Zone */
+.ground-zone {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(180deg, transparent 0%, rgba(231, 76, 60, 0.2) 100%);
+}
+
+.danger-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, #e74c3c, transparent);
+  animation: dangerPulse 1s ease-in-out infinite;
+}
+
+@keyframes dangerPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; box-shadow: 0 0 20px #e74c3c; }
+}
+
+/* Input Section */
+.input-section {
+  padding: 1rem 1.5rem 2rem;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+}
+
+/* Feedback Overlays */
+.feedback-overlay {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 2rem 3rem;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 60;
+}
+
+.feedback-overlay.correct {
+  background: linear-gradient(135deg, rgba(0, 184, 148, 0.9), rgba(0, 206, 201, 0.9));
+}
+
+.feedback-overlay.wrong {
+  background: linear-gradient(135deg, rgba(231, 76, 60, 0.9), rgba(192, 57, 43, 0.9));
+}
+
+.feedback-icon {
+  font-size: 3rem;
+}
+
+.feedback-text {
+  font-family: 'Fredoka One', cursive;
+  font-size: 2rem;
+  color: white;
+}
+
+.streak-bonus {
+  font-size: 1.2rem;
+  color: #fdcb6e;
+  font-weight: 700;
+}
+
+.correct-answer {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-top: 0.5rem;
+}
+
+.correct-answer strong {
+  color: white;
+  font-size: 1.2rem;
+}
+
+/* Pause Overlay */
+.pause-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+}
+
+.pause-content {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  padding: 3rem;
+  border-radius: 24px;
+  text-align: center;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.pause-content h2 {
+  color: white;
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.pause-stats {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.2rem;
+}
+
+.pause-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.resume-btn, .quit-btn {
+  padding: 1rem 2rem;
+  border-radius: 50px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.resume-btn {
+  background: linear-gradient(45deg, #00b894, #00cec9);
+  color: white;
+}
+
+.quit-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.quit-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Game Over Overlay */
+.game-over-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+}
+
+.game-over-content {
+  text-align: center;
+}
+
+.game-over-content h2 {
+  font-family: 'Fredoka One', cursive;
+  font-size: 4rem;
+  color: #e74c3c;
+  text-shadow: 0 0 30px rgba(231, 76, 60, 0.5);
+  margin-bottom: 1rem;
+}
+
+.final-score {
+  font-family: 'Fredoka One', cursive;
+  font-size: 6rem;
+  color: #fdcb6e;
+  text-shadow: 0 0 30px rgba(253, 203, 110, 0.5);
+}
+
+.loading-text {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.2rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .game-header {
+    padding: 0.8rem 1rem;
+  }
+
+  .pause-button {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+
+  .life-heart {
+    font-size: 1.4rem;
+  }
+
+  .countdown-number {
+    font-size: 6rem;
+  }
+
+  .pause-content {
+    padding: 2rem;
+    margin: 1rem;
+  }
+
+  .pause-stats {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .pause-buttons {
+    flex-direction: column;
+  }
+
+  .game-over-content h2 {
+    font-size: 2.5rem;
+  }
+
+  .final-score {
+    font-size: 4rem;
+  }
+}

@@ -1,0 +1,135 @@
+.falling-question {
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.question-bubble {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  padding: 1.5rem;
+  min-width: 280px;
+  max-width: 400px;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.3),
+    0 0 0 4px rgba(255, 255, 255, 0.2);
+  position: relative;
+  backdrop-filter: blur(10px);
+}
+
+.question-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 15px solid rgba(255, 255, 255, 0.95);
+}
+
+.question-image {
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.question-image img {
+  max-width: 100%;
+  max-height: 120px;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.question-text {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #2d3436;
+  text-align: center;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+.question-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #636e72;
+  background: #f8f9fa;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.hint-icon {
+  font-size: 1rem;
+}
+
+.question-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.option-button {
+  background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.option-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 5px 20px rgba(108, 92, 231, 0.4);
+}
+
+.option-button:active {
+  transform: scale(0.95);
+}
+
+.timer-bar {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.timer-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.1s linear, background-color 0.3s ease;
+}
+
+.timer-text {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .question-bubble {
+    min-width: 240px;
+    max-width: 300px;
+    padding: 1rem;
+  }
+
+  .question-text {
+    font-size: 1rem;
+  }
+
+  .question-options {
+    grid-template-columns: 1fr;
+  }
+
+  .option-button {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
+  }
+}

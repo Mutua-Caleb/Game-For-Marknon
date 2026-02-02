@@ -1,0 +1,209 @@
+.home-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f64f59 100%);
+  background-size: 200% 200%;
+  animation: rainbow 15s ease infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.stars-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image:
+    radial-gradient(2px 2px at 20px 30px, white, transparent),
+    radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
+    radial-gradient(2px 2px at 50px 160px, white, transparent),
+    radial-gradient(2px 2px at 90px 40px, rgba(255,255,255,0.6), transparent),
+    radial-gradient(2px 2px at 130px 80px, white, transparent),
+    radial-gradient(2px 2px at 160px 120px, rgba(255,255,255,0.8), transparent);
+  background-size: 200px 200px;
+  animation: sparkle 4s ease-in-out infinite;
+  opacity: 0.5;
+}
+
+.home-content {
+  text-align: center;
+  z-index: 10;
+  padding: 2rem;
+}
+
+.logo-container {
+  margin-bottom: 2rem;
+}
+
+.game-title {
+  font-size: 4rem;
+  color: white;
+  text-shadow:
+    3px 3px 0 #e74c3c,
+    6px 6px 0 rgba(0,0,0,0.2);
+  margin: 0;
+  line-height: 1.1;
+}
+
+.title-word {
+  display: block;
+  color: #fdcb6e;
+}
+
+.title-blaster {
+  display: block;
+  font-size: 5rem;
+  background: linear-gradient(45deg, #00cec9, #00b894, #55efc4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.title-stars {
+  margin-top: 1rem;
+}
+
+.title-stars .star {
+  font-size: 2rem;
+  margin: 0 0.5rem;
+  display: inline-block;
+  animation: sparkle 1.5s ease-in-out infinite;
+}
+
+.title-stars .star:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.title-stars .star:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+.tagline {
+  font-size: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 3rem;
+  font-weight: 600;
+}
+
+.play-button {
+  background: linear-gradient(45deg, #00b894, #00cec9);
+  color: white;
+  font-size: 1.8rem;
+  padding: 1.2rem 3rem;
+  border-radius: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.2),
+    0 0 0 0 rgba(0, 206, 201, 0.7);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  transition: all 0.3s ease;
+}
+
+.play-button:hover {
+  box-shadow:
+    0 15px 40px rgba(0, 0, 0, 0.3),
+    0 0 0 10px rgba(0, 206, 201, 0.2);
+  transform: translateY(-2px);
+}
+
+.button-icon {
+  font-size: 2rem;
+}
+
+.home-features {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 3rem;
+  flex-wrap: wrap;
+}
+
+.feature {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  padding: 1rem 1.5rem;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  font-weight: 600;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.feature-icon {
+  font-size: 1.5rem;
+}
+
+.sound-toggle {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.sound-toggle:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.floating-elements {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.floating-emoji {
+  position: absolute;
+  font-size: 3rem;
+  opacity: 0.7;
+}
+
+@media (max-width: 768px) {
+  .game-title {
+    font-size: 2.5rem;
+  }
+
+  .title-blaster {
+    font-size: 3rem;
+  }
+
+  .tagline {
+    font-size: 1.2rem;
+  }
+
+  .play-button {
+    font-size: 1.4rem;
+    padding: 1rem 2rem;
+  }
+
+  .home-features {
+    gap: 1rem;
+  }
+
+  .feature {
+    padding: 0.8rem 1rem;
+    font-size: 0.9rem;
+  }
+}

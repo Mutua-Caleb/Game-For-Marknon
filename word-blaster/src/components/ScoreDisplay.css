@@ -1,0 +1,97 @@
+.score-display {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.score-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 50px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.score-icon {
+  font-size: 1.5rem;
+}
+
+.score-value {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.5rem;
+  color: white;
+  min-width: 60px;
+  text-align: center;
+}
+
+.streak-display {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: linear-gradient(45deg, #f39c12, #e74c3c);
+  padding: 0.4rem 0.8rem;
+  border-radius: 50px;
+  animation: pulse 0.5s ease-in-out infinite;
+}
+
+.streak-icon {
+  font-size: 1.2rem;
+}
+
+.streak-value {
+  font-family: 'Fredoka One', cursive;
+  font-size: 1.2rem;
+  color: white;
+}
+
+.stats-mini {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.stat-correct {
+  color: #00b894;
+}
+
+.stat-wrong {
+  color: #e74c3c;
+}
+
+@media (max-width: 768px) {
+  .score-display {
+    gap: 0.75rem;
+  }
+
+  .score-main {
+    padding: 0.4rem 0.75rem;
+  }
+
+  .score-icon {
+    font-size: 1.2rem;
+  }
+
+  .score-value {
+    font-size: 1.2rem;
+    min-width: 40px;
+  }
+
+  .streak-display {
+    padding: 0.3rem 0.6rem;
+  }
+
+  .streak-icon {
+    font-size: 1rem;
+  }
+
+  .streak-value {
+    font-size: 1rem;
+  }
+
+  .stats-mini {
+    display: none;
+  }
+}

@@ -67,10 +67,10 @@ function FallingQuestion({ question, duration, isPaused, onTimeout, onOptionClic
         transform: 'translate(-50%, -50%)'
       }}
     >
-      <div className="question-bubble">
+      <div className={`question-bubble${question.image ? ' has-image' : ''}`}>
         {question.image && (
           <div className="question-image">
-            <img src={question.image} alt="" />
+            <img src={question.image} alt="Question illustration" />
           </div>
         )}
 

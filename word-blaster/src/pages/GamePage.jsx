@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
-import FallingQuestion from '../components/FallingQuestion'
-import AnswerInput from '../components/AnswerInput'
 import ScoreDisplay from '../components/ScoreDisplay'
-import ExplosionEffect from '../components/ExplosionEffect'
+import AnswerInput from '../components/AnswerInput'
 import './GamePage.css'
+
+const LETTER_BADGES = ['A', 'B', 'C', 'D', 'E', 'F']
 
 function GamePage() {
   const navigate = useNavigate()
@@ -16,13 +16,12 @@ function GamePage() {
     getWeightedQuestions,
     gameSettings,
     recordAnswer,
-    playerStats,
     setCurrentSession
   } = useGame()
 
-  const [activeQuestions, setActiveQuestions] = useState([])
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [questionPool, setQuestionPool] = useState([])
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [currentQuestion, setCurrentQuestion] = useState(null)
   const [sessionStats, setSessionStats] = useState({
     correct: 0,
     wrong: 0,
@@ -30,17 +29,22 @@ function GamePage() {
     score: 0
   })
   const [isPaused, setIsPaused] = useState(false)
-  const [showCorrectFeedback, setShowCorrectFeedback] = useState(false)
-  const [showWrongFeedback, setShowWrongFeedback] = useState(null)
-  const [explosions, setExplosions] = useState([])
   const [gameStarted, setGameStarted] = useState(false)
   const [countdown, setCountdown] = useState(3)
   const [lives, setLives] = useState(3)
   const [gameOver, setGameOver] = useState(false)
 
-  const gameAreaRef = useRef(null)
+  // Timer state
+  const [timeLeft, setTimeLeft] = useState(0)
+  const timerRef = useRef(null)
+
+  // Feedback states
+  const [showCorrectFeedback, setShowCorrectFeedback] = useState(false)
+  const [showWrongFeedback, setShowWrongFeedback] = useState(null)
+  const [showExplosion, setShowExplosion] = useState(false)
+  const [transitioning, setTransitioning] = useState(false)
+
   const inputRef = useRef(null)
-  const questionTimerRef = useRef(null)
 
   // Initialize question pool
   useEffect(() => {
@@ -63,107 +67,120 @@ function GamePage() {
     }
   }, [countdown, gameStarted, playSound])
 
-  // Spawn new question
-  const spawnQuestion = useCallback(() => {
-    if (questionPool.length === 0 || gameOver || isPaused) return
+  // Load a single question
+  const loadQuestion = useCallback(() => {
+    if (questionPool.length === 0 || gameOver) return
 
     const questionData = questionPool[currentQuestionIndex % questionPool.length]
     const newQuestion = {
       ...questionData,
       instanceId: `${questionData.id}_${Date.now()}`,
-      x: Math.random() * 60 + 20, // 20-80% of screen width
       startTime: Date.now()
     }
 
-    setActiveQuestions(prev => [...prev, newQuestion])
+    setCurrentQuestion(newQuestion)
+    setTimeLeft(gameSettings.questionTime)
+    setTransitioning(false)
     setCurrentQuestionIndex(prev => prev + 1)
-  }, [questionPool, currentQuestionIndex, gameOver, isPaused])
+  }, [questionPool, currentQuestionIndex, gameOver, gameSettings.questionTime])
 
-  // Game loop - spawn questions
+  // Start the first question when game begins
   useEffect(() => {
-    if (!gameStarted || gameOver || isPaused) return
+    if (gameStarted && !gameOver && !currentQuestion && questionPool.length > 0) {
+      loadQuestion()
+    }
+  }, [gameStarted, gameOver, currentQuestion, questionPool.length, loadQuestion])
 
-    // Spawn first question immediately
-    if (activeQuestions.length === 0) {
-      spawnQuestion()
+  // Timer countdown
+  useEffect(() => {
+    if (!gameStarted || gameOver || isPaused || !currentQuestion || transitioning) {
+      if (timerRef.current) clearInterval(timerRef.current)
+      return
     }
 
-    // Spawn new question every few seconds based on difficulty
-    const spawnInterval = setInterval(() => {
-      if (activeQuestions.length < 2) { // Max 2 questions at once
-        spawnQuestion()
-      }
-    }, 8000)
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        const newTime = prev - 0.1
+        if (newTime <= 0) {
+          clearInterval(timerRef.current)
+          handleQuestionTimeout()
+          return 0
+        }
+        return newTime
+      })
+    }, 100)
 
-    return () => clearInterval(spawnInterval)
-  }, [gameStarted, gameOver, isPaused, activeQuestions.length, spawnQuestion])
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [gameStarted, gameOver, isPaused, currentQuestion, transitioning])
 
-  // Handle question timeout (falls to bottom)
-  const handleQuestionTimeout = useCallback((question) => {
+  // Handle question timeout
+  const handleQuestionTimeout = useCallback(() => {
+    if (!currentQuestion || transitioning) return
+    setTransitioning(true)
+
     playSound('explosion')
+    setShowExplosion(true)
 
-    // Create explosion at the bottom
-    const explosion = {
-      id: Date.now(),
-      x: question.x,
-      y: 85,
-      answer: question.answer
-    }
-    setExplosions(prev => [...prev, explosion])
-
-    // Show wrong feedback with correct answer
     setShowWrongFeedback({
-      answer: question.answer,
-      question: question.question
+      answer: currentQuestion.answer,
+      question: currentQuestion.question
     })
-    setTimeout(() => setShowWrongFeedback(null), 2500)
 
-    // Record as wrong
-    recordAnswer(question.id, false)
+    recordAnswer(currentQuestion.id, false)
     setSessionStats(prev => ({
       ...prev,
       wrong: prev.wrong + 1,
       streak: 0
     }))
 
-    // Remove question
-    setActiveQuestions(prev => prev.filter(q => q.instanceId !== question.instanceId))
-
-    // Remove explosion after animation
-    setTimeout(() => {
-      setExplosions(prev => prev.filter(e => e.id !== explosion.id))
-    }, 1000)
-
-    // Lose a life
     setLives(prev => {
       const newLives = prev - 1
       if (newLives <= 0) {
-        setGameOver(true)
-        playSound('gameOver')
+        setTimeout(() => {
+          setGameOver(true)
+          playSound('gameOver')
+        }, 1500)
       }
       return newLives
     })
-  }, [playSound, recordAnswer])
+
+    // Clear explosion and load next question after delay
+    setTimeout(() => {
+      setShowExplosion(false)
+      setShowWrongFeedback(null)
+      setCurrentQuestion(null)
+      // loadQuestion will be triggered by the useEffect watching currentQuestion
+    }, 2500)
+  }, [currentQuestion, transitioning, playSound, recordAnswer])
+
+  // Load next question when current is cleared (and game isn't over)
+  useEffect(() => {
+    if (gameStarted && !gameOver && !currentQuestion && !transitioning && questionPool.length > 0 && lives > 0) {
+      const timer = setTimeout(() => loadQuestion(), 500)
+      return () => clearTimeout(timer)
+    }
+  }, [gameStarted, gameOver, currentQuestion, transitioning, questionPool.length, lives, loadQuestion])
 
   // Handle answer submission
   const handleAnswer = useCallback((answer) => {
-    if (activeQuestions.length === 0) return
+    if (!currentQuestion || transitioning) return
 
     const normalizedAnswer = answer.trim().toLowerCase()
+    const correctAnswer = currentQuestion.answer.toLowerCase()
 
-    // Check against all active questions
-    const matchedQuestion = activeQuestions.find(q => {
-      const correctAnswer = q.answer.toLowerCase()
-      return normalizedAnswer === correctAnswer ||
-             (q.options && q.options.some(opt => opt.toLowerCase() === normalizedAnswer && opt.toLowerCase() === correctAnswer))
-    })
+    const isCorrect = normalizedAnswer === correctAnswer ||
+      (currentQuestion.options && currentQuestion.options.some(
+        opt => opt.toLowerCase() === normalizedAnswer && opt.toLowerCase() === correctAnswer
+      ))
 
-    if (matchedQuestion) {
-      // Correct answer!
+    if (isCorrect) {
       playSound('correct')
+      setTransitioning(true)
 
       const streakBonus = sessionStats.streak >= 3 ? (sessionStats.streak >= 5 ? 3 : 2) : 1
-      const timeBonus = Math.max(1, Math.floor((gameSettings.questionTime * 1000 - (Date.now() - matchedQuestion.startTime)) / 1000 / 5))
+      const timeBonus = Math.max(1, Math.floor(timeLeft / 5))
       const points = 10 * streakBonus + timeBonus
 
       setSessionStats(prev => {
@@ -179,21 +196,15 @@ function GamePage() {
         }
       })
 
-      recordAnswer(matchedQuestion.id, true)
+      recordAnswer(currentQuestion.id, true)
       setShowCorrectFeedback(true)
-      setTimeout(() => setShowCorrectFeedback(false), 500)
 
-      // Remove the answered question
-      setActiveQuestions(prev => prev.filter(q => q.instanceId !== matchedQuestion.instanceId))
-
-      // Spawn next question after a short delay
       setTimeout(() => {
-        if (!gameOver && !isPaused) {
-          spawnQuestion()
-        }
-      }, 1000)
+        setShowCorrectFeedback(false)
+        setCurrentQuestion(null)
+        setTransitioning(false)
+      }, 1200)
     } else {
-      // Wrong answer - shake effect
       playSound('wrong')
       if (inputRef.current) {
         inputRef.current.classList.add('shake-animation')
@@ -204,14 +215,14 @@ function GamePage() {
         }, 500)
       }
     }
-  }, [activeQuestions, playSound, gameSettings.questionTime, recordAnswer, sessionStats.streak, spawnQuestion, gameOver, isPaused])
+  }, [currentQuestion, transitioning, playSound, sessionStats.streak, recordAnswer, timeLeft])
 
-  // Handle option click for multiple choice
+  // Handle option click
   const handleOptionClick = useCallback((option) => {
     handleAnswer(option)
   }, [handleAnswer])
 
-  // Pause/Resume game
+  // Pause/Resume
   const togglePause = useCallback(() => {
     setIsPaused(prev => !prev)
     playSound('click')
@@ -229,17 +240,20 @@ function GamePage() {
   // Handle game over
   useEffect(() => {
     if (gameOver) {
-      setTimeout(() => {
-        endGame()
-      }, 2000)
+      setTimeout(() => endGame(), 2000)
     }
   }, [gameOver, endGame])
 
-  // Current question for input display
-  const currentQuestion = activeQuestions[0]
+  // Timer calculations
+  const timePercent = currentQuestion ? (timeLeft / gameSettings.questionTime) * 100 : 100
+  const getTimeColor = () => {
+    if (timePercent > 50) return '#00b894'
+    if (timePercent > 25) return '#fdcb6e'
+    return '#e74c3c'
+  }
 
   return (
-    <div className="game-page" ref={gameAreaRef}>
+    <div className="game-page">
       {/* Background particles */}
       <div className="game-particles"></div>
 
@@ -287,35 +301,132 @@ function GamePage() {
         </div>
       </div>
 
-      {/* Game Area */}
-      <div className="game-area">
-        {/* Falling Questions */}
-        <AnimatePresence>
-          {activeQuestions.map(question => (
-            <FallingQuestion
-              key={question.instanceId}
-              question={question}
-              duration={gameSettings.questionTime}
-              isPaused={isPaused}
-              onTimeout={() => handleQuestionTimeout(question)}
-              onOptionClick={handleOptionClick}
-            />
-          ))}
+      {/* Question Stage - Single question centered */}
+      <div className="question-stage">
+        <AnimatePresence mode="wait">
+          {currentQuestion && !showExplosion && (
+            <motion.div
+              className="question-card-game"
+              key={currentQuestion.instanceId}
+              initial={{ opacity: 0, y: -40, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 40, scale: 0.9 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            >
+              {/* Topic badge */}
+              <div className="topic-badge-game">
+                <span className="topic-badge-icon">
+                  {currentQuestion.subject === 'Science' ? '🔬' : '📖'}
+                </span>
+                {currentQuestion.topic}
+              </div>
+
+              {/* Timer bar */}
+              <div className="timer-bar-game">
+                <motion.div
+                  className="timer-fill-game"
+                  style={{ backgroundColor: getTimeColor() }}
+                  animate={{ width: `${timePercent}%` }}
+                  transition={{ duration: 0.1 }}
+                />
+              </div>
+              <div className="timer-text-game" style={{ color: getTimeColor() }}>
+                {Math.ceil(timeLeft)}s
+              </div>
+
+              {/* Question image */}
+              {currentQuestion.image && (
+                <div className="question-image-container">
+                  <img
+                    src={currentQuestion.image}
+                    alt="Question illustration"
+                    className="question-image-display"
+                  />
+                </div>
+              )}
+
+              {/* Question text */}
+              <div className="question-text-game">
+                {currentQuestion.question}
+              </div>
+
+              {/* Hint */}
+              {currentQuestion.hint && gameSettings.showHints && (
+                <div className="question-hint-game">
+                  <span className="hint-icon-game">💡</span>
+                  {currentQuestion.hint}
+                </div>
+              )}
+
+              {/* Multiple choice options */}
+              {currentQuestion.type === 'multiple' && currentQuestion.options && (
+                <div className="options-grid-game">
+                  {currentQuestion.options.map((option, index) => (
+                    <motion.button
+                      key={index}
+                      className="game-option-btn"
+                      onClick={() => handleOptionClick(option)}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      disabled={transitioning}
+                    >
+                      <span className="option-letter">{LETTER_BADGES[index]}</span>
+                      <span className="option-text">{option}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              )}
+
+              {/* MC hint */}
+              {currentQuestion.type === 'multiple' && (
+                <div className="mc-hint">Click the correct answer above</div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Explosion display */}
+          {showExplosion && (
+            <motion.div
+              className="explosion-stage"
+              key="explosion"
+              initial={{ scale: 0, rotate: -10 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+            >
+              <div className="explosion-content">
+                <div className="explosion-icon-big">💥</div>
+                <div className="explosion-label">Time's Up!</div>
+                {showWrongFeedback && (
+                  <div className="explosion-answer">
+                    Answer: <strong>{showWrongFeedback.answer}</strong>
+                  </div>
+                )}
+              </div>
+              {/* Particles */}
+              <div className="explosion-particles">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <motion.div
+                    key={i}
+                    className="explosion-particle-game"
+                    initial={{ x: 0, y: 0, opacity: 1 }}
+                    animate={{
+                      x: Math.cos((i * 45) * Math.PI / 180) * 100,
+                      y: Math.sin((i * 45) * Math.PI / 180) * 100,
+                      opacity: 0
+                    }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
+                    style={{
+                      backgroundColor: ['#e74c3c', '#f39c12', '#fdcb6e', '#ff6b6b'][i % 4]
+                    }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
 
-        {/* Explosions */}
-        <AnimatePresence>
-          {explosions.map(explosion => (
-            <ExplosionEffect
-              key={explosion.id}
-              x={explosion.x}
-              y={explosion.y}
-              answer={explosion.answer}
-            />
-          ))}
-        </AnimatePresence>
-
-        {/* Feedback Overlays */}
+        {/* Correct feedback overlay */}
         <AnimatePresence>
           {showCorrectFeedback && (
             <motion.div
@@ -332,38 +443,29 @@ function GamePage() {
             </motion.div>
           )}
         </AnimatePresence>
-
-        <AnimatePresence>
-          {showWrongFeedback && (
-            <motion.div
-              className="feedback-overlay wrong"
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -50, opacity: 0 }}
-            >
-              <span className="feedback-icon">💥</span>
-              <span className="feedback-text">Oops!</span>
-              <span className="correct-answer">
-                Answer: <strong>{showWrongFeedback.answer}</strong>
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Ground/Target Zone */}
-        <div className="ground-zone">
-          <div className="danger-line"></div>
-        </div>
       </div>
 
-      {/* Answer Input */}
-      {gameStarted && !gameOver && (
+      {/* Answer Input - only for text questions */}
+      {gameStarted && !gameOver && currentQuestion && currentQuestion.type === 'text' && !transitioning && (
         <div className="input-section" ref={inputRef}>
           <AnswerInput
             onSubmit={handleAnswer}
-            disabled={isPaused || activeQuestions.length === 0}
+            disabled={isPaused || !currentQuestion}
             currentQuestion={currentQuestion}
           />
+        </div>
+      )}
+
+      {/* Waiting message when no question */}
+      {gameStarted && !gameOver && !currentQuestion && !showExplosion && (
+        <div className="waiting-message">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="waiting-text"
+          >
+            Next question coming...
+          </motion.div>
         </div>
       )}
 

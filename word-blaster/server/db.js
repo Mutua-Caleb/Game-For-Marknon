@@ -122,6 +122,7 @@ function getDefaultQuestions() {
     { id: 'sci_ph_003', subject: 'Science', topic: 'Physics', question: 'What type of energy is stored in a battery?', answer: 'chemical', type: 'text', options: null, hint: 'Related to chemistry', image: null },
     { id: 'sci_ph_004', subject: 'Science', topic: 'Physics', question: 'What do we call the bending of light?', answer: 'refraction', type: 'text', options: null, hint: 'It makes a straw look bent in water', image: null },
     { id: 'sci_ph_005', subject: 'Science', topic: 'Physics', question: 'What force opposes motion between surfaces?', answer: 'friction', type: 'multiple', options: ['Gravity', 'Friction', 'Magnetism', 'Tension'], hint: 'It makes things slow down', image: null },
+    { id: 'sci_ph_006', subject: 'Science', topic: 'Physics', question: 'Look at the circuit diagram. What component controls whether the bulb lights up?', answer: 'switch', type: 'multiple', options: ['Battery', 'Switch', 'Resistor', 'Wire'], hint: 'It can open or close the circuit', image: '/images/circuit-diagram.svg' },
 
     // SCIENCE - Chemistry
     { id: 'sci_ch_001', subject: 'Science', topic: 'Chemistry', question: 'What is the chemical symbol for water?', answer: 'H2O', type: 'text', options: null, hint: 'Two hydrogen and one oxygen', image: null },

@@ -1,14 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import localforage from 'localforage'
-import { defaultQuestions } from '../data/defaultQuestions'
+import { questionsApi, statsApi } from '../utils/api'
 
 const GameContext = createContext()
-
-// Initialize localforage
-localforage.config({
-  name: 'WordBlaster',
-  storeName: 'gameData'
-})
 
 export function GameProvider({ children }) {
   const [questions, setQuestions] = useState([])
@@ -26,34 +19,34 @@ export function GameProvider({ children }) {
     streak: 0,
     bestStreak: 0
   })
-  const [questionStats, setQuestionStats] = useState({}) // Track success/failure per question
+  const [questionStats, setQuestionStats] = useState({})
   const [currentSession, setCurrentSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Load data from storage on mount
+  // Load questions from API on mount
   useEffect(() => {
     async function loadData() {
       try {
-        const [savedQuestions, savedStats, savedQuestionStats, savedSettings] = await Promise.all([
-          localforage.getItem('questions'),
-          localforage.getItem('playerStats'),
-          localforage.getItem('questionStats'),
-          localforage.getItem('gameSettings')
-        ])
+        const fetchedQuestions = await questionsApi.getAll()
+        setQuestions(fetchedQuestions)
 
-        if (savedQuestions && savedQuestions.length > 0) {
-          setQuestions(savedQuestions)
-        } else {
-          setQuestions(defaultQuestions)
-          await localforage.setItem('questions', defaultQuestions)
+        // Build local stats map from fetched data
+        const statsMap = {}
+        for (const q of fetchedQuestions) {
+          statsMap[q.id] = {
+            correct: q.correctCount || 0,
+            wrong: q.wrongCount || 0
+          }
         }
+        setQuestionStats(statsMap)
 
-        if (savedStats) setPlayerStats(savedStats)
-        if (savedQuestionStats) setQuestionStats(savedQuestionStats)
-        if (savedSettings) setGameSettings(savedSettings)
+        // Load settings from localStorage
+        const savedSettings = localStorage.getItem('gameSettings')
+        if (savedSettings) {
+          setGameSettings(JSON.parse(savedSettings))
+        }
       } catch (error) {
         console.error('Error loading data:', error)
-        setQuestions(defaultQuestions)
       } finally {
         setIsLoading(false)
       }
@@ -61,30 +54,31 @@ export function GameProvider({ children }) {
     loadData()
   }, [])
 
-  // Save data to storage when it changes
-  useEffect(() => {
-    if (!isLoading && questions.length > 0) {
-      localforage.setItem('questions', questions)
-    }
-  }, [questions, isLoading])
-
+  // Save settings locally
   useEffect(() => {
     if (!isLoading) {
-      localforage.setItem('playerStats', playerStats)
-    }
-  }, [playerStats, isLoading])
-
-  useEffect(() => {
-    if (!isLoading) {
-      localforage.setItem('questionStats', questionStats)
-    }
-  }, [questionStats, isLoading])
-
-  useEffect(() => {
-    if (!isLoading) {
-      localforage.setItem('gameSettings', gameSettings)
+      localStorage.setItem('gameSettings', JSON.stringify(gameSettings))
     }
   }, [gameSettings, isLoading])
+
+  // Refresh questions from API
+  const refreshQuestions = useCallback(async () => {
+    try {
+      const fetchedQuestions = await questionsApi.getAll()
+      setQuestions(fetchedQuestions)
+
+      const statsMap = {}
+      for (const q of fetchedQuestions) {
+        statsMap[q.id] = {
+          correct: q.correctCount || 0,
+          wrong: q.wrongCount || 0
+        }
+      }
+      setQuestionStats(statsMap)
+    } catch (error) {
+      console.error('Error refreshing questions:', error)
+    }
+  }, [])
 
   // Get questions filtered by subject and topics
   const getFilteredQuestions = useCallback(() => {
@@ -110,25 +104,23 @@ export function GameProvider({ children }) {
       const stats = questionStats[q.id] || { correct: 0, wrong: 0 }
       const total = stats.correct + stats.wrong
 
-      // Calculate weight: more failures = higher weight
       let weight = 1
       if (total > 0) {
         const failureRate = stats.wrong / total
-        weight = Math.max(1, Math.round(1 + failureRate * 4)) // 1-5 weight based on failure rate
+        weight = Math.max(1, Math.round(1 + failureRate * 4))
       }
 
-      // Add question multiple times based on weight
       for (let i = 0; i < weight; i++) {
         weighted.push(q)
       }
     })
 
-    // Shuffle the weighted array
     return weighted.sort(() => Math.random() - 0.5)
   }, [getFilteredQuestions, questionStats])
 
-  // Record answer result
-  const recordAnswer = useCallback((questionId, isCorrect) => {
+  // Record answer result - sends to server
+  const recordAnswer = useCallback(async (questionId, isCorrect) => {
+    // Update local state immediately
     setQuestionStats(prev => {
       const stats = prev[questionId] || { correct: 0, wrong: 0 }
       return {
@@ -151,30 +143,52 @@ export function GameProvider({ children }) {
         bestStreak: Math.max(prev.bestStreak, newStreak)
       }
     })
-  }, [])
 
-  // Add a new question
-  const addQuestion = useCallback((question) => {
-    const newQuestion = {
-      ...question,
-      id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    // Send to server in background
+    try {
+      await statsApi.recordAnswer(questionId, isCorrect)
+    } catch (err) {
+      console.error('Failed to record answer on server:', err)
     }
-    setQuestions(prev => [...prev, newQuestion])
-    return newQuestion
   }, [])
 
-  // Update a question
-  const updateQuestion = useCallback((id, updates) => {
-    setQuestions(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q))
+  // Add a new question via API
+  const addQuestion = useCallback(async (question) => {
+    try {
+      const created = await questionsApi.create(question)
+      setQuestions(prev => [...prev, created])
+      return created
+    } catch (err) {
+      console.error('Failed to add question:', err)
+      throw err
+    }
   }, [])
 
-  // Delete a question
-  const deleteQuestion = useCallback((id) => {
-    setQuestions(prev => prev.filter(q => q.id !== id))
+  // Update a question via API
+  const updateQuestion = useCallback(async (id, updates) => {
+    try {
+      const updated = await questionsApi.update(id, updates)
+      setQuestions(prev => prev.map(q => q.id === id ? { ...q, ...updated } : q))
+      return updated
+    } catch (err) {
+      console.error('Failed to update question:', err)
+      throw err
+    }
+  }, [])
+
+  // Delete a question via API
+  const deleteQuestion = useCallback(async (id) => {
+    try {
+      await questionsApi.delete(id)
+      setQuestions(prev => prev.filter(q => q.id !== id))
+    } catch (err) {
+      console.error('Failed to delete question:', err)
+      throw err
+    }
   }, [])
 
   // Reset player stats
-  const resetStats = useCallback(() => {
+  const resetStats = useCallback(async () => {
     setPlayerStats({
       totalScore: 0,
       correctAnswers: 0,
@@ -183,6 +197,12 @@ export function GameProvider({ children }) {
       bestStreak: 0
     })
     setQuestionStats({})
+
+    try {
+      await statsApi.resetStats()
+    } catch (err) {
+      console.error('Failed to reset stats on server:', err)
+    }
   }, [])
 
   // Get available topics for a subject
@@ -206,6 +226,15 @@ export function GameProvider({ children }) {
       .slice(0, limit)
   }, [questions, questionStats])
 
+  // Save game session to server
+  const saveSession = useCallback(async (sessionData) => {
+    try {
+      await statsApi.saveSession(sessionData)
+    } catch (err) {
+      console.error('Failed to save session:', err)
+    }
+  }, [])
+
   const value = {
     questions,
     selectedSubject,
@@ -228,7 +257,9 @@ export function GameProvider({ children }) {
     resetStats,
     getTopicsForSubject,
     getMostFailedQuestions,
-    setQuestions
+    setQuestions,
+    refreshQuestions,
+    saveSession
   }
 
   return (

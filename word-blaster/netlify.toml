@@ -1,6 +1,17 @@
+# Note: This fullstack app requires a Node.js server.
+# For Netlify, consider using Netlify Functions or deploy the backend separately.
+# Recommended: Use Render.com (free tier) for fullstack deployment.
+# See README for deployment instructions.
+
 [build]
   command = "npm run build"
   publish = "dist"
+
+[[redirects]]
+  from = "/api/*"
+  to = "http://localhost:3001/api/:splat"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/*"

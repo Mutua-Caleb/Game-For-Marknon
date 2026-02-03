@@ -1,35 +1,27 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { authApi } from '../utils/api'
 import './AdminLogin.css'
-
-// Simple hash function for password verification
-// In production, this would be a proper backend authentication
-const hashPassword = async (password) => {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(password + 'wordblaster_salt_2024')
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-}
-
-// Pre-computed hash for password "TeacherAdmin2024!"
-// This makes it harder for kids to find the password in the code
-const ADMIN_HASH = 'a7c5e2b3f8d1e4a9c6b3d8e5f2a1b4c7d0e3f6a9b2c5d8e1f4a7b0c3d6e9f2a5'
 
 function AdminLogin() {
   const navigate = useNavigate()
+  const [username, setUsername] = useState('admin')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [attempts, setAttempts] = useState(0)
   const [isLocked, setIsLocked] = useState(false)
   const [lockTimer, setLockTimer] = useState(0)
+  const [isLoading, setIsLoading] = useState(false)
 
   // Check if already authenticated
   useEffect(() => {
-    const authToken = sessionStorage.getItem('adminAuth')
-    if (authToken === 'authenticated') {
-      navigate('/admin-dashboard')
+    const token = sessionStorage.getItem('adminToken')
+    if (token) {
+      authApi.verify().then(() => {
+        navigate('/admin-dashboard')
+      }).catch(() => {
+        sessionStorage.removeItem('adminToken')
+      })
     }
   }, [navigate])
 
@@ -40,34 +32,39 @@ function AdminLogin() {
       return () => clearTimeout(timer)
     } else if (lockTimer === 0 && isLocked) {
       setIsLocked(false)
-      setAttempts(0)
     }
   }, [lockTimer, isLocked])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isLocked || isLoading) return
 
-    if (isLocked) return
+    setIsLoading(true)
+    setError('')
 
-    // Simple password check - teacher sets this
-    // For real security, use environment variables or backend auth
-    const correctPasswords = ['TeacherAdmin2024!', 'WordBlasterAdmin', 'EducatorAccess123']
-
-    if (correctPasswords.includes(password)) {
-      sessionStorage.setItem('adminAuth', 'authenticated')
+    try {
+      const data = await authApi.login(username, password)
+      sessionStorage.setItem('adminToken', data.token)
       navigate('/admin-dashboard')
-    } else {
-      setError('Incorrect password')
+    } catch (err) {
       setPassword('')
-      const newAttempts = attempts + 1
-      setAttempts(newAttempts)
 
-      // Lock after 5 failed attempts
-      if (newAttempts >= 5) {
+      if (err.status === 429) {
         setIsLocked(true)
-        setLockTimer(60) // 60 second lockout
-        setError('Too many attempts. Please wait 60 seconds.')
+        setLockTimer(err.data?.lockoutSeconds || 60)
+        setError(err.data?.error || 'Too many attempts. Please wait.')
+      } else if (err.status === 401) {
+        const remaining = err.data?.attemptsRemaining
+        setError(
+          remaining !== undefined
+            ? `Invalid credentials. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+            : 'Invalid username or password.'
+        )
+      } else {
+        setError('Server error. Please try again.')
       }
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -82,10 +79,23 @@ function AdminLogin() {
         <div className="login-header">
           <span className="lock-icon">🔐</span>
           <h1>Teacher Portal</h1>
-          <p>Enter your admin password to access question management</p>
+          <p>Sign in to manage questions and view analytics</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
+          <div className="input-group">
+            <label htmlFor="username">Username</label>
+            <input
+              type="text"
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+              disabled={isLocked || isLoading}
+              autoComplete="off"
+            />
+          </div>
+
           <div className="input-group">
             <label htmlFor="password">Password</label>
             <input
@@ -93,8 +103,8 @@ function AdminLogin() {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter admin password"
-              disabled={isLocked}
+              placeholder="Enter password"
+              disabled={isLocked || isLoading}
               autoComplete="off"
             />
           </div>
@@ -113,9 +123,9 @@ function AdminLogin() {
           <button
             type="submit"
             className="login-button"
-            disabled={isLocked || !password}
+            disabled={isLocked || !password || isLoading}
           >
-            {isLocked ? `Locked (${lockTimer}s)` : 'Access Admin Panel'}
+            {isLoading ? 'Signing in...' : isLocked ? `Locked (${lockTimer}s)` : 'Sign In'}
           </button>
         </form>
 
@@ -123,12 +133,12 @@ function AdminLogin() {
           className="back-link"
           onClick={() => navigate('/')}
         >
-          ← Back to Game
+          &larr; Back to Game
         </button>
 
         <div className="security-note">
-          <span className="note-icon">ℹ️</span>
-          <p>This area is for teachers and administrators only. Students should use the main game.</p>
+          <span className="note-icon">&#8505;&#65039;</span>
+          <p>This area is for teachers and administrators only. Default login: admin / TeacherAdmin2024!</p>
         </div>
       </motion.div>
     </div>

@@ -12,6 +12,19 @@ dist
 dist-ssr
 *.local
 
+# Database
+server/*.db
+server/*.db-journal
+server/*.db-wal
+
+# Uploads
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Environment
+.env
+.env.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

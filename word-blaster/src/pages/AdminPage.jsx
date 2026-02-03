@@ -1,9 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
-import { subjects, topics } from '../data/defaultQuestions'
+import { uploadApi, questionsApi, statsApi, authApi } from '../utils/api'
 import './AdminPage.css'
+
+const SUBJECTS = ['Science', 'English']
+const TOPICS = {
+  Science: ['Human Body', 'Physics', 'Chemistry', 'Earth Science'],
+  English: ['Vocabulary', 'Grammar', 'Spelling', 'Reading']
+}
 
 function AdminPage() {
   const navigate = useNavigate()
@@ -15,7 +21,7 @@ function AdminPage() {
     getMostFailedQuestions,
     questionStats,
     resetStats,
-    setQuestions
+    refreshQuestions
   } = useGame()
 
   const [activeTab, setActiveTab] = useState('questions')
@@ -25,17 +31,36 @@ function AdminPage() {
   const [editingQuestion, setEditingQuestion] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null)
+  const [overview, setOverview] = useState(null)
+  const [notification, setNotification] = useState(null)
 
   // Check authentication
   useEffect(() => {
-    const authToken = sessionStorage.getItem('adminAuth')
-    if (authToken !== 'authenticated') {
+    const token = sessionStorage.getItem('adminToken')
+    if (!token) {
       navigate('/admin-portal-x7k9')
+      return
     }
+    authApi.verify().catch(() => {
+      sessionStorage.removeItem('adminToken')
+      navigate('/admin-portal-x7k9')
+    })
   }, [navigate])
 
+  // Load analytics overview
+  useEffect(() => {
+    if (activeTab === 'analytics') {
+      statsApi.getOverview().then(setOverview).catch(console.error)
+    }
+  }, [activeTab])
+
+  const showNotification = useCallback((message, type = 'success') => {
+    setNotification({ message, type })
+    setTimeout(() => setNotification(null), 3000)
+  }, [])
+
   const handleLogout = () => {
-    sessionStorage.removeItem('adminAuth')
+    sessionStorage.removeItem('adminToken')
     navigate('/')
   }
 
@@ -50,20 +75,66 @@ function AdminPage() {
     return true
   })
 
+  const availableTopics = filterSubject
+    ? [...new Set(questions.filter(q => q.subject === filterSubject).map(q => q.topic))]
+    : []
+
   const failedQuestions = getMostFailedQuestions(10)
+
+  const handleSaveQuestion = async (questionData) => {
+    try {
+      if (editingQuestion) {
+        await updateQuestion(editingQuestion.id, questionData)
+        showNotification('Question updated successfully!')
+      } else {
+        await addQuestion(questionData)
+        showNotification('Question added successfully!')
+      }
+      setShowAddModal(false)
+      setEditingQuestion(null)
+    } catch (err) {
+      showNotification(err.message || 'Failed to save question', 'error')
+    }
+  }
+
+  const handleDeleteQuestion = async () => {
+    if (!showDeleteConfirm) return
+    try {
+      await deleteQuestion(showDeleteConfirm.id)
+      setShowDeleteConfirm(null)
+      showNotification('Question deleted')
+    } catch (err) {
+      showNotification('Failed to delete question', 'error')
+    }
+  }
 
   return (
     <div className="admin-page">
+      {/* Notification Toast */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            className={`notification-toast ${notification.type}`}
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+          >
+            <span>{notification.type === 'success' ? '\u2705' : '\u274c'}</span>
+            {notification.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <header className="admin-header">
         <div className="header-left">
-          <h1>📚 Question Manager</h1>
+          <h1>Question Manager</h1>
         </div>
         <div className="header-right">
           <button className="preview-btn" onClick={() => navigate('/')}>
-            👁️ Preview Game
+            Preview Game
           </button>
           <button className="logout-btn" onClick={handleLogout}>
-            🚪 Logout
+            Logout
           </button>
         </div>
       </header>
@@ -73,19 +144,19 @@ function AdminPage() {
           className={`tab ${activeTab === 'questions' ? 'active' : ''}`}
           onClick={() => setActiveTab('questions')}
         >
-          📝 Questions ({questions.length})
+          Questions ({questions.length})
         </button>
         <button
           className={`tab ${activeTab === 'analytics' ? 'active' : ''}`}
           onClick={() => setActiveTab('analytics')}
         >
-          📊 Analytics
+          Analytics
         </button>
         <button
           className={`tab ${activeTab === 'import' ? 'active' : ''}`}
           onClick={() => setActiveTab('import')}
         >
-          📥 Import/Export
+          Import/Export
         </button>
       </nav>
 
@@ -102,7 +173,7 @@ function AdminPage() {
                   }}
                 >
                   <option value="">All Subjects</option>
-                  {subjects.map(s => (
+                  {SUBJECTS.map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
@@ -113,7 +184,7 @@ function AdminPage() {
                   disabled={!filterSubject}
                 >
                   <option value="">All Topics</option>
-                  {filterSubject && topics[filterSubject].map(t => (
+                  {availableTopics.map(t => (
                     <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
@@ -131,14 +202,14 @@ function AdminPage() {
                 className="add-question-btn"
                 onClick={() => setShowAddModal(true)}
               >
-                ➕ Add Question
+                + Add Question
               </button>
             </div>
 
             <div className="questions-list">
               {filteredQuestions.length === 0 ? (
                 <div className="empty-state">
-                  <span className="empty-icon">📭</span>
+                  <span className="empty-icon">&#128237;</span>
                   <p>No questions found</p>
                 </div>
               ) : (
@@ -157,87 +228,27 @@ function AdminPage() {
         )}
 
         {activeTab === 'analytics' && (
-          <div className="analytics-section">
-            <div className="analytics-grid">
-              <div className="stat-card">
-                <span className="stat-icon">📝</span>
-                <span className="stat-value">{questions.length}</span>
-                <span className="stat-label">Total Questions</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-icon">🔬</span>
-                <span className="stat-value">
-                  {questions.filter(q => q.subject === 'Science').length}
-                </span>
-                <span className="stat-label">Science Questions</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-icon">📚</span>
-                <span className="stat-value">
-                  {questions.filter(q => q.subject === 'English').length}
-                </span>
-                <span className="stat-label">English Questions</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-icon">🖼️</span>
-                <span className="stat-value">
-                  {questions.filter(q => q.image).length}
-                </span>
-                <span className="stat-label">With Images</span>
-              </div>
-            </div>
-
-            <div className="failed-questions-section">
-              <h2>❌ Most Missed Questions</h2>
-              <p className="section-description">
-                These questions are automatically shown more frequently to help students learn.
-              </p>
-              {failedQuestions.length === 0 ? (
-                <div className="empty-state">
-                  <span className="empty-icon">📊</span>
-                  <p>No data yet. Play the game to see analytics!</p>
-                </div>
-              ) : (
-                <div className="failed-list">
-                  {failedQuestions.map((q, index) => (
-                    <div key={q.id} className="failed-item">
-                      <span className="failed-rank">#{index + 1}</span>
-                      <div className="failed-content">
-                        <div className="failed-question">{q.question}</div>
-                        <div className="failed-answer">Answer: {q.answer}</div>
-                        <div className="failed-topic">{q.subject} → {q.topic}</div>
-                      </div>
-                      <div className="failed-stats">
-                        <div className="fail-rate">
-                          {Math.round(q.failureRate * 100)}% miss rate
-                        </div>
-                        <div className="attempt-count">
-                          {q.totalAttempts} attempts
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <button
-                className="reset-stats-btn"
-                onClick={() => {
-                  if (confirm('Are you sure? This will reset all player statistics.')) {
-                    resetStats()
-                  }
-                }}
-              >
-                🔄 Reset All Statistics
-              </button>
-            </div>
-          </div>
+          <AnalyticsSection
+            overview={overview}
+            failedQuestions={failedQuestions}
+            onResetStats={async () => {
+              if (confirm('Are you sure? This will reset all player statistics.')) {
+                await resetStats()
+                showNotification('Statistics reset')
+                statsApi.getOverview().then(setOverview).catch(console.error)
+              }
+            }}
+          />
         )}
 
         {activeTab === 'import' && (
           <ImportExportSection
             questions={questions}
-            setQuestions={setQuestions}
+            onImportComplete={async (count) => {
+              await refreshQuestions()
+              showNotification(`Successfully imported ${count} questions!`)
+            }}
+            showNotification={showNotification}
           />
         )}
       </main>
@@ -251,15 +262,8 @@ function AdminPage() {
               setShowAddModal(false)
               setEditingQuestion(null)
             }}
-            onSave={(questionData) => {
-              if (editingQuestion) {
-                updateQuestion(editingQuestion.id, questionData)
-              } else {
-                addQuestion(questionData)
-              }
-              setShowAddModal(false)
-              setEditingQuestion(null)
-            }}
+            onSave={handleSaveQuestion}
+            showNotification={showNotification}
           />
         )}
       </AnimatePresence>
@@ -282,19 +286,10 @@ function AdminPage() {
               <h3>Delete Question?</h3>
               <p>"{showDeleteConfirm.question}"</p>
               <div className="confirm-actions">
-                <button
-                  className="cancel-btn"
-                  onClick={() => setShowDeleteConfirm(null)}
-                >
+                <button className="cancel-btn" onClick={() => setShowDeleteConfirm(null)}>
                   Cancel
                 </button>
-                <button
-                  className="delete-btn"
-                  onClick={() => {
-                    deleteQuestion(showDeleteConfirm.id)
-                    setShowDeleteConfirm(null)
-                  }}
-                >
+                <button className="delete-btn" onClick={handleDeleteQuestion}>
                   Delete
                 </button>
               </div>
@@ -308,7 +303,7 @@ function AdminPage() {
 
 // Question Card Component
 function QuestionCard({ question, stats, onEdit, onDelete }) {
-  const typeLabel = question.type === 'multiple' ? '🔘 Multiple Choice' : '⌨️ Type Answer'
+  const typeLabel = question.type === 'multiple' ? 'Multiple Choice' : 'Type Answer'
 
   return (
     <motion.div
@@ -326,13 +321,22 @@ function QuestionCard({ question, stats, onEdit, onDelete }) {
       </div>
 
       <div className="card-body">
+        {question.image && (
+          <div className="image-preview">
+            <img
+              src={question.image}
+              alt="Question"
+              onError={(e) => { e.target.style.display = 'none' }}
+            />
+          </div>
+        )}
         <div className="question-text">{question.question}</div>
         <div className="answer-text">
           <strong>Answer:</strong> {question.answer}
         </div>
         {question.options && (
           <div className="options-preview">
-            <strong>Options:</strong> {question.options.join(', ')}
+            <strong>Options:</strong> {(Array.isArray(question.options) ? question.options : JSON.parse(question.options)).join(', ')}
           </div>
         )}
         {question.hint && (
@@ -340,53 +344,105 @@ function QuestionCard({ question, stats, onEdit, onDelete }) {
             <strong>Hint:</strong> {question.hint}
           </div>
         )}
-        {question.image && (
-          <div className="image-preview">
-            <img src={question.image} alt="Question" />
-          </div>
-        )}
       </div>
 
-      {stats && (
+      {stats && (stats.correct > 0 || stats.wrong > 0) && (
         <div className="card-stats">
-          <span className="stat correct">✅ {stats.correct}</span>
-          <span className="stat wrong">❌ {stats.wrong}</span>
+          <span className="stat correct">Correct: {stats.correct}</span>
+          <span className="stat wrong">Wrong: {stats.wrong}</span>
         </div>
       )}
 
       <div className="card-actions">
-        <button className="edit-btn" onClick={onEdit}>✏️ Edit</button>
-        <button className="delete-btn" onClick={onDelete}>🗑️ Delete</button>
+        <button className="edit-btn" onClick={onEdit}>Edit</button>
+        <button className="delete-btn" onClick={onDelete}>Delete</button>
       </div>
     </motion.div>
   )
 }
 
-// Question Modal Component
-function QuestionModal({ question, onClose, onSave }) {
+// Question Modal Component with Image Upload
+function QuestionModal({ question, onClose, onSave, showNotification }) {
   const [formData, setFormData] = useState({
     subject: question?.subject || 'Science',
     topic: question?.topic || 'Human Body',
     question: question?.question || '',
     answer: question?.answer || '',
     type: question?.type || 'text',
-    options: question?.options || ['', '', '', ''],
+    options: question?.options
+      ? (Array.isArray(question.options) ? question.options : JSON.parse(question.options))
+      : ['', '', '', ''],
     hint: question?.hint || '',
     image: question?.image || ''
   })
+  const [isUploading, setIsUploading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [customTopic, setCustomTopic] = useState('')
+  const [useCustomTopic, setUseCustomTopic] = useState(false)
+  const fileInputRef = useRef(null)
 
-  const handleSubmit = (e) => {
+  const currentTopics = TOPICS[formData.subject] || []
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('Image must be under 5MB', 'error')
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const result = await uploadApi.uploadImage(file)
+      setFormData(prev => ({ ...prev, image: result.url }))
+      showNotification('Image uploaded!')
+    } catch (err) {
+      showNotification(err.message || 'Failed to upload image', 'error')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, image: '' }))
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    setIsSaving(true)
+
+    const topic = useCustomTopic && customTopic.trim() ? customTopic.trim() : formData.topic
+
     const data = {
       ...formData,
-      options: formData.type === 'multiple' ? formData.options.filter(o => o.trim()) : null
+      topic,
+      options: formData.type === 'multiple' ? formData.options.filter(o => o.trim()) : null,
+      image: formData.image || null,
+      hint: formData.hint || null
     }
-    onSave(data)
+
+    try {
+      await onSave(data)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const updateOption = (index, value) => {
     const newOptions = [...formData.options]
     newOptions[index] = value
+    setFormData({ ...formData, options: newOptions })
+  }
+
+  const addOption = () => {
+    setFormData(prev => ({ ...prev, options: [...prev.options, ''] }))
+  }
+
+  const removeOption = (index) => {
+    if (formData.options.length <= 2) return
+    const newOptions = formData.options.filter((_, i) => i !== index)
     setFormData({ ...formData, options: newOptions })
   }
 
@@ -414,29 +470,49 @@ function QuestionModal({ question, onClose, onSave }) {
               <select
                 value={formData.subject}
                 onChange={(e) => {
+                  const newSubject = e.target.value
                   setFormData({
                     ...formData,
-                    subject: e.target.value,
-                    topic: topics[e.target.value][0]
+                    subject: newSubject,
+                    topic: TOPICS[newSubject]?.[0] || ''
                   })
+                  setUseCustomTopic(false)
                 }}
               >
-                {subjects.map(s => (
+                {SUBJECTS.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </div>
 
             <div className="form-group">
-              <label>Topic</label>
-              <select
-                value={formData.topic}
-                onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-              >
-                {topics[formData.subject].map(t => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
+              <label>
+                Topic
+                <button
+                  type="button"
+                  className="custom-topic-toggle"
+                  onClick={() => setUseCustomTopic(!useCustomTopic)}
+                >
+                  {useCustomTopic ? 'Use existing' : '+ Custom'}
+                </button>
+              </label>
+              {useCustomTopic ? (
+                <input
+                  type="text"
+                  value={customTopic}
+                  onChange={(e) => setCustomTopic(e.target.value)}
+                  placeholder="Enter custom topic..."
+                />
+              ) : (
+                <select
+                  value={formData.topic}
+                  onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                >
+                  {currentTopics.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
@@ -449,6 +525,67 @@ function QuestionModal({ question, onClose, onSave }) {
               required
               rows={3}
             />
+          </div>
+
+          {/* Image Upload */}
+          <div className="form-group">
+            <label>Question Image (optional)</label>
+            <div className="image-upload-area">
+              {formData.image ? (
+                <div className="image-upload-preview">
+                  <img
+                    src={formData.image}
+                    alt="Question"
+                    onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23999" font-size="14">Error</text></svg>' }}
+                  />
+                  <div className="image-upload-actions">
+                    <button
+                      type="button"
+                      className="change-image-btn"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                    >
+                      Change
+                    </button>
+                    <button
+                      type="button"
+                      className="remove-image-btn"
+                      onClick={handleRemoveImage}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="image-upload-dropzone"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <div className="dropzone-content">
+                    <span className="dropzone-icon">&#128247;</span>
+                    <p>{isUploading ? 'Uploading...' : 'Click to upload an image'}</p>
+                    <span className="dropzone-hint">JPEG, PNG, GIF, WebP (max 5MB)</span>
+                  </div>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                style={{ display: 'none' }}
+              />
+              <div className="image-url-option">
+                <span className="divider-text">or paste URL</span>
+                <input
+                  type="url"
+                  value={formData.image || ''}
+                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                  placeholder="https://example.com/image.jpg"
+                  className="image-url-input"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="form-group">
@@ -489,16 +626,32 @@ function QuestionModal({ question, onClose, onSave }) {
           {formData.type === 'multiple' && (
             <div className="form-group">
               <label>Options (include the correct answer)</label>
-              <div className="options-inputs">
+              <div className="options-list">
                 {formData.options.map((opt, i) => (
-                  <input
-                    key={i}
-                    type="text"
-                    value={opt}
-                    onChange={(e) => updateOption(i, e.target.value)}
-                    placeholder={`Option ${i + 1}`}
-                  />
+                  <div key={i} className="option-row">
+                    <span className="option-letter">{String.fromCharCode(65 + i)}</span>
+                    <input
+                      type="text"
+                      value={opt}
+                      onChange={(e) => updateOption(i, e.target.value)}
+                      placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                    />
+                    {formData.options.length > 2 && (
+                      <button
+                        type="button"
+                        className="remove-option-btn"
+                        onClick={() => removeOption(i)}
+                      >
+                        x
+                      </button>
+                    )}
+                  </div>
                 ))}
+                {formData.options.length < 6 && (
+                  <button type="button" className="add-option-btn" onClick={addOption}>
+                    + Add Option
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -513,27 +666,12 @@ function QuestionModal({ question, onClose, onSave }) {
             />
           </div>
 
-          <div className="form-group">
-            <label>Image URL (optional)</label>
-            <input
-              type="url"
-              value={formData.image}
-              onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-              placeholder="https://example.com/image.jpg"
-            />
-            {formData.image && (
-              <div className="image-preview-small">
-                <img src={formData.image} alt="Preview" />
-              </div>
-            )}
-          </div>
-
           <div className="modal-actions">
             <button type="button" className="cancel-btn" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="save-btn">
-              {question ? 'Save Changes' : 'Add Question'}
+            <button type="submit" className="save-btn" disabled={isSaving}>
+              {isSaving ? 'Saving...' : question ? 'Save Changes' : 'Add Question'}
             </button>
           </div>
         </form>
@@ -542,13 +680,114 @@ function QuestionModal({ question, onClose, onSave }) {
   )
 }
 
-// Import/Export Section
-function ImportExportSection({ questions, setQuestions }) {
+// Analytics Section
+function AnalyticsSection({ overview, failedQuestions, onResetStats }) {
+  return (
+    <div className="analytics-section">
+      <div className="analytics-grid">
+        <div className="stat-card">
+          <span className="stat-icon">&#128221;</span>
+          <span className="stat-value">{overview?.totalQuestions || 0}</span>
+          <span className="stat-label">Total Questions</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">&#128300;</span>
+          <span className="stat-value">{overview?.scienceCount || 0}</span>
+          <span className="stat-label">Science</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">&#128218;</span>
+          <span className="stat-value">{overview?.englishCount || 0}</span>
+          <span className="stat-label">English</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">&#127912;</span>
+          <span className="stat-value">{overview?.withImages || 0}</span>
+          <span className="stat-label">With Images</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">&#127919;</span>
+          <span className="stat-value">{overview?.totalAttempts || 0}</span>
+          <span className="stat-label">Total Attempts</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">&#128200;</span>
+          <span className="stat-value">{overview?.successRate || 0}%</span>
+          <span className="stat-label">Success Rate</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">&#127918;</span>
+          <span className="stat-value">{overview?.totalSessions || 0}</span>
+          <span className="stat-label">Games Played</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">&#11088;</span>
+          <span className="stat-value">{overview?.avgScore || 0}</span>
+          <span className="stat-label">Avg Score</span>
+        </div>
+      </div>
+
+      <div className="failed-questions-section">
+        <h2>Most Missed Questions</h2>
+        <p className="section-description">
+          These questions are automatically shown more frequently to help students learn.
+        </p>
+        {failedQuestions.length === 0 ? (
+          <div className="empty-state">
+            <span className="empty-icon">&#128202;</span>
+            <p>No data yet. Play the game to see analytics!</p>
+          </div>
+        ) : (
+          <div className="failed-list">
+            {failedQuestions.map((q, index) => (
+              <div key={q.id} className="failed-item">
+                <span className="failed-rank">#{index + 1}</span>
+                <div className="failed-content">
+                  <div className="failed-question">{q.question}</div>
+                  <div className="failed-answer">Answer: {q.answer}</div>
+                  <div className="failed-topic">{q.subject} &rarr; {q.topic}</div>
+                </div>
+                <div className="failed-stats">
+                  <div className="fail-rate">
+                    {Math.round(q.failureRate * 100)}% miss rate
+                  </div>
+                  <div className="attempt-count">
+                    {q.totalAttempts} attempts
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button className="reset-stats-btn" onClick={onResetStats}>
+          Reset All Statistics
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Import/Export Section with Excel Support
+function ImportExportSection({ questions, onImportComplete, showNotification }) {
   const [importText, setImportText] = useState('')
   const [importError, setImportError] = useState('')
+  const [isImporting, setIsImporting] = useState(false)
+  const [excelResult, setExcelResult] = useState(null)
+  const excelInputRef = useRef(null)
 
   const handleExport = () => {
-    const dataStr = JSON.stringify(questions, null, 2)
+    const exportData = questions.map(q => ({
+      subject: q.subject,
+      topic: q.topic,
+      question: q.question,
+      answer: q.answer,
+      type: q.type,
+      options: q.options,
+      hint: q.hint,
+      image: q.image
+    }))
+    const dataStr = JSON.stringify(exportData, null, 2)
     const blob = new Blob([dataStr], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -558,37 +797,163 @@ function ImportExportSection({ questions, setQuestions }) {
     URL.revokeObjectURL(url)
   }
 
-  const handleImport = () => {
+  const handleJsonImport = async () => {
+    setImportError('')
+    setIsImporting(true)
     try {
       const data = JSON.parse(importText)
       if (!Array.isArray(data)) {
         throw new Error('Invalid format: expected an array of questions')
       }
-      // Validate basic structure
+
       const validQuestions = data.filter(q =>
         q.question && q.answer && q.subject && q.topic
-      ).map(q => ({
-        ...q,
-        id: q.id || `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      }))
+      )
 
       if (validQuestions.length === 0) {
         throw new Error('No valid questions found in import data')
       }
 
-      setQuestions(prev => [...prev, ...validQuestions])
+      const result = await questionsApi.bulkImport(validQuestions)
       setImportText('')
-      setImportError('')
-      alert(`Successfully imported ${validQuestions.length} questions!`)
+      onImportComplete(result.imported)
+
+      if (result.errors?.length > 0) {
+        setImportError(`${result.imported} imported, ${result.errors.length} errors`)
+      }
     } catch (error) {
-      setImportError(error.message)
+      if (error instanceof SyntaxError) {
+        setImportError('Invalid JSON format. Please check your data.')
+      } else {
+        setImportError(error.message)
+      }
+    } finally {
+      setIsImporting(false)
     }
+  }
+
+  const handleExcelImport = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    setIsImporting(true)
+    setExcelResult(null)
+    setImportError('')
+
+    try {
+      const result = await uploadApi.importExcel(file)
+      setExcelResult(result)
+      if (result.imported > 0) {
+        onImportComplete(result.imported)
+      }
+    } catch (err) {
+      setImportError(err.message || 'Failed to import Excel file')
+    } finally {
+      setIsImporting(false)
+      if (excelInputRef.current) excelInputRef.current.value = ''
+    }
+  }
+
+  const handleDownloadTemplate = () => {
+    window.location.href = uploadApi.getTemplateUrl()
   }
 
   return (
     <div className="import-export-section">
+      {/* Excel Import - Primary */}
+      <div className="import-section excel-section">
+        <div className="section-header-row">
+          <h2>Import from Excel</h2>
+          <span className="recommended-badge">Recommended</span>
+        </div>
+        <p>Upload an Excel file (.xlsx) or CSV to bulk-import questions. This is the fastest way to add many questions at once.</p>
+
+        <div className="excel-upload-area">
+          <div
+            className="excel-dropzone"
+            onClick={() => excelInputRef.current?.click()}
+          >
+            <span className="excel-icon">&#128196;</span>
+            <p>{isImporting ? 'Importing...' : 'Click to upload Excel or CSV file'}</p>
+            <span className="dropzone-hint">.xlsx, .xls, or .csv files supported</span>
+          </div>
+          <input
+            ref={excelInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleExcelImport}
+            style={{ display: 'none' }}
+          />
+        </div>
+
+        <button className="template-download-btn" onClick={handleDownloadTemplate}>
+          Download Excel Template
+        </button>
+
+        <div className="excel-column-guide">
+          <h3>Expected Columns</h3>
+          <div className="column-list">
+            <div className="column-item required">
+              <span className="column-name">Subject</span>
+              <span className="column-desc">Science or English</span>
+            </div>
+            <div className="column-item required">
+              <span className="column-name">Topic</span>
+              <span className="column-desc">e.g., Physics, Grammar</span>
+            </div>
+            <div className="column-item required">
+              <span className="column-name">Question</span>
+              <span className="column-desc">The question text</span>
+            </div>
+            <div className="column-item required">
+              <span className="column-name">Answer</span>
+              <span className="column-desc">The correct answer</span>
+            </div>
+            <div className="column-item">
+              <span className="column-name">Type</span>
+              <span className="column-desc">"text" or "multiple"</span>
+            </div>
+            <div className="column-item">
+              <span className="column-name">Option1-4</span>
+              <span className="column-desc">For multiple choice</span>
+            </div>
+            <div className="column-item">
+              <span className="column-name">Hint</span>
+              <span className="column-desc">Optional hint</span>
+            </div>
+            <div className="column-item">
+              <span className="column-name">Image</span>
+              <span className="column-desc">Image URL (optional)</span>
+            </div>
+          </div>
+          <p className="column-note">Columns marked with no asterisk are optional. Required columns are shown in bold.</p>
+        </div>
+
+        {excelResult && (
+          <div className={`import-result ${excelResult.errors?.length > 0 ? 'has-errors' : 'success'}`}>
+            <div className="result-summary">
+              <strong>{excelResult.message}</strong>
+            </div>
+            {excelResult.errors?.length > 0 && (
+              <div className="result-errors">
+                <p>Errors:</p>
+                <ul>
+                  {excelResult.errors.slice(0, 10).map((err, i) => (
+                    <li key={i}>Row {err.row}: {err.error}</li>
+                  ))}
+                  {excelResult.errors.length > 10 && (
+                    <li>...and {excelResult.errors.length - 10} more errors</li>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* JSON Import/Export */}
       <div className="export-section">
-        <h2>📤 Export Questions</h2>
+        <h2>Export Questions (JSON)</h2>
         <p>Download all questions as a JSON file for backup or sharing.</p>
         <button className="export-btn" onClick={handleExport}>
           Download Questions ({questions.length})
@@ -596,48 +961,22 @@ function ImportExportSection({ questions, setQuestions }) {
       </div>
 
       <div className="import-section">
-        <h2>📥 Import Questions</h2>
-        <p>Paste JSON data to add new questions. Questions must have: question, answer, subject, topic.</p>
+        <h2>Import from JSON</h2>
+        <p>Paste JSON data to add new questions.</p>
         <textarea
           value={importText}
           onChange={(e) => setImportText(e.target.value)}
           placeholder='[{"question": "...", "answer": "...", "subject": "Science", "topic": "Physics", "type": "text"}]'
-          rows={10}
+          rows={8}
         />
         {importError && <div className="import-error">{importError}</div>}
         <button
           className="import-btn"
-          onClick={handleImport}
-          disabled={!importText.trim()}
+          onClick={handleJsonImport}
+          disabled={!importText.trim() || isImporting}
         >
-          Import Questions
+          {isImporting ? 'Importing...' : 'Import Questions'}
         </button>
-      </div>
-
-      <div className="template-section">
-        <h2>📋 Question Template</h2>
-        <pre className="template-code">
-{`[
-  {
-    "question": "What organ pumps blood?",
-    "answer": "heart",
-    "subject": "Science",
-    "topic": "Human Body",
-    "type": "text",
-    "hint": "It beats about 100,000 times a day",
-    "image": null
-  },
-  {
-    "question": "What is 2 + 2?",
-    "answer": "4",
-    "subject": "Science",
-    "topic": "Physics",
-    "type": "multiple",
-    "options": ["2", "3", "4", "5"],
-    "hint": "Count on your fingers"
-  }
-]`}
-        </pre>
       </div>
     </div>
   )

@@ -5,7 +5,7 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { v4 as uuidv4 } from 'uuid'
 import * as XLSX from 'xlsx'
-import { getDb } from '../db.js'
+import { getPool } from '../db.js'
 import { authenticateToken } from '../middleware/auth.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -41,7 +41,7 @@ const imageFilter = (req, file, cb) => {
 const imageUpload = multer({
   storage: imageStorage,
   fileFilter: imageFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 }
 })
 
 // Configure multer for Excel uploads (in memory)
@@ -62,7 +62,7 @@ const excelUpload = multer({
       cb(new Error('Only Excel files (.xlsx, .xls) and CSV files are allowed.'), false)
     }
   },
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }
 })
 
 // POST /api/upload/image - Upload an image
@@ -87,7 +87,7 @@ router.post('/image', authenticateToken, imageUpload.single('image'), (req, res)
 })
 
 // POST /api/upload/excel - Import questions from Excel
-router.post('/excel', authenticateToken, excelUpload.single('file'), (req, res) => {
+router.post('/excel', authenticateToken, excelUpload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No Excel file provided.' })
@@ -102,16 +102,13 @@ router.post('/excel', authenticateToken, excelUpload.single('file'), (req, res) 
       return res.status(400).json({ error: 'Excel file is empty or has no data rows.' })
     }
 
-    // Map Excel columns to question fields
-    // Expected columns: Subject, Topic, Question, Answer, Type, Option1, Option2, Option3, Option4, Hint, Image
     const questions = []
     const errors = []
 
     for (let i = 0; i < rawData.length; i++) {
       const row = rawData[i]
-      const rowNum = i + 2 // +2 for header row and 1-based indexing
+      const rowNum = i + 2
 
-      // Try to find columns case-insensitively
       const getValue = (keys) => {
         for (const key of keys) {
           for (const col of Object.keys(row)) {
@@ -131,7 +128,6 @@ router.post('/excel', authenticateToken, excelUpload.single('file'), (req, res) 
       const hint = getValue(['hint', 'Hint'])
       const image = getValue(['image', 'Image', 'image_url', 'Image URL'])
 
-      // Get options
       const opt1 = getValue(['option1', 'Option1', 'option 1', 'Option 1'])
       const opt2 = getValue(['option2', 'Option2', 'option 2', 'Option 2'])
       const opt3 = getValue(['option3', 'Option3', 'option 3', 'Option 3'])
@@ -146,7 +142,6 @@ router.post('/excel', authenticateToken, excelUpload.single('file'), (req, res) 
       let options = null
       if (type === 'multiple') {
         if (optionsCol) {
-          // Try to parse comma-separated options
           options = optionsCol.split(',').map(o => o.trim()).filter(o => o)
         } else if (opt1 || opt2) {
           options = [opt1, opt2, opt3, opt4].filter(o => o)
@@ -173,21 +168,28 @@ router.post('/excel', authenticateToken, excelUpload.single('file'), (req, res) 
 
     // Insert valid questions into DB
     if (questions.length > 0) {
-      const db = getDb()
-      const insert = db.prepare(`
-        INSERT INTO questions (id, subject, topic, question, answer, type, options, hint, image)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `)
-      const insertStats = db.prepare('INSERT INTO question_stats (question_id, correct, wrong) VALUES (?, 0, 0)')
+      const pool = getPool()
+      const client = await pool.connect()
 
-      const insertMany = db.transaction((questions) => {
+      try {
+        await client.query('BEGIN')
+
         for (const q of questions) {
-          insert.run(q.id, q.subject, q.topic, q.question, q.answer, q.type, q.options ? JSON.stringify(q.options) : null, q.hint, q.image)
-          insertStats.run(q.id)
+          await client.query(
+            `INSERT INTO questions (id, subject, topic, question, answer, type, options, hint, image)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [q.id, q.subject, q.topic, q.question, q.answer, q.type, q.options ? JSON.stringify(q.options) : null, q.hint, q.image]
+          )
+          await client.query('INSERT INTO question_stats (question_id, correct, wrong) VALUES ($1, 0, 0)', [q.id])
         }
-      })
 
-      insertMany(questions)
+        await client.query('COMMIT')
+      } catch (err) {
+        await client.query('ROLLBACK')
+        throw err
+      } finally {
+        client.release()
+      }
     }
 
     res.json({
@@ -229,19 +231,9 @@ router.get('/template', (req, res) => {
   const workbook = XLSX.utils.book_new()
   const worksheet = XLSX.utils.json_to_sheet(templateData)
 
-  // Set column widths
   worksheet['!cols'] = [
-    { width: 12 }, // Subject
-    { width: 15 }, // Topic
-    { width: 50 }, // Question
-    { width: 20 }, // Answer
-    { width: 10 }, // Type
-    { width: 15 }, // Option1
-    { width: 15 }, // Option2
-    { width: 15 }, // Option3
-    { width: 15 }, // Option4
-    { width: 30 }, // Hint
-    { width: 30 }  // Image
+    { width: 12 }, { width: 15 }, { width: 50 }, { width: 20 }, { width: 10 },
+    { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 30 }, { width: 30 }
   ]
 
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Questions')

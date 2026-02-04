@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { getDb } from '../db.js'
+import { getPool } from '../db.js'
 import { generateToken } from '../middleware/auth.js'
 
 const router = Router()
@@ -43,7 +43,7 @@ function clearAttempts(ip) {
 }
 
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const ip = req.ip || req.socket?.remoteAddress
   const rateLimit = checkRateLimit(ip)
 
@@ -61,8 +61,9 @@ router.post('/login', (req, res) => {
   }
 
   try {
-    const db = getDb()
-    const user = db.prepare('SELECT * FROM admin_users WHERE username = ?').get(username.toLowerCase())
+    const pool = getPool()
+    const result = await pool.query('SELECT * FROM admin_users WHERE username = $1', [username.toLowerCase()])
+    const user = result.rows[0]
 
     if (!user || !bcrypt.compareSync(password, user.password_hash)) {
       recordAttempt(ip)
@@ -106,7 +107,7 @@ router.post('/verify', (req, res) => {
 })
 
 // POST /api/auth/change-password
-router.post('/change-password', (req, res) => {
+router.post('/change-password', async (req, res) => {
   const authHeader = req.headers['authorization']
   const token = authHeader && authHeader.split(' ')[1]
 
@@ -127,15 +128,16 @@ router.post('/change-password', (req, res) => {
       return res.status(400).json({ error: 'New password must be at least 8 characters.' })
     }
 
-    const db = getDb()
-    const user = db.prepare('SELECT * FROM admin_users WHERE id = ?').get(decoded.userId)
+    const pool = getPool()
+    const result = await pool.query('SELECT * FROM admin_users WHERE id = $1', [decoded.userId])
+    const user = result.rows[0]
 
     if (!user || !bcrypt.compareSync(currentPassword, user.password_hash)) {
       return res.status(401).json({ error: 'Current password is incorrect.' })
     }
 
     const newHash = bcrypt.hashSync(newPassword, 10)
-    db.prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?').run(newHash, decoded.userId)
+    await pool.query('UPDATE admin_users SET password_hash = $1 WHERE id = $2', [newHash, decoded.userId])
 
     res.json({ message: 'Password changed successfully.' })
   } catch (err) {

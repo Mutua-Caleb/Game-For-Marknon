@@ -1,27 +1,39 @@
-import Database from 'better-sqlite3'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import pg from 'pg'
 import bcrypt from 'bcryptjs'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const { Pool } = pg
 
-const DB_PATH = path.join(__dirname, 'wordblaster.db')
+let pool
 
-let db
+export function getPool() {
+  if (!pool) {
+    const connectionString = process.env.DATABASE_URL
+    if (!connectionString) {
+      console.error('DATABASE_URL environment variable is required.')
+      console.error('Set it to your PostgreSQL connection string, e.g.:')
+      console.error('  postgresql://user:password@localhost:5432/wordblaster')
+      process.exit(1)
+    }
 
-export function getDb() {
-  if (!db) {
-    db = new Database(DB_PATH)
-    db.pragma('journal_mode = WAL')
-    db.pragma('foreign_keys = ON')
-    initializeDatabase()
+    pool = new Pool({
+      connectionString,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000
+    })
+
+    pool.on('error', (err) => {
+      console.error('Unexpected PostgreSQL pool error:', err)
+    })
   }
-  return db
+  return pool
 }
 
-function initializeDatabase() {
-  db.exec(`
+export async function initializeDatabase() {
+  const p = getPool()
+
+  await p.query(`
     CREATE TABLE IF NOT EXISTS questions (
       id TEXT PRIMARY KEY,
       subject TEXT NOT NULL,
@@ -32,27 +44,26 @@ function initializeDatabase() {
       options TEXT,
       hint TEXT,
       image TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS question_stats (
-      question_id TEXT PRIMARY KEY,
+      question_id TEXT PRIMARY KEY REFERENCES questions(id) ON DELETE CASCADE,
       correct INTEGER DEFAULT 0,
       wrong INTEGER DEFAULT 0,
-      last_attempted DATETIME,
-      FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
+      last_attempted TIMESTAMPTZ
     );
 
     CREATE TABLE IF NOT EXISTS admin_users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS game_sessions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       player_name TEXT DEFAULT 'Anonymous',
       subject TEXT,
       topics TEXT,
@@ -61,48 +72,58 @@ function initializeDatabase() {
       wrong_answers INTEGER DEFAULT 0,
       best_streak INTEGER DEFAULT 0,
       duration_seconds INTEGER DEFAULT 0,
-      played_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      played_at TIMESTAMPTZ DEFAULT NOW()
     );
+  `)
 
+  // Create indexes if they don't exist
+  await p.query(`
     CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions(subject);
     CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions(topic);
     CREATE INDEX IF NOT EXISTS idx_question_stats_wrong ON question_stats(wrong DESC);
   `)
 
   // Seed default admin if none exists
-  const adminCount = db.prepare('SELECT COUNT(*) as count FROM admin_users').get()
-  if (adminCount.count === 0) {
+  const adminResult = await p.query('SELECT COUNT(*) as count FROM admin_users')
+  if (parseInt(adminResult.rows[0].count) === 0) {
     const hash = bcrypt.hashSync('TeacherAdmin2024!', 10)
-    db.prepare('INSERT INTO admin_users (username, password_hash) VALUES (?, ?)').run('admin', hash)
+    await p.query('INSERT INTO admin_users (username, password_hash) VALUES ($1, $2)', ['admin', hash])
   }
 
   // Seed default questions if none exist
-  const questionCount = db.prepare('SELECT COUNT(*) as count FROM questions').get()
-  if (questionCount.count === 0) {
-    seedDefaultQuestions()
+  const questionResult = await p.query('SELECT COUNT(*) as count FROM questions')
+  if (parseInt(questionResult.rows[0].count) === 0) {
+    await seedDefaultQuestions(p)
   }
 }
 
-function seedDefaultQuestions() {
-  const insert = db.prepare(`
-    INSERT INTO questions (id, subject, topic, question, answer, type, options, hint, image)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `)
-
-  const insertStats = db.prepare(`
-    INSERT INTO question_stats (question_id, correct, wrong) VALUES (?, 0, 0)
-  `)
-
+async function seedDefaultQuestions(p) {
   const questions = getDefaultQuestions()
 
-  const insertMany = db.transaction((questions) => {
-    for (const q of questions) {
-      insert.run(q.id, q.subject, q.topic, q.question, q.answer, q.type, q.options ? JSON.stringify(q.options) : null, q.hint, q.image)
-      insertStats.run(q.id)
-    }
-  })
+  // Use a single transaction for bulk insert
+  const client = await p.connect()
+  try {
+    await client.query('BEGIN')
 
-  insertMany(questions)
+    for (const q of questions) {
+      await client.query(
+        `INSERT INTO questions (id, subject, topic, question, answer, type, options, hint, image)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [q.id, q.subject, q.topic, q.question, q.answer, q.type, q.options ? JSON.stringify(q.options) : null, q.hint, q.image]
+      )
+      await client.query(
+        'INSERT INTO question_stats (question_id, correct, wrong) VALUES ($1, 0, 0)',
+        [q.id]
+      )
+    }
+
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
 }
 
 function getDefaultQuestions() {
@@ -166,4 +187,4 @@ function getDefaultQuestions() {
   ]
 }
 
-export default getDb
+export default getPool

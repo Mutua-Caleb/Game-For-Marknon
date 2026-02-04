@@ -3,7 +3,7 @@ import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
-import { getDb } from './db.js'
+import { initializeDatabase } from './db.js'
 import authRoutes from './routes/auth.js'
 import questionRoutes from './routes/questions.js'
 import uploadRoutes from './routes/upload.js'
@@ -63,20 +63,24 @@ app.use((err, req, res, next) => {
 })
 
 // Initialize DB and start server
-try {
-  getDb()
-  console.log('Database initialized successfully.')
-} catch (err) {
-  console.error('Failed to initialize database:', err)
-  process.exit(1)
+async function start() {
+  try {
+    await initializeDatabase()
+    console.log('Database initialized successfully.')
+  } catch (err) {
+    console.error('Failed to initialize database:', err)
+    process.exit(1)
+  }
+
+  app.listen(PORT, () => {
+    console.log(`Word Blaster server running on port ${PORT}`)
+    console.log(`API available at http://localhost:${PORT}/api`)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`Frontend dev server expected at http://localhost:5173`)
+    }
+  })
 }
 
-app.listen(PORT, () => {
-  console.log(`Word Blaster server running on port ${PORT}`)
-  console.log(`API available at http://localhost:${PORT}/api`)
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`Frontend dev server expected at http://localhost:5173`)
-  }
-})
+start()
 
 export default app

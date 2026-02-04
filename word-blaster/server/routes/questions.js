@@ -1,11 +1,10 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
-import { getDb } from '../db.js'
+import { getPool } from '../db.js'
 import { authenticateToken } from '../middleware/auth.js'
 
 const router = Router()
 
-// Helper to parse question row from DB
 function parseQuestion(row) {
   return {
     ...row,
@@ -14,22 +13,24 @@ function parseQuestion(row) {
 }
 
 // GET /api/questions - Get all questions (public, for game)
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const db = getDb()
+    const pool = getPool()
     const { subject, topic } = req.query
 
-    let query = 'SELECT q.*, COALESCE(qs.correct, 0) as correctCount, COALESCE(qs.wrong, 0) as wrongCount FROM questions q LEFT JOIN question_stats qs ON q.id = qs.question_id'
+    let query = 'SELECT q.*, COALESCE(qs.correct, 0) as "correctCount", COALESCE(qs.wrong, 0) as "wrongCount" FROM questions q LEFT JOIN question_stats qs ON q.id = qs.question_id'
     const conditions = []
     const params = []
+    let paramIndex = 1
 
     if (subject) {
-      conditions.push('q.subject = ?')
+      conditions.push(`q.subject = $${paramIndex++}`)
       params.push(subject)
     }
     if (topic) {
       const topics = topic.split(',')
-      conditions.push(`q.topic IN (${topics.map(() => '?').join(',')})`)
+      const placeholders = topics.map(() => `$${paramIndex++}`)
+      conditions.push(`q.topic IN (${placeholders.join(',')})`)
       params.push(...topics)
     }
 
@@ -39,8 +40,8 @@ router.get('/', (req, res) => {
 
     query += ' ORDER BY q.subject, q.topic, q.created_at'
 
-    const questions = db.prepare(query).all(...params)
-    res.json(questions.map(parseQuestion))
+    const result = await pool.query(query, params)
+    res.json(result.rows.map(parseQuestion))
   } catch (err) {
     console.error('Fetch questions error:', err)
     res.status(500).json({ error: 'Failed to fetch questions.' })
@@ -48,22 +49,22 @@ router.get('/', (req, res) => {
 })
 
 // GET /api/questions/topics - Get available subjects and topics
-router.get('/topics', (req, res) => {
+router.get('/topics', async (req, res) => {
   try {
-    const db = getDb()
-    const rows = db.prepare(`
+    const pool = getPool()
+    const result = await pool.query(`
       SELECT subject, topic, COUNT(*) as count
       FROM questions
       GROUP BY subject, topic
       ORDER BY subject, topic
-    `).all()
+    `)
 
     const subjects = {}
-    for (const row of rows) {
+    for (const row of result.rows) {
       if (!subjects[row.subject]) {
         subjects[row.subject] = []
       }
-      subjects[row.subject].push({ topic: row.topic, count: row.count })
+      subjects[row.subject].push({ topic: row.topic, count: parseInt(row.count) })
     }
 
     res.json(subjects)
@@ -74,20 +75,20 @@ router.get('/topics', (req, res) => {
 })
 
 // GET /api/questions/:id - Get single question
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const db = getDb()
-    const question = db.prepare(`
-      SELECT q.*, COALESCE(qs.correct, 0) as correctCount, COALESCE(qs.wrong, 0) as wrongCount
+    const pool = getPool()
+    const result = await pool.query(`
+      SELECT q.*, COALESCE(qs.correct, 0) as "correctCount", COALESCE(qs.wrong, 0) as "wrongCount"
       FROM questions q LEFT JOIN question_stats qs ON q.id = qs.question_id
-      WHERE q.id = ?
-    `).get(req.params.id)
+      WHERE q.id = $1
+    `, [req.params.id])
 
-    if (!question) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Question not found.' })
     }
 
-    res.json(parseQuestion(question))
+    res.json(parseQuestion(result.rows[0]))
   } catch (err) {
     console.error('Fetch question error:', err)
     res.status(500).json({ error: 'Failed to fetch question.' })
@@ -95,7 +96,7 @@ router.get('/:id', (req, res) => {
 })
 
 // POST /api/questions - Create question (admin only)
-router.post('/', authenticateToken, (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     const { subject, topic, question, answer, type, options, hint, image } = req.body
 
@@ -107,18 +108,19 @@ router.post('/', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Multiple choice questions need at least 2 options.' })
     }
 
-    const db = getDb()
+    const pool = getPool()
     const id = uuidv4()
 
-    db.prepare(`
-      INSERT INTO questions (id, subject, topic, question, answer, type, options, hint, image)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, subject, topic, question, answer, type || 'text', options ? JSON.stringify(options) : null, hint || null, image || null)
+    await pool.query(
+      `INSERT INTO questions (id, subject, topic, question, answer, type, options, hint, image)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [id, subject, topic, question, answer, type || 'text', options ? JSON.stringify(options) : null, hint || null, image || null]
+    )
 
-    db.prepare('INSERT INTO question_stats (question_id, correct, wrong) VALUES (?, 0, 0)').run(id)
+    await pool.query('INSERT INTO question_stats (question_id, correct, wrong) VALUES ($1, 0, 0)', [id])
 
-    const created = db.prepare('SELECT * FROM questions WHERE id = ?').get(id)
-    res.status(201).json(parseQuestion(created))
+    const result = await pool.query('SELECT * FROM questions WHERE id = $1', [id])
+    res.status(201).json(parseQuestion(result.rows[0]))
   } catch (err) {
     console.error('Create question error:', err)
     res.status(500).json({ error: 'Failed to create question.' })
@@ -126,35 +128,37 @@ router.post('/', authenticateToken, (req, res) => {
 })
 
 // PUT /api/questions/:id - Update question (admin only)
-router.put('/:id', authenticateToken, (req, res) => {
+router.put('/:id', authenticateToken, async (req, res) => {
   try {
-    const db = getDb()
-    const existing = db.prepare('SELECT * FROM questions WHERE id = ?').get(req.params.id)
+    const pool = getPool()
+    const existing = await pool.query('SELECT * FROM questions WHERE id = $1', [req.params.id])
 
-    if (!existing) {
+    if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'Question not found.' })
     }
 
+    const row = existing.rows[0]
     const { subject, topic, question, answer, type, options, hint, image } = req.body
 
-    db.prepare(`
-      UPDATE questions
-      SET subject = ?, topic = ?, question = ?, answer = ?, type = ?, options = ?, hint = ?, image = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(
-      subject || existing.subject,
-      topic || existing.topic,
-      question || existing.question,
-      answer || existing.answer,
-      type || existing.type,
-      options ? JSON.stringify(options) : existing.options,
-      hint !== undefined ? hint : existing.hint,
-      image !== undefined ? image : existing.image,
-      req.params.id
+    await pool.query(
+      `UPDATE questions
+       SET subject = $1, topic = $2, question = $3, answer = $4, type = $5, options = $6, hint = $7, image = $8, updated_at = NOW()
+       WHERE id = $9`,
+      [
+        subject || row.subject,
+        topic || row.topic,
+        question || row.question,
+        answer || row.answer,
+        type || row.type,
+        options ? JSON.stringify(options) : row.options,
+        hint !== undefined ? hint : row.hint,
+        image !== undefined ? image : row.image,
+        req.params.id
+      ]
     )
 
-    const updated = db.prepare('SELECT * FROM questions WHERE id = ?').get(req.params.id)
-    res.json(parseQuestion(updated))
+    const result = await pool.query('SELECT * FROM questions WHERE id = $1', [req.params.id])
+    res.json(parseQuestion(result.rows[0]))
   } catch (err) {
     console.error('Update question error:', err)
     res.status(500).json({ error: 'Failed to update question.' })
@@ -162,17 +166,17 @@ router.put('/:id', authenticateToken, (req, res) => {
 })
 
 // DELETE /api/questions/:id - Delete question (admin only)
-router.delete('/:id', authenticateToken, (req, res) => {
+router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    const db = getDb()
-    const existing = db.prepare('SELECT * FROM questions WHERE id = ?').get(req.params.id)
+    const pool = getPool()
+    const existing = await pool.query('SELECT * FROM questions WHERE id = $1', [req.params.id])
 
-    if (!existing) {
+    if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'Question not found.' })
     }
 
-    db.prepare('DELETE FROM question_stats WHERE question_id = ?').run(req.params.id)
-    db.prepare('DELETE FROM questions WHERE id = ?').run(req.params.id)
+    await pool.query('DELETE FROM question_stats WHERE question_id = $1', [req.params.id])
+    await pool.query('DELETE FROM questions WHERE id = $1', [req.params.id])
 
     res.json({ message: 'Question deleted successfully.' })
   } catch (err) {
@@ -182,7 +186,7 @@ router.delete('/:id', authenticateToken, (req, res) => {
 })
 
 // POST /api/questions/bulk - Bulk import questions (admin only)
-router.post('/bulk', authenticateToken, (req, res) => {
+router.post('/bulk', authenticateToken, async (req, res) => {
   try {
     const { questions } = req.body
 
@@ -190,17 +194,14 @@ router.post('/bulk', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Questions array is required.' })
     }
 
-    const db = getDb()
-    const insert = db.prepare(`
-      INSERT INTO questions (id, subject, topic, question, answer, type, options, hint, image)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    const insertStats = db.prepare('INSERT INTO question_stats (question_id, correct, wrong) VALUES (?, 0, 0)')
-
+    const pool = getPool()
+    const client = await pool.connect()
     let imported = 0
     let errors = []
 
-    const insertMany = db.transaction((questions) => {
+    try {
+      await client.query('BEGIN')
+
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i]
         try {
@@ -210,22 +211,25 @@ router.post('/bulk', authenticateToken, (req, res) => {
           }
 
           const id = q.id || uuidv4()
-          insert.run(
-            id, q.subject, q.topic, q.question, q.answer,
-            q.type || 'text',
-            q.options ? JSON.stringify(q.options) : null,
-            q.hint || null,
-            q.image || null
+          await client.query(
+            `INSERT INTO questions (id, subject, topic, question, answer, type, options, hint, image)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [id, q.subject, q.topic, q.question, q.answer, q.type || 'text', q.options ? JSON.stringify(q.options) : null, q.hint || null, q.image || null]
           )
-          insertStats.run(id)
+          await client.query('INSERT INTO question_stats (question_id, correct, wrong) VALUES ($1, 0, 0)', [id])
           imported++
         } catch (err) {
           errors.push({ row: i + 1, error: err.message })
         }
       }
-    })
 
-    insertMany(questions)
+      await client.query('COMMIT')
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
 
     res.json({ imported, errors, total: questions.length })
   } catch (err) {

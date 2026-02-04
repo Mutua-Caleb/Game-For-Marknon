@@ -63,21 +63,60 @@ function GamePage() {
     }
   }, [countdown, gameStarted, playSound])
 
+  // Determine question size class based on content
+  const getQuestionSize = useCallback((q) => {
+    const textLen = q.question.length
+    const hasImage = !!q.image
+    const hasOptions = q.type === 'multiple' && q.options
+    const longestOption = hasOptions ? Math.max(...q.options.map(o => o.length)) : 0
+
+    if (hasImage) return 'large'
+    if (hasOptions && (textLen > 60 || longestOption > 20)) return 'large'
+    if (hasOptions || textLen > 50) return 'medium'
+    return 'compact'
+  }, [])
+
   // Spawn new question
   const spawnQuestion = useCallback(() => {
     if (questionPool.length === 0 || gameOver || isPaused) return
 
     const questionData = questionPool[currentQuestionIndex % questionPool.length]
+    const size = getQuestionSize(questionData)
+
+    // Assign lanes: check which lanes are occupied
+    const occupiedLanes = activeQuestions.map(q => q.lane)
+    let lane
+    if (!occupiedLanes.includes('left')) {
+      lane = 'left'
+    } else if (!occupiedLanes.includes('right')) {
+      lane = 'right'
+    } else {
+      lane = 'left' // fallback
+    }
+
+    // X positions based on lane and size
+    let x
+    if (size === 'large') {
+      // Large questions center more
+      x = lane === 'left' ? 30 : 70
+    } else if (size === 'medium') {
+      x = lane === 'left' ? 25 : 75
+    } else {
+      x = lane === 'left' ? 20 : 80
+    }
+
     const newQuestion = {
       ...questionData,
       instanceId: `${questionData.id}_${Date.now()}`,
-      x: Math.random() * 60 + 20, // 20-80% of screen width
+      x,
+      lane,
+      size,
       startTime: Date.now()
     }
 
     setActiveQuestions(prev => [...prev, newQuestion])
     setCurrentQuestionIndex(prev => prev + 1)
-  }, [questionPool, currentQuestionIndex, gameOver, isPaused])
+  }, [questionPool, currentQuestionIndex, gameOver, isPaused, activeQuestions, getQuestionSize])
 
   // Game loop - spawn questions
   useEffect(() => {
@@ -356,9 +395,9 @@ function GamePage() {
         </div>
       </div>
 
-      {/* Answer Input */}
+      {/* Answer Input - floating compact at bottom-right */}
       {gameStarted && !gameOver && (
-        <div className="input-section" ref={inputRef}>
+        <div className="input-floating" ref={inputRef}>
           <AnswerInput
             onSubmit={handleAnswer}
             disabled={isPaused || activeQuestions.length === 0}

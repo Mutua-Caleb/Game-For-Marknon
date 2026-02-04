@@ -16,8 +16,8 @@ function FallingQuestion({ question, duration, isPaused, onTimeout, onOptionClic
       return
     }
 
-    const updateInterval = 50 // Update every 50ms for smooth animation
-    const decrementAmount = (100 / (duration * 1000)) * updateInterval // How much to move per interval
+    const updateInterval = 50
+    const decrementAmount = (100 / (duration * 1000)) * updateInterval
 
     intervalRef.current = setInterval(() => {
       setPosition(prev => {
@@ -50,6 +50,9 @@ function FallingQuestion({ question, duration, isPaused, onTimeout, onOptionClic
     return '#e74c3c'
   }
 
+  const sizeClass = question.size || 'medium'
+  const hasImage = !!question.image
+
   return (
     <motion.div
       className="falling-question"
@@ -67,7 +70,7 @@ function FallingQuestion({ question, duration, isPaused, onTimeout, onOptionClic
         transform: 'translate(-50%, -50%)'
       }}
     >
-      <div className={`question-bubble${question.image ? ' has-image' : ''}`}>
+      <div className={`question-bubble size-${sizeClass}${hasImage ? ' has-image' : ''}`}>
         {question.image && (
           <div className="question-image">
             <img src={question.image} alt="Question illustration" />

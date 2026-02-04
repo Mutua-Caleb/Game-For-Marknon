@@ -1,6 +1,5 @@
 .answer-input-container {
-  max-width: 600px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .answer-form {
@@ -11,22 +10,22 @@
   display: flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.1);
-  border: 3px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 50px;
-  padding: 0.5rem;
-  gap: 0.5rem;
+  padding: 0.3rem;
+  gap: 0.4rem;
   transition: all 0.3s ease;
 }
 
 .input-wrapper:focus-within {
   border-color: #00cec9;
   background: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 0 20px rgba(0, 206, 201, 0.3);
+  box-shadow: 0 0 16px rgba(0, 206, 201, 0.3);
 }
 
 .input-icon {
-  font-size: 1.5rem;
-  padding-left: 1rem;
+  font-size: 1.1rem;
+  padding-left: 0.7rem;
 }
 
 .input-wrapper input {
@@ -34,14 +33,16 @@
   background: transparent;
   border: none;
   color: white;
-  font-size: 1.2rem;
-  padding: 0.75rem;
+  font-size: 0.95rem;
+  padding: 0.5rem 0.4rem;
   font-weight: 600;
+  min-width: 0;
 }
 
 .input-wrapper input::placeholder {
   color: rgba(255, 255, 255, 0.5);
   font-weight: 400;
+  font-size: 0.85rem;
 }
 
 .input-wrapper input:disabled {
@@ -51,18 +52,19 @@
 .submit-button {
   background: linear-gradient(45deg, #00b894, #00cec9);
   color: white;
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1rem;
   border-radius: 50px;
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  box-shadow: 0 5px 20px rgba(0, 184, 148, 0.4);
+  gap: 0.3rem;
+  box-shadow: 0 4px 14px rgba(0, 184, 148, 0.4);
+  white-space: nowrap;
 }
 
 .submit-button:hover:not(:disabled) {
-  box-shadow: 0 8px 30px rgba(0, 184, 148, 0.5);
+  box-shadow: 0 6px 20px rgba(0, 184, 148, 0.5);
 }
 
 .submit-button:disabled {
@@ -72,34 +74,38 @@
 }
 
 .button-icon {
-  font-size: 1.3rem;
+  font-size: 1rem;
+}
+
+.button-text {
+  font-size: 0.85rem;
 }
 
 .input-hint {
   text-align: center;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.9rem;
-  margin-top: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+  margin-top: 0.4rem;
 }
 
 @media (max-width: 768px) {
   .input-wrapper {
-    padding: 0.4rem;
+    padding: 0.25rem;
   }
 
   .input-icon {
-    font-size: 1.2rem;
-    padding-left: 0.75rem;
+    font-size: 1rem;
+    padding-left: 0.5rem;
   }
 
   .input-wrapper input {
-    font-size: 1rem;
-    padding: 0.5rem;
+    font-size: 0.85rem;
+    padding: 0.4rem 0.3rem;
   }
 
   .submit-button {
-    padding: 0.6rem 1rem;
-    font-size: 1rem;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.8rem;
   }
 
   .button-text {
@@ -107,6 +113,10 @@
   }
 
   .button-icon {
-    font-size: 1.2rem;
+    font-size: 0.9rem;
+  }
+
+  .input-hint {
+    display: none;
   }
 }

@@ -3,22 +3,15 @@
   pointer-events: auto;
 }
 
+/* Base question bubble */
 .question-bubble {
   background: rgba(255, 255, 255, 0.95);
   border-radius: 20px;
-  padding: 1.5rem;
-  min-width: 280px;
-  max-width: 400px;
   box-shadow:
     0 10px 40px rgba(0, 0, 0, 0.3),
     0 0 0 4px rgba(255, 255, 255, 0.2);
   position: relative;
   backdrop-filter: blur(10px);
-}
-
-/* Wider bubble when image is present */
-.question-bubble.has-image {
-  max-width: 460px;
 }
 
 .question-bubble::after {
@@ -32,9 +25,103 @@
   border-top: 15px solid rgba(255, 255, 255, 0.95);
 }
 
-/* Improved image container */
+/* === Dynamic sizing === */
+
+/* Compact: short text-only questions */
+.question-bubble.size-compact {
+  padding: 0.8rem 1rem;
+  min-width: 180px;
+  max-width: 240px;
+}
+
+.question-bubble.size-compact .question-text {
+  font-size: 0.95rem;
+  margin-bottom: 0.4rem;
+}
+
+.question-bubble.size-compact .question-hint {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.question-bubble.size-compact .timer-bar {
+  height: 4px;
+  margin-top: 0.3rem;
+}
+
+.question-bubble.size-compact .timer-text {
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+/* Medium: MC questions or longer text */
+.question-bubble.size-medium {
+  padding: 1.1rem 1.25rem;
+  min-width: 250px;
+  max-width: 320px;
+}
+
+.question-bubble.size-medium .question-text {
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+}
+
+.question-bubble.size-medium .question-hint {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.7rem;
+  margin-bottom: 0.6rem;
+}
+
+.question-bubble.size-medium .option-button {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.question-bubble.size-medium .timer-bar {
+  height: 5px;
+  margin-top: 0.4rem;
+}
+
+.question-bubble.size-medium .timer-text {
+  font-size: 0.85rem;
+  margin-top: 0.35rem;
+}
+
+/* Large: image questions or long MC with long options */
+.question-bubble.size-large {
+  padding: 1.4rem 1.5rem;
+  min-width: 300px;
+  max-width: 420px;
+}
+
+.question-bubble.size-large .question-text {
+  font-size: 1.15rem;
+  margin-bottom: 0.65rem;
+}
+
+.question-bubble.size-large .timer-bar {
+  height: 6px;
+  margin-top: 0.5rem;
+}
+
+.question-bubble.size-large .timer-text {
+  font-size: 0.9rem;
+  margin-top: 0.4rem;
+}
+
+/* === Shared inner styles === */
+
+.question-text {
+  font-weight: 700;
+  color: #2d3436;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* Image container */
 .question-image {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   text-align: center;
   background: #f8f9fa;
   border: 2px solid #e9ecef;
@@ -45,55 +132,47 @@
 
 .question-image img {
   max-width: 100%;
-  max-height: 200px;
+  max-height: 180px;
   border-radius: 10px;
   object-fit: contain;
   display: block;
   margin: 0 auto;
 }
 
-.question-text {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #2d3436;
-  text-align: center;
-  margin-bottom: 0.75rem;
-  line-height: 1.4;
-}
-
+/* Hint */
 .question-hint {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
+  gap: 0.4rem;
   color: #636e72;
   background: #f8f9fa;
-  padding: 0.5rem 1rem;
   border-radius: 10px;
-  margin-bottom: 1rem;
 }
 
 .hint-icon {
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
+/* MC options */
 .question-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
 }
 
 .option-button {
   background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
   color: white;
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 0.8rem;
   border-radius: 12px;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   transition: all 0.2s ease;
   border: 2px solid transparent;
+  cursor: pointer;
+  line-height: 1.2;
 }
 
 .option-button:hover {
@@ -105,12 +184,11 @@
   transform: scale(0.95);
 }
 
+/* Timer */
 .timer-bar {
-  height: 6px;
   background: rgba(0, 0, 0, 0.1);
   border-radius: 3px;
   overflow: hidden;
-  margin-top: 0.5rem;
 }
 
 .timer-fill {
@@ -122,27 +200,42 @@
 .timer-text {
   text-align: center;
   font-weight: 700;
-  font-size: 1rem;
-  margin-top: 0.5rem;
 }
 
+/* === Mobile === */
 @media (max-width: 768px) {
-  .question-bubble {
-    min-width: 240px;
-    max-width: 300px;
-    padding: 1rem;
+  .question-bubble.size-compact {
+    min-width: 150px;
+    max-width: 200px;
+    padding: 0.6rem 0.8rem;
   }
 
-  .question-bubble.has-image {
-    max-width: 340px;
+  .question-bubble.size-compact .question-text {
+    font-size: 0.85rem;
+  }
+
+  .question-bubble.size-medium {
+    min-width: 200px;
+    max-width: 260px;
+    padding: 0.8rem 1rem;
+  }
+
+  .question-bubble.size-medium .question-text {
+    font-size: 0.9rem;
+  }
+
+  .question-bubble.size-large {
+    min-width: 240px;
+    max-width: 320px;
+    padding: 1rem 1.1rem;
+  }
+
+  .question-bubble.size-large .question-text {
+    font-size: 1rem;
   }
 
   .question-image img {
-    max-height: 150px;
-  }
-
-  .question-text {
-    font-size: 1rem;
+    max-height: 120px;
   }
 
   .question-options {
@@ -150,7 +243,7 @@
   }
 
   .option-button {
-    padding: 0.6rem 0.8rem;
-    font-size: 0.85rem;
+    padding: 0.5rem 0.7rem;
+    font-size: 0.8rem;
   }
 }

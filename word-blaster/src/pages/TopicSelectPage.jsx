@@ -13,12 +13,14 @@ function TopicSelectPage() {
     setSelectedSubject,
     setSelectedTopics,
     questions,
+    sequences,
     gameSettings,
     setGameSettings
   } = useGame()
 
   const [selectedSubjectLocal, setSelectedSubjectLocal] = useState(null)
   const [selectedTopicsLocal, setSelectedTopicsLocal] = useState([])
+  const [gameMode, setGameMode] = useState('quiz') // 'quiz' or 'sequence'
 
   const handleSubjectSelect = (subject) => {
     playSound('click')
@@ -52,13 +54,21 @@ function TopicSelectPage() {
     playSound('gameStart')
     setSelectedSubject(selectedSubjectLocal)
     setSelectedTopics(selectedTopicsLocal.length > 0 ? selectedTopicsLocal : topics[selectedSubjectLocal])
-    navigate('/play')
+    navigate(gameMode === 'sequence' ? '/play/sequence' : '/play')
   }
 
   const getQuestionCount = () => {
     let filtered = questions.filter(q => q.subject === selectedSubjectLocal)
     if (selectedTopicsLocal.length > 0) {
       filtered = filtered.filter(q => selectedTopicsLocal.includes(q.topic))
+    }
+    return filtered.length
+  }
+
+  const getSequenceCount = () => {
+    let filtered = sequences.filter(s => s.subject === selectedSubjectLocal)
+    if (selectedTopicsLocal.length > 0) {
+      filtered = filtered.filter(s => selectedTopicsLocal.includes(s.topic))
     }
     return filtered.length
   }
@@ -154,8 +164,55 @@ function TopicSelectPage() {
             </motion.section>
           )}
 
-          {/* Settings */}
+          {/* Game Mode */}
           {selectedSubjectLocal && (
+            <motion.section
+              className="selection-section"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.05 }}
+            >
+              <h2 className="section-title">Game Mode</h2>
+              <div className="mode-grid">
+                <motion.button
+                  className={`mode-card ${gameMode === 'quiz' ? 'selected' : ''}`}
+                  onClick={() => { playSound('click'); setGameMode('quiz') }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  <span className="card-icon">&#127922;</span>
+                  <span className="card-label">Quiz Blaster</span>
+                  <span className="card-count">
+                    {getQuestionCount()} questions
+                  </span>
+                  <span className="mode-desc">Answer falling questions before time runs out!</span>
+                  {gameMode === 'quiz' && <span className="check-mark">&#10003;</span>}
+                </motion.button>
+                <motion.button
+                  className={`mode-card ${gameMode === 'sequence' ? 'selected' : ''} ${getSequenceCount() === 0 ? 'disabled' : ''}`}
+                  onClick={() => {
+                    if (getSequenceCount() > 0) {
+                      playSound('click')
+                      setGameMode('sequence')
+                    }
+                  }}
+                  whileHover={getSequenceCount() > 0 ? { scale: 1.03 } : {}}
+                  whileTap={getSequenceCount() > 0 ? { scale: 0.97 } : {}}
+                >
+                  <span className="card-icon">&#128257;</span>
+                  <span className="card-label">Sequence Order</span>
+                  <span className="card-count">
+                    {getSequenceCount()} sequence{getSequenceCount() !== 1 ? 's' : ''}
+                  </span>
+                  <span className="mode-desc">Drag steps into the correct order to master processes!</span>
+                  {gameMode === 'sequence' && <span className="check-mark">&#10003;</span>}
+                </motion.button>
+              </div>
+            </motion.section>
+          )}
+
+          {/* Settings */}
+          {selectedSubjectLocal && gameMode === 'quiz' && (
             <motion.section
               className="selection-section settings-section"
               initial={{ opacity: 0, y: 20 }}
@@ -194,20 +251,22 @@ function TopicSelectPage() {
               transition={{ duration: 0.3, delay: 0.2 }}
             >
               <div className="question-summary">
-                <span className="summary-icon">📝</span>
+                <span className="summary-icon">{gameMode === 'sequence' ? '\uD83D\uDD00' : '\uD83D\uDCDD'}</span>
                 <span className="summary-text">
-                  {getQuestionCount()} questions ready to play!
+                  {gameMode === 'sequence'
+                    ? `${getSequenceCount()} sequence${getSequenceCount() !== 1 ? 's' : ''} ready!`
+                    : `${getQuestionCount()} questions ready to play!`}
                 </span>
               </div>
               <motion.button
                 className="start-button"
                 onClick={handleStartGame}
-                disabled={getQuestionCount() === 0}
+                disabled={gameMode === 'sequence' ? getSequenceCount() === 0 : getQuestionCount() === 0}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <span className="button-icon">🎮</span>
-                Start Game!
+                <span className="button-icon">{gameMode === 'sequence' ? '\uD83C\uDFAF' : '\uD83C\uDFAE'}</span>
+                {gameMode === 'sequence' ? 'Start Sequence!' : 'Start Game!'}
               </motion.button>
             </motion.div>
           )}

@@ -141,6 +141,40 @@ export const uploadApi = {
   }
 }
 
+// Sequences API
+export const sequencesApi = {
+  async getAll(params = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.subject) searchParams.set('subject', params.subject)
+    if (params.topic) searchParams.set('topic', params.topic)
+
+    const res = await fetch(`${API_BASE}/sequences?${searchParams}`)
+    return handleResponse(res)
+  },
+
+  async getById(id) {
+    const res = await fetch(`${API_BASE}/sequences/${id}`)
+    return handleResponse(res)
+  },
+
+  async create(sequence) {
+    const res = await fetch(`${API_BASE}/sequences`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(sequence)
+    })
+    return handleResponse(res)
+  },
+
+  async delete(id) {
+    const res = await fetch(`${API_BASE}/sequences/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  }
+}
+
 // Stats API
 export const statsApi = {
   async recordAnswer(questionId, isCorrect) {

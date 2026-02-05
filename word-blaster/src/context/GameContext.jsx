@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { questionsApi, statsApi } from '../utils/api'
+import { questionsApi, sequencesApi, statsApi } from '../utils/api'
 
 const GameContext = createContext()
 
@@ -20,6 +20,7 @@ export function GameProvider({ children }) {
     bestStreak: 0
   })
   const [questionStats, setQuestionStats] = useState({})
+  const [sequences, setSequences] = useState([])
   const [currentSession, setCurrentSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -39,6 +40,14 @@ export function GameProvider({ children }) {
           }
         }
         setQuestionStats(statsMap)
+
+        // Load sequences
+        try {
+          const fetchedSequences = await sequencesApi.getAll()
+          setSequences(fetchedSequences)
+        } catch (seqError) {
+          console.error('Error loading sequences:', seqError)
+        }
 
         // Load settings from localStorage
         const savedSettings = localStorage.getItem('gameSettings')
@@ -94,6 +103,21 @@ export function GameProvider({ children }) {
 
     return filtered
   }, [questions, selectedSubject, selectedTopics])
+
+  // Get sequences filtered by subject and topics
+  const getFilteredSequences = useCallback(() => {
+    let filtered = sequences
+
+    if (selectedSubject) {
+      filtered = filtered.filter(s => s.subject === selectedSubject)
+    }
+
+    if (selectedTopics.length > 0) {
+      filtered = filtered.filter(s => selectedTopics.includes(s.topic))
+    }
+
+    return filtered
+  }, [sequences, selectedSubject, selectedTopics])
 
   // Get questions weighted by failure rate (failed questions appear more often)
   const getWeightedQuestions = useCallback(() => {
@@ -237,6 +261,7 @@ export function GameProvider({ children }) {
 
   const value = {
     questions,
+    sequences,
     selectedSubject,
     setSelectedSubject,
     selectedTopics,
@@ -249,6 +274,7 @@ export function GameProvider({ children }) {
     setCurrentSession,
     isLoading,
     getFilteredQuestions,
+    getFilteredSequences,
     getWeightedQuestions,
     recordAnswer,
     addQuestion,

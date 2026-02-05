@@ -74,6 +74,23 @@ export async function initializeDatabase() {
       duration_seconds INTEGER DEFAULT 0,
       played_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS sequence_questions (
+      id TEXT PRIMARY KEY,
+      subject TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      image TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS sequence_steps (
+      id SERIAL PRIMARY KEY,
+      sequence_id TEXT NOT NULL REFERENCES sequence_questions(id) ON DELETE CASCADE,
+      step_number INTEGER NOT NULL,
+      step_text TEXT NOT NULL
+    );
   `)
 
   // Create indexes if they don't exist
@@ -81,6 +98,8 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions(subject);
     CREATE INDEX IF NOT EXISTS idx_questions_topic ON questions(topic);
     CREATE INDEX IF NOT EXISTS idx_question_stats_wrong ON question_stats(wrong DESC);
+    CREATE INDEX IF NOT EXISTS idx_sequence_questions_subject ON sequence_questions(subject);
+    CREATE INDEX IF NOT EXISTS idx_sequence_steps_sequence ON sequence_steps(sequence_id);
   `)
 
   // Seed default admin if none exists
@@ -94,6 +113,12 @@ export async function initializeDatabase() {
   const questionResult = await p.query('SELECT COUNT(*) as count FROM questions')
   if (parseInt(questionResult.rows[0].count) === 0) {
     await seedDefaultQuestions(p)
+  }
+
+  // Seed default sequences if none exist
+  const seqResult = await p.query('SELECT COUNT(*) as count FROM sequence_questions')
+  if (parseInt(seqResult.rows[0].count) === 0) {
+    await seedDefaultSequences(p)
   }
 }
 
@@ -124,6 +149,61 @@ async function seedDefaultQuestions(p) {
   } finally {
     client.release()
   }
+}
+
+async function seedDefaultSequences(p) {
+  const sequences = getDefaultSequences()
+
+  const client = await p.connect()
+  try {
+    await client.query('BEGIN')
+
+    for (const seq of sequences) {
+      await client.query(
+        `INSERT INTO sequence_questions (id, subject, topic, title, description, image)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [seq.id, seq.subject, seq.topic, seq.title, seq.description, seq.image]
+      )
+
+      for (const step of seq.steps) {
+        await client.query(
+          `INSERT INTO sequence_steps (sequence_id, step_number, step_text)
+           VALUES ($1, $2, $3)`,
+          [seq.id, step.step_number, step.step_text]
+        )
+      }
+    }
+
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+function getDefaultSequences() {
+  return [
+    {
+      id: 'seq_hb_001',
+      subject: 'Science',
+      topic: 'Human Body',
+      title: 'Blood Circulation Through the Heart',
+      description: 'Arrange the steps of blood circulation through the heart in the correct order, from deoxygenated blood returning to the heart to oxygenated blood being pumped out to the body.',
+      image: null,
+      steps: [
+        { step_number: 1, step_text: 'Deoxygenated blood from the body enters the RIGHT ATRIUM through the superior and inferior vena cava' },
+        { step_number: 2, step_text: 'Blood flows from the right atrium through the TRICUSPID VALVE into the RIGHT VENTRICLE' },
+        { step_number: 3, step_text: 'The right ventricle pumps blood through the PULMONARY VALVE into the PULMONARY ARTERIES' },
+        { step_number: 4, step_text: 'Blood travels to the LUNGS where it picks up oxygen and releases carbon dioxide (gas exchange)' },
+        { step_number: 5, step_text: 'Oxygenated blood returns to the LEFT ATRIUM through the PULMONARY VEINS' },
+        { step_number: 6, step_text: 'Blood flows from the left atrium through the MITRAL (BICUSPID) VALVE into the LEFT VENTRICLE' },
+        { step_number: 7, step_text: 'The left ventricle pumps blood through the AORTIC VALVE into the AORTA' },
+        { step_number: 8, step_text: 'Oxygenated blood is distributed to the entire body through the aorta and its branches' },
+      ]
+    }
+  ]
 }
 
 function getDefaultQuestions() {

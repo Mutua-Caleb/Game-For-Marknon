@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
-import { uploadApi, questionsApi, statsApi, authApi, quizSessionApi } from '../utils/api'
+import { uploadApi, questionsApi, diagramsApi, statsApi, authApi, quizSessionApi } from '../utils/api'
 import './AdminPage.css'
 
 const SUBJECTS = ['Science', 'English']
@@ -159,6 +159,12 @@ function AdminPage() {
           Quiz Sessions
         </button>
         <button
+          className={`tab ${activeTab === 'diagrams' ? 'active' : ''}`}
+          onClick={() => setActiveTab('diagrams')}
+        >
+          Diagrams
+        </button>
+        <button
           className={`tab ${activeTab === 'import' ? 'active' : ''}`}
           onClick={() => setActiveTab('import')}
         >
@@ -249,6 +255,10 @@ function AdminPage() {
 
         {activeTab === 'sessions' && (
           <QuizSessionsSection />
+        )}
+
+        {activeTab === 'diagrams' && (
+          <DiagramsSection showNotification={showNotification} />
         )}
 
         {activeTab === 'import' && (
@@ -1013,6 +1023,613 @@ function QuizSessionsSection() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// Diagrams Management Section
+function DiagramsSection({ showNotification }) {
+  const [diagrams, setDiagrams] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+
+  useEffect(() => {
+    loadDiagrams()
+  }, [])
+
+  const loadDiagrams = async () => {
+    setIsLoading(true)
+    try {
+      const data = await diagramsApi.getAll()
+      setDiagrams(data)
+    } catch (err) {
+      console.error('Failed to load diagrams:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    try {
+      await diagramsApi.delete(id)
+      setDiagrams(prev => prev.filter(d => d.id !== id))
+      setDeleteConfirm(null)
+      showNotification('Diagram deleted')
+    } catch (err) {
+      showNotification('Failed to delete diagram', 'error')
+    }
+  }
+
+  const handleCreated = (newDiagram) => {
+    setDiagrams(prev => [newDiagram, ...prev])
+    setShowCreateForm(false)
+    showNotification('Diagram created successfully!')
+  }
+
+  if (isLoading) {
+    return <div className="sessions-loading">Loading diagrams...</div>
+  }
+
+  return (
+    <div className="diagrams-admin-section">
+      <div className="sessions-header">
+        <h2>Diagrams ({diagrams.length})</h2>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="refresh-btn" onClick={loadDiagrams}>Refresh</button>
+          <button className="add-question-btn" onClick={() => setShowCreateForm(!showCreateForm)}>
+            {showCreateForm ? 'Cancel' : '+ Add Diagram'}
+          </button>
+        </div>
+      </div>
+
+      {/* Create Form */}
+      <AnimatePresence>
+        {showCreateForm && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <DiagramCreateForm
+              onCreated={handleCreated}
+              onCancel={() => setShowCreateForm(false)}
+              showNotification={showNotification}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Diagrams list */}
+      {diagrams.length === 0 && !showCreateForm ? (
+        <div className="empty-state">
+          <span className="empty-icon">&#128444;</span>
+          <p>No diagrams yet. Click "+ Add Diagram" to create one.</p>
+        </div>
+      ) : (
+        <div className="diagrams-list">
+          {diagrams.map(diag => (
+            <div key={diag.id} className="diagram-admin-card">
+              <div className="diagram-card-preview">
+                <img src={diag.image_url} alt={diag.title} className="diagram-thumb" />
+              </div>
+              <div className="diagram-card-info">
+                <h3>{diag.title}</h3>
+                <div className="diagram-card-meta">
+                  <span className="subject-badge">{diag.subject}</span>
+                  <span className="topic-badge">{diag.topic}</span>
+                  <span className="label-count">{diag.labels?.length || 0} labels</span>
+                </div>
+                {diag.description && <p className="diagram-card-desc">{diag.description}</p>}
+                {diag.labels && diag.labels.length > 0 && (
+                  <div className="diagram-card-labels">
+                    {diag.labels.map(l => (
+                      <span key={l.label_key} className="label-chip">
+                        <strong>{l.label_key}</strong>: {l.correct_answer}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="diagram-card-actions">
+                <button className="delete-btn" onClick={() => setDeleteConfirm(diag)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Delete confirm */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="delete-confirm"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h3>Delete Diagram?</h3>
+              <p>"{deleteConfirm.title}" with {deleteConfirm.labels?.length || 0} labels</p>
+              <div className="confirm-actions">
+                <button className="cancel-btn" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+                <button className="delete-btn" onClick={() => handleDelete(deleteConfirm.id)}>Delete</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// Diagram Create Form with Interactive Label Placement
+function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
+  const [formData, setFormData] = useState({
+    subject: 'Science',
+    topic: 'Human Body',
+    title: '',
+    description: ''
+  })
+  const [imageUrl, setImageUrl] = useState('')
+  const [labels, setLabels] = useState([])
+  const [isUploading, setIsUploading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [placementMode, setPlacementMode] = useState(null) // null, 'pointer', or 'label'
+  const [pendingLabel, setPendingLabel] = useState(null) // label being placed
+  const [editingLabelIndex, setEditingLabelIndex] = useState(null)
+  const [useCustomTopic, setUseCustomTopic] = useState(false)
+  const [customTopic, setCustomTopic] = useState('')
+  const fileInputRef = useRef(null)
+  const imageContainerRef = useRef(null)
+
+  const currentTopics = TOPICS[formData.subject] || []
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      showNotification('Image must be under 5MB', 'error')
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const result = await uploadApi.uploadImage(file)
+      setImageUrl(result.url)
+      showNotification('Image uploaded!')
+    } catch (err) {
+      showNotification(err.message || 'Failed to upload image', 'error')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleImageClick = (e) => {
+    if (!placementMode || !imageContainerRef.current) return
+
+    const rect = imageContainerRef.current.getBoundingClientRect()
+    const xPercent = ((e.clientX - rect.left) / rect.width) * 100
+    const yPercent = ((e.clientY - rect.top) / rect.height) * 100
+
+    if (placementMode === 'pointer') {
+      // First click: set where the structure is on the diagram
+      const labelX = xPercent < 50 ? Math.max(2, xPercent - 18) : Math.min(98, xPercent + 18)
+      const labelY = yPercent
+
+      setPendingLabel({
+        label_key: '',
+        correct_answer: '',
+        hint: '',
+        pointer_x: Math.round(xPercent * 10) / 10,
+        pointer_y: Math.round(yPercent * 10) / 10,
+        x_percent: Math.round(labelX * 10) / 10,
+        y_percent: Math.round(labelY * 10) / 10
+      })
+      setPlacementMode('details')
+    } else if (placementMode === 'move-label' && editingLabelIndex !== null) {
+      // Reposition the label circle
+      setLabels(prev => prev.map((l, i) =>
+        i === editingLabelIndex
+          ? { ...l, x_percent: Math.round(xPercent * 10) / 10, y_percent: Math.round(yPercent * 10) / 10 }
+          : l
+      ))
+      setPlacementMode(null)
+      setEditingLabelIndex(null)
+    } else if (placementMode === 'move-pointer' && editingLabelIndex !== null) {
+      // Reposition the pointer dot
+      setLabels(prev => prev.map((l, i) =>
+        i === editingLabelIndex
+          ? { ...l, pointer_x: Math.round(xPercent * 10) / 10, pointer_y: Math.round(yPercent * 10) / 10 }
+          : l
+      ))
+      setPlacementMode(null)
+      setEditingLabelIndex(null)
+    }
+  }
+
+  const handleSaveLabel = () => {
+    if (!pendingLabel || !pendingLabel.label_key.trim() || !pendingLabel.correct_answer.trim()) {
+      showNotification('Letter and correct answer are required', 'error')
+      return
+    }
+
+    // Check for duplicate label keys
+    if (labels.some(l => l.label_key.toUpperCase() === pendingLabel.label_key.toUpperCase())) {
+      showNotification('This letter is already used', 'error')
+      return
+    }
+
+    setLabels(prev => [...prev, {
+      ...pendingLabel,
+      label_key: pendingLabel.label_key.toUpperCase()
+    }])
+    setPendingLabel(null)
+    setPlacementMode(null)
+  }
+
+  const handleRemoveLabel = (index) => {
+    setLabels(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const handleSubmit = async () => {
+    const topic = useCustomTopic && customTopic.trim() ? customTopic.trim() : formData.topic
+
+    if (!formData.title.trim()) {
+      showNotification('Title is required', 'error')
+      return
+    }
+    if (!imageUrl) {
+      showNotification('Please upload a diagram image', 'error')
+      return
+    }
+    if (labels.length === 0) {
+      showNotification('Add at least one label', 'error')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const id = `diag_${Date.now()}`
+      const result = await diagramsApi.create({
+        id,
+        subject: formData.subject,
+        topic,
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        image_url: imageUrl,
+        labels
+      })
+      onCreated(result)
+    } catch (err) {
+      showNotification(err.message || 'Failed to create diagram', 'error')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className="diagram-create-form">
+      <h3>Create New Diagram</h3>
+
+      {/* Basic fields */}
+      <div className="form-row">
+        <div className="form-group">
+          <label>Subject</label>
+          <select
+            value={formData.subject}
+            onChange={(e) => {
+              setFormData(prev => ({
+                ...prev,
+                subject: e.target.value,
+                topic: TOPICS[e.target.value]?.[0] || ''
+              }))
+              setUseCustomTopic(false)
+            }}
+          >
+            {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>
+            Topic
+            <button
+              type="button"
+              className="custom-topic-toggle"
+              onClick={() => setUseCustomTopic(!useCustomTopic)}
+            >
+              {useCustomTopic ? 'Use existing' : '+ Custom'}
+            </button>
+          </label>
+          {useCustomTopic ? (
+            <input
+              type="text"
+              value={customTopic}
+              onChange={(e) => setCustomTopic(e.target.value)}
+              placeholder="Enter custom topic..."
+            />
+          ) : (
+            <select
+              value={formData.topic}
+              onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
+            >
+              {currentTopics.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          )}
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label>Title</label>
+        <input
+          type="text"
+          value={formData.title}
+          onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+          placeholder="e.g., The Human Heart"
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Description (optional)</label>
+        <input
+          type="text"
+          value={formData.description}
+          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+          placeholder="e.g., Label the parts of the human heart"
+        />
+      </div>
+
+      {/* Image upload */}
+      <div className="form-group">
+        <label>Diagram Image</label>
+        {!imageUrl ? (
+          <div className="diagram-upload-area">
+            <div
+              className="image-upload-dropzone"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className="dropzone-content">
+                <span className="dropzone-icon">&#128444;</span>
+                <p>{isUploading ? 'Uploading...' : 'Click to upload diagram image'}</p>
+                <span className="dropzone-hint">JPEG, PNG, GIF, SVG, WebP (max 5MB)</span>
+              </div>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              style={{ display: 'none' }}
+            />
+            <div className="image-url-option">
+              <span className="divider-text">or paste image URL</span>
+              <input
+                type="url"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://example.com/diagram.png"
+                className="image-url-input"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="diagram-editor-area">
+            <div className="diagram-editor-toolbar">
+              <button
+                type="button"
+                className={`editor-btn ${placementMode === 'pointer' ? 'active' : ''}`}
+                onClick={() => {
+                  setPlacementMode(placementMode === 'pointer' ? null : 'pointer')
+                  setPendingLabel(null)
+                  setEditingLabelIndex(null)
+                }}
+              >
+                + Add Label (click on structure)
+              </button>
+              <button
+                type="button"
+                className="editor-btn change"
+                onClick={() => { setImageUrl(''); setLabels([]); if (fileInputRef.current) fileInputRef.current.value = '' }}
+              >
+                Change Image
+              </button>
+              {placementMode && (
+                <span className="placement-hint">
+                  {placementMode === 'pointer' && 'Click on the structure you want to label'}
+                  {placementMode === 'details' && 'Fill in the label details below'}
+                  {placementMode === 'move-label' && 'Click where to place the label circle'}
+                  {placementMode === 'move-pointer' && 'Click on the structure to move the pointer'}
+                </span>
+              )}
+            </div>
+
+            {/* Interactive diagram preview */}
+            <div
+              ref={imageContainerRef}
+              className={`diagram-editor-canvas ${placementMode && placementMode !== 'details' ? 'placing' : ''}`}
+              onClick={handleImageClick}
+            >
+              <img src={imageUrl} alt="Diagram" className="editor-image" />
+
+              {/* SVG overlay for lines */}
+              <svg className="editor-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+                {labels.map((label, i) => (
+                  <line
+                    key={`line-${i}`}
+                    x1={label.x_percent}
+                    y1={label.y_percent}
+                    x2={label.pointer_x}
+                    y2={label.pointer_y}
+                    stroke="#f59e0b"
+                    strokeWidth="0.3"
+                    strokeDasharray="1,0.5"
+                  />
+                ))}
+                {pendingLabel && (
+                  <line
+                    x1={pendingLabel.x_percent}
+                    y1={pendingLabel.y_percent}
+                    x2={pendingLabel.pointer_x}
+                    y2={pendingLabel.pointer_y}
+                    stroke="#22c55e"
+                    strokeWidth="0.3"
+                  />
+                )}
+              </svg>
+
+              {/* Existing labels */}
+              {labels.map((label, i) => (
+                <div key={`marker-${i}`}>
+                  <div
+                    className="editor-label-marker"
+                    style={{ left: `${label.x_percent}%`, top: `${label.y_percent}%` }}
+                    title={`${label.label_key}: ${label.correct_answer}`}
+                  >
+                    {label.label_key}
+                  </div>
+                  <div
+                    className="editor-pointer-dot"
+                    style={{ left: `${label.pointer_x}%`, top: `${label.pointer_y}%` }}
+                  />
+                </div>
+              ))}
+
+              {/* Pending label */}
+              {pendingLabel && (
+                <>
+                  <div
+                    className="editor-label-marker pending"
+                    style={{ left: `${pendingLabel.x_percent}%`, top: `${pendingLabel.y_percent}%` }}
+                  >
+                    {pendingLabel.label_key || '?'}
+                  </div>
+                  <div
+                    className="editor-pointer-dot pending"
+                    style={{ left: `${pendingLabel.pointer_x}%`, top: `${pendingLabel.pointer_y}%` }}
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Pending label detail form */}
+            {placementMode === 'details' && pendingLabel && (
+              <div className="label-detail-form">
+                <h4>New Label Details</h4>
+                <div className="label-detail-fields">
+                  <div className="form-group compact">
+                    <label>Letter</label>
+                    <input
+                      type="text"
+                      value={pendingLabel.label_key}
+                      onChange={(e) => setPendingLabel(prev => ({ ...prev, label_key: e.target.value.slice(0, 2) }))}
+                      placeholder="e.g., A"
+                      maxLength={2}
+                      autoFocus
+                      className="letter-input"
+                    />
+                  </div>
+                  <div className="form-group compact">
+                    <label>Correct Answer</label>
+                    <input
+                      type="text"
+                      value={pendingLabel.correct_answer}
+                      onChange={(e) => setPendingLabel(prev => ({ ...prev, correct_answer: e.target.value }))}
+                      placeholder="e.g., Left Ventricle"
+                    />
+                  </div>
+                  <div className="form-group compact">
+                    <label>Hint (optional)</label>
+                    <input
+                      type="text"
+                      value={pendingLabel.hint}
+                      onChange={(e) => setPendingLabel(prev => ({ ...prev, hint: e.target.value }))}
+                      placeholder="e.g., The thickest chamber..."
+                    />
+                  </div>
+                </div>
+                <div className="label-detail-actions">
+                  <button type="button" className="save-btn" onClick={handleSaveLabel}>
+                    Add Label
+                  </button>
+                  <button type="button" className="cancel-btn" onClick={() => { setPendingLabel(null); setPlacementMode(null) }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Labels list */}
+            {labels.length > 0 && (
+              <div className="labels-list-admin">
+                <h4>Labels ({labels.length})</h4>
+                <div className="labels-table">
+                  {labels.map((label, i) => (
+                    <div key={i} className="label-row-admin">
+                      <span className="label-key-badge">{label.label_key}</span>
+                      <span className="label-answer-text">{label.correct_answer}</span>
+                      <span className="label-hint-text">{label.hint || '-'}</span>
+                      <div className="label-row-actions">
+                        <button
+                          type="button"
+                          className="move-btn"
+                          onClick={() => { setEditingLabelIndex(i); setPlacementMode('move-label') }}
+                          title="Move label position"
+                        >
+                          Move
+                        </button>
+                        <button
+                          type="button"
+                          className="move-btn"
+                          onClick={() => { setEditingLabelIndex(i); setPlacementMode('move-pointer') }}
+                          title="Move pointer position"
+                        >
+                          Pointer
+                        </button>
+                        <button
+                          type="button"
+                          className="remove-option-btn"
+                          onClick={() => handleRemoveLabel(i)}
+                          title="Remove label"
+                        >
+                          x
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageUpload}
+          style={{ display: 'none' }}
+        />
+      </div>
+
+      {/* Actions */}
+      <div className="modal-actions">
+        <button type="button" className="cancel-btn" onClick={onCancel}>Cancel</button>
+        <button
+          type="button"
+          className="save-btn"
+          onClick={handleSubmit}
+          disabled={isSaving || !formData.title.trim() || !imageUrl || labels.length === 0}
+        >
+          {isSaving ? 'Saving...' : 'Save Diagram'}
+        </button>
+      </div>
     </div>
   )
 }

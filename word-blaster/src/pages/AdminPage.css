@@ -1308,3 +1308,401 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ========================
+   DIAGRAM ADMIN SECTION
+   ======================== */
+
+.diagrams-admin-section {
+  padding: 0;
+}
+
+.diagrams-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.diagram-admin-card {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  align-items: flex-start;
+}
+
+.diagram-card-preview {
+  width: 120px;
+  height: 100px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.diagram-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.diagram-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.diagram-card-info h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+  color: #1e293b;
+}
+
+.diagram-card-meta {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.3rem;
+}
+
+.label-count {
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.diagram-card-desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0.2rem 0;
+}
+
+.diagram-card-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.label-chip {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: #475569;
+}
+
+.label-chip strong {
+  color: #6366f1;
+}
+
+.diagram-card-actions {
+  flex-shrink: 0;
+}
+
+/* Diagram Create Form */
+.diagram-create-form {
+  background: white;
+  border: 2px solid #6366f1;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.diagram-create-form h3 {
+  margin: 0 0 1rem;
+  color: #1e293b;
+}
+
+.diagram-upload-area {
+  margin-bottom: 0.5rem;
+}
+
+/* Diagram Editor */
+.diagram-editor-area {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.diagram-editor-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.6rem 0.8rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.editor-btn {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #6366f1;
+  background: white;
+  color: #6366f1;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.editor-btn:hover {
+  background: #eef2ff;
+}
+
+.editor-btn.active {
+  background: #6366f1;
+  color: white;
+}
+
+.editor-btn.change {
+  border-color: #94a3b8;
+  color: #64748b;
+}
+
+.placement-hint {
+  font-size: 0.8rem;
+  color: #f59e0b;
+  font-weight: 600;
+  font-style: italic;
+}
+
+.diagram-editor-canvas {
+  position: relative;
+  background: #f8fafc;
+  min-height: 300px;
+  max-height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.diagram-editor-canvas.placing {
+  cursor: crosshair;
+}
+
+.editor-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  max-height: 500px;
+  pointer-events: none;
+}
+
+.editor-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.editor-label-marker {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.9);
+  border: 2px solid white;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.75rem;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.editor-label-marker.pending {
+  background: rgba(34, 197, 94, 0.9);
+  border-color: #dcfce7;
+  animation: pulse-green 1s infinite;
+}
+
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+}
+
+.editor-pointer-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f59e0b;
+  border: 2px solid white;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+
+.editor-pointer-dot.pending {
+  background: #22c55e;
+  animation: pulse-green 1s infinite;
+}
+
+/* Label detail form (after clicking on diagram) */
+.label-detail-form {
+  padding: 1rem;
+  background: #f0fdf4;
+  border-top: 2px solid #22c55e;
+}
+
+.label-detail-form h4 {
+  margin: 0 0 0.5rem;
+  color: #166534;
+  font-size: 0.9rem;
+}
+
+.label-detail-fields {
+  display: grid;
+  grid-template-columns: 80px 1fr 1fr;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.form-group.compact {
+  margin-bottom: 0;
+}
+
+.form-group.compact label {
+  font-size: 0.75rem;
+  margin-bottom: 0.2rem;
+  display: block;
+  color: #475569;
+  font-weight: 600;
+}
+
+.form-group.compact input {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.letter-input {
+  text-transform: uppercase;
+  text-align: center;
+  font-weight: 800;
+  max-width: 60px;
+}
+
+.label-detail-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.label-detail-actions .save-btn,
+.label-detail-actions .cancel-btn {
+  padding: 0.35rem 1rem;
+  font-size: 0.8rem;
+}
+
+/* Labels list in admin */
+.labels-list-admin {
+  padding: 0.8rem;
+  background: #fafafa;
+  border-top: 1px solid #e2e8f0;
+}
+
+.labels-list-admin h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.labels-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.label-row-admin {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.label-key-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #6366f1;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.label-answer-text {
+  flex: 1;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.label-hint-text {
+  flex: 1;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.label-row-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.move-btn {
+  padding: 0.2rem 0.5rem;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  color: #475569;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.move-btn:hover {
+  background: #e2e8f0;
+}
+
+@media (max-width: 768px) {
+  .diagram-admin-card {
+    flex-direction: column;
+  }
+
+  .diagram-card-preview {
+    width: 100%;
+    height: 150px;
+  }
+
+  .label-detail-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .label-row-admin {
+    flex-wrap: wrap;
+  }
+}

@@ -103,7 +103,7 @@ export async function initializeDatabase() {
       wrong_answers INTEGER DEFAULT 0,
       best_streak INTEGER DEFAULT 0,
       tab_switches INTEGER DEFAULT 0,
-      min_time_required INTEGER DEFAULT 1800,
+      min_time_required INTEGER DEFAULT 900,
       duration_seconds INTEGER DEFAULT 0,
       started_at TIMESTAMPTZ DEFAULT NOW(),
       finished_at TIMESTAMPTZ,

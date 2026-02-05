@@ -19,7 +19,7 @@ router.post('/', async (req, res) => {
         subject || '',
         topics ? JSON.stringify(topics) : '[]',
         gameMode || 'quiz',
-        minTimeRequired || 1800
+        minTimeRequired || 900
       ]
     )
 

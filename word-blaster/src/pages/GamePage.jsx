@@ -49,7 +49,11 @@ function GamePage() {
   const [minTimeReached, setMinTimeReached] = useState(false)
   const gameStartTimeRef = useRef(null)
 
-  const MIN_QUIZ_TIME = 1800 // 30 minutes in seconds
+  const MIN_QUIZ_TIME = 900 // 15 minutes in seconds
+
+  const failedQuestionsRef = useRef(new Set())
+  const originalPoolSizeRef = useRef(0)
+  const lastRebuildCycleRef = useRef(0)
 
   const gameAreaRef = useRef(null)
   const inputRef = useRef(null)
@@ -63,7 +67,39 @@ function GamePage() {
       return
     }
     setQuestionPool(questions)
+    originalPoolSizeRef.current = questions.length
   }, [getWeightedQuestions, navigate])
+
+  // Rebuild question pool with spaced repetition after each full cycle
+  useEffect(() => {
+    if (originalPoolSizeRef.current === 0 || currentQuestionIndex === 0) return
+
+    const cycle = Math.floor(currentQuestionIndex / originalPoolSizeRef.current)
+    if (cycle > lastRebuildCycleRef.current) {
+      lastRebuildCycleRef.current = cycle
+
+      const base = getWeightedQuestions()
+      if (base.length === 0) return
+
+      const newPool = []
+      for (const q of base) {
+        newPool.push(q)
+        // Failed questions appear 3x as often (spaced repetition)
+        if (failedQuestionsRef.current.has(q.id)) {
+          newPool.push({ ...q })
+          newPool.push({ ...q })
+        }
+      }
+
+      // Fisher-Yates shuffle
+      for (let i = newPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newPool[i], newPool[j]] = [newPool[j], newPool[i]]
+      }
+
+      setQuestionPool(newPool)
+    }
+  }, [currentQuestionIndex, getWeightedQuestions])
 
   // Countdown before game starts
   useEffect(() => {
@@ -94,9 +130,9 @@ function GamePage() {
     })
   }, [gameStarted, quizSessionId, selectedSubject, selectedTopics])
 
-  // Elapsed time counter
+  // Elapsed time counter - keeps running even during gameOver resets
   useEffect(() => {
-    if (!gameStarted || gameOver) return
+    if (!gameStarted) return
 
     const timer = setInterval(() => {
       if (gameStartTimeRef.current) {
@@ -109,7 +145,7 @@ function GamePage() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [gameStarted, gameOver])
+  }, [gameStarted])
 
   // Tab visibility detection
   useEffect(() => {
@@ -226,8 +262,9 @@ function GamePage() {
     })
     setTimeout(() => setShowWrongFeedback(null), 2500)
 
-    // Record as wrong
+    // Record as wrong and track for spaced repetition
     recordAnswer(question.id, false)
+    failedQuestionsRef.current.add(question.id)
 
     // Record detailed answer for quiz session
     if (quizSessionId) {
@@ -454,7 +491,7 @@ function GamePage() {
           <div className="quiz-timer">
             {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, '0')}
             {!minTimeReached && (
-              <span className="min-time-note"> / 30:00</span>
+              <span className="min-time-note"> / 15:00</span>
             )}
           </div>
           <div className="lives-display">
@@ -574,10 +611,15 @@ function GamePage() {
                 <button className="resume-btn" onClick={togglePause}>
                   ▶️ Resume
                 </button>
-                <button className="quit-btn" onClick={endGame}>
+                <button className="quit-btn" onClick={endGame} disabled={!minTimeReached}>
                   🚪 End Game
                 </button>
               </div>
+              {!minTimeReached && (
+                <div className="min-time-note" style={{ marginTop: '0.5rem', fontSize: '0.85rem', opacity: 0.7 }}>
+                  Quiz ends after {Math.floor((MIN_QUIZ_TIME - elapsedSeconds) / 60)}:{String((MIN_QUIZ_TIME - elapsedSeconds) % 60).padStart(2, '0')} remaining
+                </div>
+              )}
             </div>
           </motion.div>
         )}
@@ -607,7 +649,7 @@ function GamePage() {
                 <>
                   <h2>Keep Going!</h2>
                   <div className="min-time-message">
-                    Minimum quiz time: 30 minutes
+                    Minimum quiz time: 15 minutes
                   </div>
                   <div className="time-remaining">
                     {Math.floor((MIN_QUIZ_TIME - elapsedSeconds) / 60)}:{String((MIN_QUIZ_TIME - elapsedSeconds) % 60).padStart(2, '0')} remaining

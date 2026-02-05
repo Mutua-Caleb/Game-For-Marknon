@@ -175,6 +175,63 @@ export const sequencesApi = {
   }
 }
 
+// Quiz Sessions API
+export const quizSessionApi = {
+  async start(data) {
+    const res = await fetch(`${API_BASE}/quiz-sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    return handleResponse(res)
+  },
+
+  async recordAnswer(sessionId, answerData) {
+    const res = await fetch(`${API_BASE}/quiz-sessions/${sessionId}/answer`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(answerData)
+    })
+    return handleResponse(res)
+  },
+
+  async recordTabEvent(sessionId, eventType) {
+    const res = await fetch(`${API_BASE}/quiz-sessions/${sessionId}/tab-event`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ eventType })
+    })
+    return handleResponse(res)
+  },
+
+  async complete(sessionId, data) {
+    const res = await fetch(`${API_BASE}/quiz-sessions/${sessionId}/complete`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    return handleResponse(res)
+  },
+
+  async getAll(params = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.limit) searchParams.set('limit', params.limit)
+    if (params.offset) searchParams.set('offset', params.offset)
+
+    const res = await fetch(`${API_BASE}/quiz-sessions?${searchParams}`, {
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  },
+
+  async getById(id) {
+    const res = await fetch(`${API_BASE}/quiz-sessions/${id}`, {
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  }
+}
+
 // Stats API
 export const statsApi = {
   async recordAnswer(questionId, isCorrect) {

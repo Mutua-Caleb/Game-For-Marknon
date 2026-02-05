@@ -91,6 +91,43 @@ export async function initializeDatabase() {
       step_number INTEGER NOT NULL,
       step_text TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS quiz_sessions (
+      id SERIAL PRIMARY KEY,
+      player_name TEXT DEFAULT 'Anonymous',
+      subject TEXT,
+      topics TEXT,
+      game_mode TEXT DEFAULT 'quiz',
+      score INTEGER DEFAULT 0,
+      correct_answers INTEGER DEFAULT 0,
+      wrong_answers INTEGER DEFAULT 0,
+      best_streak INTEGER DEFAULT 0,
+      tab_switches INTEGER DEFAULT 0,
+      min_time_required INTEGER DEFAULT 1800,
+      duration_seconds INTEGER DEFAULT 0,
+      started_at TIMESTAMPTZ DEFAULT NOW(),
+      finished_at TIMESTAMPTZ,
+      completed BOOLEAN DEFAULT FALSE
+    );
+
+    CREATE TABLE IF NOT EXISTS quiz_session_answers (
+      id SERIAL PRIMARY KEY,
+      session_id INTEGER NOT NULL REFERENCES quiz_sessions(id) ON DELETE CASCADE,
+      question_id TEXT,
+      question_text TEXT,
+      correct_answer TEXT,
+      given_answer TEXT,
+      is_correct BOOLEAN,
+      time_taken_ms INTEGER,
+      answered_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS quiz_tab_events (
+      id SERIAL PRIMARY KEY,
+      session_id INTEGER NOT NULL REFERENCES quiz_sessions(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL,
+      event_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `)
 
   // Create indexes if they don't exist
@@ -100,6 +137,9 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_question_stats_wrong ON question_stats(wrong DESC);
     CREATE INDEX IF NOT EXISTS idx_sequence_questions_subject ON sequence_questions(subject);
     CREATE INDEX IF NOT EXISTS idx_sequence_steps_sequence ON sequence_steps(sequence_id);
+    CREATE INDEX IF NOT EXISTS idx_quiz_sessions_started ON quiz_sessions(started_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_quiz_session_answers_session ON quiz_session_answers(session_id);
+    CREATE INDEX IF NOT EXISTS idx_quiz_tab_events_session ON quiz_tab_events(session_id);
   `)
 
   // Seed default admin if none exists

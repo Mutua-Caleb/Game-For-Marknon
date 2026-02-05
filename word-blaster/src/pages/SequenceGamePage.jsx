@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
+import { quizSessionApi } from '../utils/api'
 import './SequenceGamePage.css'
 
 function SequenceGamePage() {
   const navigate = useNavigate()
   const { playSound } = useSound()
-  const { getFilteredSequences } = useGame()
+  const { getFilteredSequences, selectedSubject, selectedTopics } = useGame()
 
   const [allSequences, setAllSequences] = useState([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -23,6 +24,14 @@ function SequenceGamePage() {
   const [countdown, setCountdown] = useState(3)
   const [gameStarted, setGameStarted] = useState(false)
   const [sequenceResults, setSequenceResults] = useState([])
+
+  // Quiz monitoring state
+  const [quizSessionId, setQuizSessionId] = useState(null)
+  const [tabSwitchCount, setTabSwitchCount] = useState(0)
+  const [showTabWarning, setShowTabWarning] = useState(false)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const gameStartTimeRef = useRef(null)
+
   const containerRef = useRef(null)
 
   // Load sequences
@@ -45,6 +54,56 @@ function SequenceGamePage() {
       playSound('gameStart')
     }
   }, [countdown, gameStarted, playSound])
+
+  // Create quiz session when game starts
+  useEffect(() => {
+    if (!gameStarted || quizSessionId) return
+
+    gameStartTimeRef.current = Date.now()
+
+    quizSessionApi.start({
+      subject: selectedSubject,
+      topics: selectedTopics,
+      gameMode: 'sequence',
+      minTimeRequired: 0
+    }).then(result => {
+      setQuizSessionId(result.sessionId)
+    }).catch(err => {
+      console.error('Failed to create quiz session:', err)
+    })
+  }, [gameStarted, quizSessionId, selectedSubject, selectedTopics])
+
+  // Elapsed time counter
+  useEffect(() => {
+    if (!gameStarted || completed) return
+
+    const timer = setInterval(() => {
+      if (gameStartTimeRef.current) {
+        setElapsedSeconds(Math.floor((Date.now() - gameStartTimeRef.current) / 1000))
+      }
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [gameStarted, completed])
+
+  // Tab visibility detection
+  useEffect(() => {
+    if (!gameStarted || !quizSessionId) return
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount(prev => prev + 1)
+        quizSessionApi.recordTabEvent(quizSessionId, 'left').catch(console.error)
+      } else {
+        setShowTabWarning(true)
+        quizSessionApi.recordTabEvent(quizSessionId, 'returned').catch(console.error)
+        setTimeout(() => setShowTabWarning(false), 4000)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [gameStarted, quizSessionId])
 
   // Shuffle steps for current sequence
   useEffect(() => {
@@ -107,6 +166,18 @@ function SequenceGamePage() {
         score: attemptScore
       }])
 
+      // Record in quiz session
+      if (quizSessionId) {
+        quizSessionApi.recordAnswer(quizSessionId, {
+          questionId: currentSequence.id,
+          questionText: currentSequence.title,
+          correctAnswer: 'Correct order',
+          givenAnswer: `Solved in ${attempts + 1} attempt(s)`,
+          isCorrect: true,
+          timeTakenMs: 0
+        }).catch(console.error)
+      }
+
       // Auto-advance after showing success
       setTimeout(() => {
         if (currentIndex < allSequences.length - 1) {
@@ -147,12 +218,23 @@ function SequenceGamePage() {
       skipped: true
     }])
 
+    if (quizSessionId) {
+      quizSessionApi.recordAnswer(quizSessionId, {
+        questionId: currentSequence?.id,
+        questionText: currentSequence?.title || 'Unknown',
+        correctAnswer: 'Correct order',
+        givenAnswer: 'Skipped',
+        isCorrect: false,
+        timeTakenMs: 0
+      }).catch(console.error)
+    }
+
     if (currentIndex < allSequences.length - 1) {
       setCurrentIndex(prev => prev + 1)
     } else {
       setCompleted(true)
     }
-  }, [playSound, currentSequence, attempts, currentIndex, allSequences.length])
+  }, [playSound, currentSequence, attempts, currentIndex, allSequences.length, quizSessionId])
 
   const handleRevealAnswer = useCallback(() => {
     playSound('click')
@@ -177,6 +259,21 @@ function SequenceGamePage() {
       }
     }, 3000)
   }, [playSound, shuffledSteps, currentSequence, attempts, currentIndex, allSequences.length])
+
+  // Complete quiz session when all sequences done
+  useEffect(() => {
+    if (!completed || !quizSessionId) return
+
+    const durationSeconds = gameStartTimeRef.current
+      ? Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
+      : 0
+
+    quizSessionApi.complete(quizSessionId, {
+      score,
+      bestStreak: 0,
+      durationSeconds
+    }).catch(console.error)
+  }, [completed, quizSessionId, score])
 
   // Countdown screen
   if (countdown > 0) {
@@ -274,6 +371,20 @@ function SequenceGamePage() {
 
   return (
     <div className="sequence-page" ref={containerRef}>
+      {/* Tab Switch Warning */}
+      <AnimatePresence>
+        {showTabWarning && (
+          <motion.div
+            className="tab-warning-banner"
+            initial={{ y: -60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -60, opacity: 0 }}
+          >
+            &#9888; Tab switch detected! This has been logged. (Total: {tabSwitchCount})
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="sequence-header">
         <button className="seq-back-button" onClick={() => navigate('/topics')}>
@@ -282,10 +393,20 @@ function SequenceGamePage() {
         <div className="seq-progress">
           {currentIndex + 1} / {allSequences.length}
         </div>
+        <div className="seq-timer">
+          {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, '0')}
+        </div>
         <div className="seq-score">
           Score: {score}
         </div>
       </div>
+
+      {/* Tab switch badge */}
+      {tabSwitchCount > 0 && (
+        <div className="seq-tab-badge">
+          &#9888; {tabSwitchCount} tab switch{tabSwitchCount !== 1 ? 'es' : ''}
+        </div>
+      )}
 
       {/* Sequence Title & Description */}
       <motion.div

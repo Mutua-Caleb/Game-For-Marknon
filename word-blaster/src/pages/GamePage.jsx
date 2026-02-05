@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
+import { quizSessionApi } from '../utils/api'
 import FallingQuestion from '../components/FallingQuestion'
 import AnswerInput from '../components/AnswerInput'
 import ScoreDisplay from '../components/ScoreDisplay'
@@ -17,7 +18,9 @@ function GamePage() {
     gameSettings,
     recordAnswer,
     playerStats,
-    setCurrentSession
+    setCurrentSession,
+    selectedSubject,
+    selectedTopics
   } = useGame()
 
   const [activeQuestions, setActiveQuestions] = useState([])
@@ -37,6 +40,16 @@ function GamePage() {
   const [countdown, setCountdown] = useState(3)
   const [lives, setLives] = useState(3)
   const [gameOver, setGameOver] = useState(false)
+
+  // Quiz monitoring state
+  const [quizSessionId, setQuizSessionId] = useState(null)
+  const [tabSwitchCount, setTabSwitchCount] = useState(0)
+  const [showTabWarning, setShowTabWarning] = useState(false)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [minTimeReached, setMinTimeReached] = useState(false)
+  const gameStartTimeRef = useRef(null)
+
+  const MIN_QUIZ_TIME = 1800 // 30 minutes in seconds
 
   const gameAreaRef = useRef(null)
   const inputRef = useRef(null)
@@ -62,6 +75,62 @@ function GamePage() {
       playSound('gameStart')
     }
   }, [countdown, gameStarted, playSound])
+
+  // Create quiz session when game starts
+  useEffect(() => {
+    if (!gameStarted || quizSessionId) return
+
+    gameStartTimeRef.current = Date.now()
+
+    quizSessionApi.start({
+      subject: selectedSubject,
+      topics: selectedTopics,
+      gameMode: 'quiz',
+      minTimeRequired: MIN_QUIZ_TIME
+    }).then(result => {
+      setQuizSessionId(result.sessionId)
+    }).catch(err => {
+      console.error('Failed to create quiz session:', err)
+    })
+  }, [gameStarted, quizSessionId, selectedSubject, selectedTopics])
+
+  // Elapsed time counter
+  useEffect(() => {
+    if (!gameStarted || gameOver) return
+
+    const timer = setInterval(() => {
+      if (gameStartTimeRef.current) {
+        const elapsed = Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
+        setElapsedSeconds(elapsed)
+        if (elapsed >= MIN_QUIZ_TIME) {
+          setMinTimeReached(true)
+        }
+      }
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [gameStarted, gameOver])
+
+  // Tab visibility detection
+  useEffect(() => {
+    if (!gameStarted || !quizSessionId) return
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // User left the tab
+        setTabSwitchCount(prev => prev + 1)
+        quizSessionApi.recordTabEvent(quizSessionId, 'left').catch(console.error)
+      } else {
+        // User returned to the tab
+        setShowTabWarning(true)
+        quizSessionApi.recordTabEvent(quizSessionId, 'returned').catch(console.error)
+        setTimeout(() => setShowTabWarning(false), 4000)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [gameStarted, quizSessionId])
 
   // Determine question size class based on content
   const getQuestionSize = useCallback((q) => {
@@ -159,6 +228,19 @@ function GamePage() {
 
     // Record as wrong
     recordAnswer(question.id, false)
+
+    // Record detailed answer for quiz session
+    if (quizSessionId) {
+      quizSessionApi.recordAnswer(quizSessionId, {
+        questionId: question.id,
+        questionText: question.question,
+        correctAnswer: question.answer,
+        givenAnswer: null,
+        isCorrect: false,
+        timeTakenMs: Date.now() - question.startTime
+      }).catch(console.error)
+    }
+
     setSessionStats(prev => ({
       ...prev,
       wrong: prev.wrong + 1,
@@ -219,6 +301,19 @@ function GamePage() {
       })
 
       recordAnswer(matchedQuestion.id, true)
+
+      // Record detailed answer for quiz session
+      if (quizSessionId) {
+        quizSessionApi.recordAnswer(quizSessionId, {
+          questionId: matchedQuestion.id,
+          questionText: matchedQuestion.question,
+          correctAnswer: matchedQuestion.answer,
+          givenAnswer: answer.trim(),
+          isCorrect: true,
+          timeTakenMs: Date.now() - matchedQuestion.startTime
+        }).catch(console.error)
+      }
+
       setShowCorrectFeedback(true)
       setTimeout(() => setShowCorrectFeedback(false), 500)
 
@@ -258,21 +353,44 @@ function GamePage() {
 
   // End game
   const endGame = useCallback(() => {
+    const durationSeconds = gameStartTimeRef.current
+      ? Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
+      : 0
+
+    // Complete quiz session on server
+    if (quizSessionId) {
+      quizSessionApi.complete(quizSessionId, {
+        score: sessionStats.score,
+        bestStreak: sessionStats.streak,
+        durationSeconds
+      }).catch(console.error)
+    }
+
     setCurrentSession({
       ...sessionStats,
+      tabSwitches: tabSwitchCount,
+      durationSeconds,
       timestamp: Date.now()
     })
-    navigate('/results', { state: sessionStats })
-  }, [sessionStats, setCurrentSession, navigate])
+    navigate('/results', { state: { ...sessionStats, tabSwitches: tabSwitchCount, durationSeconds } })
+  }, [sessionStats, setCurrentSession, navigate, quizSessionId, tabSwitchCount])
 
-  // Handle game over
+  // Handle game over - enforce minimum time
   useEffect(() => {
     if (gameOver) {
-      setTimeout(() => {
-        endGame()
-      }, 2000)
+      if (minTimeReached) {
+        setTimeout(() => {
+          endGame()
+        }, 2000)
+      } else {
+        // Reset lives and keep going - minimum time not met
+        setTimeout(() => {
+          setGameOver(false)
+          setLives(3)
+        }, 1500)
+      }
     }
-  }, [gameOver, endGame])
+  }, [gameOver, endGame, minTimeReached])
 
   // Current question for input display
   const currentQuestion = activeQuestions[0]
@@ -306,6 +424,21 @@ function GamePage() {
         )}
       </AnimatePresence>
 
+      {/* Tab Switch Warning */}
+      <AnimatePresence>
+        {showTabWarning && (
+          <motion.div
+            className="tab-warning-banner"
+            initial={{ y: -60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -60, opacity: 0 }}
+          >
+            <span className="warning-icon">&#9888;</span>
+            Tab switch detected! This has been logged. (Total: {tabSwitchCount})
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Game Header */}
       <div className="game-header">
         <button className="pause-button" onClick={togglePause}>
@@ -317,14 +450,29 @@ function GamePage() {
           correct={sessionStats.correct}
           wrong={sessionStats.wrong}
         />
-        <div className="lives-display">
-          {[...Array(3)].map((_, i) => (
-            <span key={i} className={`life-heart ${i < lives ? 'active' : 'lost'}`}>
-              ❤️
-            </span>
-          ))}
+        <div className="header-right-info">
+          <div className="quiz-timer">
+            {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, '0')}
+            {!minTimeReached && (
+              <span className="min-time-note"> / 30:00</span>
+            )}
+          </div>
+          <div className="lives-display">
+            {[...Array(3)].map((_, i) => (
+              <span key={i} className={`life-heart ${i < lives ? 'active' : 'lost'}`}>
+                &#10084;&#65039;
+              </span>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Tab switch counter (persistent small badge) */}
+      {tabSwitchCount > 0 && gameStarted && (
+        <div className="tab-switch-badge">
+          <span className="warning-icon">&#9888;</span> {tabSwitchCount} tab switch{tabSwitchCount !== 1 ? 'es' : ''}
+        </div>
+      )}
 
       {/* Game Area */}
       <div className="game-area">
@@ -449,9 +597,24 @@ function GamePage() {
               animate={{ scale: 1 }}
               transition={{ delay: 0.2 }}
             >
-              <h2>Game Over!</h2>
-              <div className="final-score">{sessionStats.score}</div>
-              <div className="loading-text">Loading results...</div>
+              {minTimeReached ? (
+                <>
+                  <h2>Game Over!</h2>
+                  <div className="final-score">{sessionStats.score}</div>
+                  <div className="loading-text">Loading results...</div>
+                </>
+              ) : (
+                <>
+                  <h2>Keep Going!</h2>
+                  <div className="min-time-message">
+                    Minimum quiz time: 30 minutes
+                  </div>
+                  <div className="time-remaining">
+                    {Math.floor((MIN_QUIZ_TIME - elapsedSeconds) / 60)}:{String((MIN_QUIZ_TIME - elapsedSeconds) % 60).padStart(2, '0')} remaining
+                  </div>
+                  <div className="loading-text">Lives restored. Continuing...</div>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}

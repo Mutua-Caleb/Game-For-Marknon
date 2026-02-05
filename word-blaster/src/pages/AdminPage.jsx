@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
-import { uploadApi, questionsApi, statsApi, authApi } from '../utils/api'
+import { uploadApi, questionsApi, statsApi, authApi, quizSessionApi } from '../utils/api'
 import './AdminPage.css'
 
 const SUBJECTS = ['Science', 'English']
@@ -153,6 +153,12 @@ function AdminPage() {
           Analytics
         </button>
         <button
+          className={`tab ${activeTab === 'sessions' ? 'active' : ''}`}
+          onClick={() => setActiveTab('sessions')}
+        >
+          Quiz Sessions
+        </button>
+        <button
           className={`tab ${activeTab === 'import' ? 'active' : ''}`}
           onClick={() => setActiveTab('import')}
         >
@@ -239,6 +245,10 @@ function AdminPage() {
               }
             }}
           />
+        )}
+
+        {activeTab === 'sessions' && (
+          <QuizSessionsSection />
         )}
 
         {activeTab === 'import' && (
@@ -764,6 +774,245 @@ function AnalyticsSection({ overview, failedQuestions, onResetStats }) {
           Reset All Statistics
         </button>
       </div>
+    </div>
+  )
+}
+
+// Quiz Sessions Section
+function QuizSessionsSection() {
+  const [sessions, setSessions] = useState([])
+  const [total, setTotal] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+  const [expandedSession, setExpandedSession] = useState(null)
+  const [sessionDetail, setSessionDetail] = useState(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
+
+  useEffect(() => {
+    loadSessions()
+  }, [])
+
+  const loadSessions = async () => {
+    setIsLoading(true)
+    try {
+      const data = await quizSessionApi.getAll({ limit: 50 })
+      setSessions(data.sessions)
+      setTotal(data.total)
+    } catch (err) {
+      console.error('Failed to load sessions:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadDetail = async (sessionId) => {
+    if (expandedSession === sessionId) {
+      setExpandedSession(null)
+      setSessionDetail(null)
+      return
+    }
+
+    setExpandedSession(sessionId)
+    setLoadingDetail(true)
+    try {
+      const detail = await quizSessionApi.getById(sessionId)
+      setSessionDetail(detail)
+    } catch (err) {
+      console.error('Failed to load session detail:', err)
+    } finally {
+      setLoadingDetail(false)
+    }
+  }
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A'
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    })
+  }
+
+  const formatDuration = (seconds) => {
+    if (!seconds) return '0:00'
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+
+  if (isLoading) {
+    return <div className="sessions-loading">Loading quiz sessions...</div>
+  }
+
+  return (
+    <div className="sessions-section">
+      <div className="sessions-header">
+        <h2>Quiz Sessions ({total})</h2>
+        <button className="refresh-btn" onClick={loadSessions}>Refresh</button>
+      </div>
+
+      {sessions.length === 0 ? (
+        <div className="empty-state">
+          <span className="empty-icon">&#128203;</span>
+          <p>No quiz sessions recorded yet. Sessions are created when students play the game.</p>
+        </div>
+      ) : (
+        <div className="sessions-list">
+          {sessions.map(session => (
+            <div key={session.id} className="session-item">
+              <div
+                className={`session-summary ${expandedSession === session.id ? 'expanded' : ''}`}
+                onClick={() => loadDetail(session.id)}
+              >
+                <div className="session-main">
+                  <div className="session-player">
+                    {session.player_name || 'Anonymous'}
+                  </div>
+                  <div className="session-meta">
+                    <span className={`mode-tag ${session.game_mode}`}>
+                      {session.game_mode === 'sequence' ? 'Sequence' : 'Quiz'}
+                    </span>
+                    <span className="session-subject">{session.subject}</span>
+                    <span className="session-date">{formatDate(session.started_at)}</span>
+                  </div>
+                </div>
+
+                <div className="session-stats-row">
+                  <div className="session-stat">
+                    <span className="stat-val correct-val">{session.correct_answers}</span>
+                    <span className="stat-lbl">Correct</span>
+                  </div>
+                  <div className="session-stat">
+                    <span className="stat-val wrong-val">{session.wrong_answers}</span>
+                    <span className="stat-lbl">Wrong</span>
+                  </div>
+                  <div className="session-stat">
+                    <span className="stat-val">{session.score}</span>
+                    <span className="stat-lbl">Score</span>
+                  </div>
+                  <div className="session-stat">
+                    <span className="stat-val">{formatDuration(session.duration_seconds)}</span>
+                    <span className="stat-lbl">Duration</span>
+                  </div>
+                  <div className="session-stat">
+                    <span className={`stat-val ${session.tab_switches > 0 ? 'warning-val' : ''}`}>
+                      {session.tab_switches}
+                    </span>
+                    <span className="stat-lbl">Tab Switches</span>
+                  </div>
+                  <div className="session-stat">
+                    <span className={`status-badge ${session.completed ? 'completed' : 'incomplete'}`}>
+                      {session.completed ? 'Completed' : 'Incomplete'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="expand-arrow">
+                  {expandedSession === session.id ? '\u25B2' : '\u25BC'}
+                </div>
+              </div>
+
+              {/* Expanded Detail */}
+              <AnimatePresence>
+                {expandedSession === session.id && (
+                  <motion.div
+                    className="session-detail"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {loadingDetail ? (
+                      <div className="detail-loading">Loading details...</div>
+                    ) : sessionDetail ? (
+                      <div className="detail-content">
+                        {/* Accuracy Bar */}
+                        <div className="accuracy-section">
+                          <h4>Accuracy</h4>
+                          <div className="accuracy-bar-container">
+                            <div className="accuracy-bar">
+                              <div
+                                className="accuracy-fill correct-fill"
+                                style={{
+                                  width: `${sessionDetail.correct_answers + sessionDetail.wrong_answers > 0
+                                    ? (sessionDetail.correct_answers / (sessionDetail.correct_answers + sessionDetail.wrong_answers) * 100)
+                                    : 0}%`
+                                }}
+                              />
+                            </div>
+                            <span className="accuracy-text">
+                              {sessionDetail.correct_answers + sessionDetail.wrong_answers > 0
+                                ? Math.round(sessionDetail.correct_answers / (sessionDetail.correct_answers + sessionDetail.wrong_answers) * 100)
+                                : 0}%
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Tab Events */}
+                        {sessionDetail.tabEvents && sessionDetail.tabEvents.length > 0 && (
+                          <div className="tab-events-section">
+                            <h4>Tab Switch Timeline ({sessionDetail.tab_switches} switches)</h4>
+                            <div className="tab-events-list">
+                              {sessionDetail.tabEvents.map((evt, i) => (
+                                <div key={i} className={`tab-event ${evt.event_type}`}>
+                                  <span className="event-icon">
+                                    {evt.event_type === 'left' ? '\u274C' : '\u2705'}
+                                  </span>
+                                  <span className="event-type">
+                                    {evt.event_type === 'left' ? 'Left tab' : 'Returned'}
+                                  </span>
+                                  <span className="event-time">
+                                    {new Date(evt.event_at).toLocaleTimeString()}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Per-Question Answers */}
+                        {sessionDetail.answers && sessionDetail.answers.length > 0 && (
+                          <div className="answers-section">
+                            <h4>Question-by-Question Results ({sessionDetail.answers.length} questions)</h4>
+                            <div className="answers-list">
+                              {sessionDetail.answers.map((ans, i) => (
+                                <div key={i} className={`answer-row ${ans.is_correct ? 'correct' : 'wrong'}`}>
+                                  <div className="answer-index">#{i + 1}</div>
+                                  <div className="answer-content">
+                                    <div className="answer-question">{ans.question_text}</div>
+                                    <div className="answer-details">
+                                      <span className="correct-ans">
+                                        Correct: <strong>{ans.correct_answer}</strong>
+                                      </span>
+                                      {ans.given_answer && (
+                                        <span className={`given-ans ${ans.is_correct ? '' : 'wrong-given'}`}>
+                                          Given: <strong>{ans.given_answer}</strong>
+                                        </span>
+                                      )}
+                                      {!ans.given_answer && !ans.is_correct && (
+                                        <span className="given-ans wrong-given">Timed out</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="answer-time">
+                                    {ans.time_taken_ms ? `${(ans.time_taken_ms / 1000).toFixed(1)}s` : '-'}
+                                  </div>
+                                  <div className={`answer-badge ${ans.is_correct ? 'correct' : 'wrong'}`}>
+                                    {ans.is_correct ? '\u2713' : '\u2717'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

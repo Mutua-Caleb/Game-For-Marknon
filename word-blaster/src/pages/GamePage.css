@@ -305,6 +305,93 @@
   margin-top: 1rem;
 }
 
+/* Tab Warning Banner */
+.tab-warning-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
+  color: white;
+  text-align: center;
+  padding: 0.8rem 1rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 20px rgba(231, 76, 60, 0.5);
+}
+
+.warning-icon {
+  font-size: 1.2rem;
+}
+
+/* Tab Switch Badge */
+.tab-switch-badge {
+  position: fixed;
+  top: 5rem;
+  right: 1rem;
+  background: rgba(231, 76, 60, 0.25);
+  border: 1px solid rgba(231, 76, 60, 0.5);
+  color: #ff6b6b;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tab-switch-badge .warning-icon {
+  font-size: 0.85rem;
+}
+
+/* Header right info */
+.header-right-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Quiz Timer */
+.quiz-timer {
+  color: #55efc4;
+  font-weight: 700;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  background: rgba(0, 184, 148, 0.15);
+  padding: 0.3rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 184, 148, 0.3);
+}
+
+.min-time-note {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+/* Minimum time message in game over */
+.min-time-message {
+  color: #fdcb6e;
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.time-remaining {
+  color: #55efc4;
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 768px) {
   .input-floating {
     width: 260px;

@@ -457,6 +457,46 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Tab Warning */
+.tab-warning-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
+  color: white;
+  text-align: center;
+  padding: 0.8rem 1rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  z-index: 200;
+  box-shadow: 0 4px 20px rgba(231, 76, 60, 0.5);
+}
+
+.seq-timer {
+  color: #55efc4;
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  background: rgba(0, 184, 148, 0.2);
+  padding: 0.3rem 0.8rem;
+  border-radius: 12px;
+}
+
+.seq-tab-badge {
+  position: fixed;
+  top: 4.5rem;
+  right: 1rem;
+  background: rgba(231, 76, 60, 0.25);
+  border: 1px solid rgba(231, 76, 60, 0.5);
+  color: #ff6b6b;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 60;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .sequence-page {

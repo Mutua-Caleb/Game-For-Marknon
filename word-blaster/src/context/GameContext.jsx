@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { questionsApi, sequencesApi, statsApi } from '../utils/api'
+import { questionsApi, sequencesApi, diagramsApi, statsApi } from '../utils/api'
 
 const GameContext = createContext()
 
@@ -21,6 +21,7 @@ export function GameProvider({ children }) {
   })
   const [questionStats, setQuestionStats] = useState({})
   const [sequences, setSequences] = useState([])
+  const [diagrams, setDiagrams] = useState([])
   const [currentSession, setCurrentSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -47,6 +48,14 @@ export function GameProvider({ children }) {
           setSequences(fetchedSequences)
         } catch (seqError) {
           console.error('Error loading sequences:', seqError)
+        }
+
+        // Load diagrams
+        try {
+          const fetchedDiagrams = await diagramsApi.getAll()
+          setDiagrams(fetchedDiagrams)
+        } catch (diagError) {
+          console.error('Error loading diagrams:', diagError)
         }
 
         // Load settings from localStorage
@@ -118,6 +127,21 @@ export function GameProvider({ children }) {
 
     return filtered
   }, [sequences, selectedSubject, selectedTopics])
+
+  // Get diagrams filtered by subject and topics
+  const getFilteredDiagrams = useCallback(() => {
+    let filtered = diagrams
+
+    if (selectedSubject) {
+      filtered = filtered.filter(d => d.subject === selectedSubject)
+    }
+
+    if (selectedTopics.length > 0) {
+      filtered = filtered.filter(d => selectedTopics.includes(d.topic))
+    }
+
+    return filtered
+  }, [diagrams, selectedSubject, selectedTopics])
 
   // Get questions weighted by failure rate (failed questions appear more often)
   const getWeightedQuestions = useCallback(() => {
@@ -262,6 +286,7 @@ export function GameProvider({ children }) {
   const value = {
     questions,
     sequences,
+    diagrams,
     selectedSubject,
     setSelectedSubject,
     selectedTopics,
@@ -275,6 +300,7 @@ export function GameProvider({ children }) {
     isLoading,
     getFilteredQuestions,
     getFilteredSequences,
+    getFilteredDiagrams,
     getWeightedQuestions,
     recordAnswer,
     addQuestion,

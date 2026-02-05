@@ -1,0 +1,582 @@
+.diagram-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* Header */
+.diagram-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.diag-back-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.diag-back-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.diag-progress {
+  background: rgba(99, 102, 241, 0.3);
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.diag-timer {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  color: #94a3b8;
+}
+
+.diag-score {
+  font-weight: 700;
+  color: #fbbf24;
+  font-size: 0.95rem;
+}
+
+.diag-tab-badge {
+  position: fixed;
+  top: 60px;
+  right: 10px;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  z-index: 100;
+}
+
+/* Title section */
+.diagram-title-section {
+  text-align: center;
+  padding: 0.5rem 1rem;
+  flex-shrink: 0;
+}
+
+.diagram-title {
+  font-size: 1.3rem;
+  margin: 0;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.diagram-description {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0.25rem 0 0;
+}
+
+/* Main content layout */
+.diagram-content {
+  display: flex;
+  flex: 1;
+  gap: 0;
+  padding: 0.5rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Diagram image container */
+.diagram-image-container {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.diagram-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  max-height: calc(100vh - 180px);
+}
+
+.diagram-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Label markers (the letter circles on the diagram) */
+.diagram-label-marker {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(30, 41, 59, 0.9);
+  border: 2.5px solid #64748b;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.diagram-label-marker.active {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.2);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+.diagram-label-marker.correct {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+}
+
+.diagram-label-marker.wrong {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+}
+
+/* Pointer dots on the diagram structure */
+.diagram-pointer-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #475569;
+  border: 1.5px solid #94a3b8;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.diagram-pointer-dot.correct {
+  background: #22c55e;
+  border-color: #16a34a;
+}
+
+.diagram-pointer-dot.wrong {
+  background: #ef4444;
+  border-color: #dc2626;
+}
+
+/* Answer panel */
+.diagram-answer-panel {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.75rem;
+  margin-left: 0.5rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+}
+
+.panel-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: #e2e8f0;
+  text-align: center;
+}
+
+.answer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.answer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-wrap: wrap;
+}
+
+.answer-row.active {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.answer-row.correct {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.answer-row.wrong {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.answer-label-key {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.answer-row.active .answer-label-key {
+  background: rgba(245, 158, 11, 0.4);
+}
+
+.answer-row.correct .answer-label-key {
+  background: rgba(34, 197, 94, 0.4);
+}
+
+.answer-row.wrong .answer-label-key {
+  background: rgba(239, 68, 68, 0.4);
+}
+
+.answer-input-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+.answer-input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: white;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.answer-input:focus {
+  border-color: #f59e0b;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.answer-input:disabled {
+  opacity: 0.7;
+}
+
+.answer-row.correct .answer-input {
+  border-color: #22c55e;
+}
+
+.answer-row.wrong .answer-input {
+  border-color: #ef4444;
+}
+
+.correct-answer-show {
+  font-size: 0.75rem;
+  color: #22c55e;
+  margin-top: 0.2rem;
+  font-weight: 600;
+}
+
+.correct-check {
+  color: #22c55e;
+  font-size: 1rem;
+  font-weight: bold;
+  margin-top: 0.15rem;
+}
+
+.hint-toggle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.3);
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: #a5b4fc;
+  font-weight: 700;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.hint-toggle:hover {
+  background: rgba(99, 102, 241, 0.5);
+}
+
+.label-hint {
+  width: 100%;
+  font-size: 0.75rem;
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  margin-top: 0.2rem;
+  line-height: 1.3;
+}
+
+/* Actions */
+.diagram-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: center;
+}
+
+.diag-button {
+  padding: 0.6rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: white;
+  transition: opacity 0.2s;
+}
+
+.diag-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.diag-button.check {
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+}
+
+.diag-button.next {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.diagram-result-summary {
+  text-align: center;
+  margin-top: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+/* Results page styles */
+.diagram-results {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 2rem;
+}
+
+.diagram-results .results-card {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+}
+
+.diagram-results .results-title {
+  font-size: 1.8rem;
+  margin: 0 0 1rem;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.diagram-results .results-score {
+  margin-bottom: 1.5rem;
+}
+
+.diagram-results .score-circle {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(251, 191, 36, 0.15);
+  border: 2px solid rgba(251, 191, 36, 0.3);
+  border-radius: 50%;
+  width: 100px;
+  height: 100px;
+  justify-content: center;
+}
+
+.diagram-results .score-number {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #fbbf24;
+}
+
+.diagram-results .score-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.diagram-results .results-breakdown {
+  margin-bottom: 1.5rem;
+}
+
+.diagram-results .result-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  margin-bottom: 0.3rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.diagram-results .result-row.success {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.diagram-results .result-row.partial {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.diagram-results .result-title {
+  font-size: 0.85rem;
+  color: #e2e8f0;
+}
+
+.diagram-results .result-detail {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.diagram-results .results-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.diagram-results .action-button {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: white;
+}
+
+.diagram-results .action-button.retry {
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+}
+
+.diagram-results .action-button.home {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Countdown overlay reused styles */
+.diagram-page .countdown-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.diagram-page .countdown-number {
+  font-size: 5rem;
+  font-weight: 900;
+  color: #f59e0b;
+}
+
+.diagram-page .countdown-text {
+  font-size: 1.1rem;
+  color: #94a3b8;
+  margin-top: 0.5rem;
+}
+
+.diagram-page .loading-text {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 1rem;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tab warning reuse */
+.diagram-page .tab-warning-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(90deg, #dc2626, #ef4444);
+  color: white;
+  text-align: center;
+  padding: 0.6rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  z-index: 200;
+}
+
+/* Responsive: stack on small screens */
+@media (max-width: 768px) {
+  .diagram-content {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .diagram-image-container {
+    min-height: 45vh;
+    max-height: 50vh;
+  }
+
+  .diagram-image {
+    max-height: 45vh;
+  }
+
+  .diagram-answer-panel {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0.5rem;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .diagram-label-marker {
+    width: 24px;
+    height: 24px;
+    font-size: 0.7rem;
+  }
+}

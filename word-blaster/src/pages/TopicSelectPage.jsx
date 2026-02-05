@@ -14,13 +14,14 @@ function TopicSelectPage() {
     setSelectedTopics,
     questions,
     sequences,
+    diagrams,
     gameSettings,
     setGameSettings
   } = useGame()
 
   const [selectedSubjectLocal, setSelectedSubjectLocal] = useState(null)
   const [selectedTopicsLocal, setSelectedTopicsLocal] = useState([])
-  const [gameMode, setGameMode] = useState('quiz') // 'quiz' or 'sequence'
+  const [gameMode, setGameMode] = useState('quiz') // 'quiz', 'sequence', or 'diagram'
 
   const handleSubjectSelect = (subject) => {
     playSound('click')
@@ -54,7 +55,8 @@ function TopicSelectPage() {
     playSound('gameStart')
     setSelectedSubject(selectedSubjectLocal)
     setSelectedTopics(selectedTopicsLocal.length > 0 ? selectedTopicsLocal : topics[selectedSubjectLocal])
-    navigate(gameMode === 'sequence' ? '/play/sequence' : '/play')
+    const routes = { quiz: '/play', sequence: '/play/sequence', diagram: '/play/diagram' }
+    navigate(routes[gameMode] || '/play')
   }
 
   const getQuestionCount = () => {
@@ -69,6 +71,14 @@ function TopicSelectPage() {
     let filtered = sequences.filter(s => s.subject === selectedSubjectLocal)
     if (selectedTopicsLocal.length > 0) {
       filtered = filtered.filter(s => selectedTopicsLocal.includes(s.topic))
+    }
+    return filtered.length
+  }
+
+  const getDiagramCount = () => {
+    let filtered = diagrams.filter(d => d.subject === selectedSubjectLocal)
+    if (selectedTopicsLocal.length > 0) {
+      filtered = filtered.filter(d => selectedTopicsLocal.includes(d.topic))
     }
     return filtered.length
   }
@@ -207,6 +217,25 @@ function TopicSelectPage() {
                   <span className="mode-desc">Drag steps into the correct order to master processes!</span>
                   {gameMode === 'sequence' && <span className="check-mark">&#10003;</span>}
                 </motion.button>
+                <motion.button
+                  className={`mode-card ${gameMode === 'diagram' ? 'selected' : ''} ${getDiagramCount() === 0 ? 'disabled' : ''}`}
+                  onClick={() => {
+                    if (getDiagramCount() > 0) {
+                      playSound('click')
+                      setGameMode('diagram')
+                    }
+                  }}
+                  whileHover={getDiagramCount() > 0 ? { scale: 1.03 } : {}}
+                  whileTap={getDiagramCount() > 0 ? { scale: 0.97 } : {}}
+                >
+                  <span className="card-icon">&#128444;</span>
+                  <span className="card-label">Diagram Label</span>
+                  <span className="card-count">
+                    {getDiagramCount()} diagram{getDiagramCount() !== 1 ? 's' : ''}
+                  </span>
+                  <span className="mode-desc">Label parts of scientific diagrams and images!</span>
+                  {gameMode === 'diagram' && <span className="check-mark">&#10003;</span>}
+                </motion.button>
               </div>
             </motion.section>
           )}
@@ -251,22 +280,32 @@ function TopicSelectPage() {
               transition={{ duration: 0.3, delay: 0.2 }}
             >
               <div className="question-summary">
-                <span className="summary-icon">{gameMode === 'sequence' ? '\uD83D\uDD00' : '\uD83D\uDCDD'}</span>
+                <span className="summary-icon">
+                  {gameMode === 'sequence' ? '\uD83D\uDD00' : gameMode === 'diagram' ? '\uD83D\uDDBC' : '\uD83D\uDCDD'}
+                </span>
                 <span className="summary-text">
                   {gameMode === 'sequence'
                     ? `${getSequenceCount()} sequence${getSequenceCount() !== 1 ? 's' : ''} ready!`
+                    : gameMode === 'diagram'
+                    ? `${getDiagramCount()} diagram${getDiagramCount() !== 1 ? 's' : ''} ready!`
                     : `${getQuestionCount()} questions ready to play!`}
                 </span>
               </div>
               <motion.button
                 className="start-button"
                 onClick={handleStartGame}
-                disabled={gameMode === 'sequence' ? getSequenceCount() === 0 : getQuestionCount() === 0}
+                disabled={
+                  gameMode === 'sequence' ? getSequenceCount() === 0
+                  : gameMode === 'diagram' ? getDiagramCount() === 0
+                  : getQuestionCount() === 0
+                }
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <span className="button-icon">{gameMode === 'sequence' ? '\uD83C\uDFAF' : '\uD83C\uDFAE'}</span>
-                {gameMode === 'sequence' ? 'Start Sequence!' : 'Start Game!'}
+                <span className="button-icon">
+                  {gameMode === 'sequence' ? '\uD83C\uDFAF' : gameMode === 'diagram' ? '\uD83D\uDDBC' : '\uD83C\uDFAE'}
+                </span>
+                {gameMode === 'sequence' ? 'Start Sequence!' : gameMode === 'diagram' ? 'Start Labeling!' : 'Start Game!'}
               </motion.button>
             </motion.div>
           )}

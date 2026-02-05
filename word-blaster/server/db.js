@@ -128,6 +128,28 @@ export async function initializeDatabase() {
       event_type TEXT NOT NULL,
       event_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS diagram_questions (
+      id TEXT PRIMARY KEY,
+      subject TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      image_url TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS diagram_labels (
+      id SERIAL PRIMARY KEY,
+      diagram_id TEXT NOT NULL REFERENCES diagram_questions(id) ON DELETE CASCADE,
+      label_key TEXT NOT NULL,
+      correct_answer TEXT NOT NULL,
+      x_percent REAL NOT NULL,
+      y_percent REAL NOT NULL,
+      pointer_x REAL NOT NULL,
+      pointer_y REAL NOT NULL,
+      hint TEXT
+    );
   `)
 
   // Create indexes if they don't exist
@@ -140,6 +162,8 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_quiz_sessions_started ON quiz_sessions(started_at DESC);
     CREATE INDEX IF NOT EXISTS idx_quiz_session_answers_session ON quiz_session_answers(session_id);
     CREATE INDEX IF NOT EXISTS idx_quiz_tab_events_session ON quiz_tab_events(session_id);
+    CREATE INDEX IF NOT EXISTS idx_diagram_questions_subject ON diagram_questions(subject);
+    CREATE INDEX IF NOT EXISTS idx_diagram_labels_diagram ON diagram_labels(diagram_id);
   `)
 
   // Seed default admin if none exists
@@ -159,6 +183,12 @@ export async function initializeDatabase() {
   const seqResult = await p.query('SELECT COUNT(*) as count FROM sequence_questions')
   if (parseInt(seqResult.rows[0].count) === 0) {
     await seedDefaultSequences(p)
+  }
+
+  // Seed default diagrams if none exist
+  const diagResult = await p.query('SELECT COUNT(*) as count FROM diagram_questions')
+  if (parseInt(diagResult.rows[0].count) === 0) {
+    await seedDefaultDiagrams(p)
   }
 }
 
@@ -221,6 +251,63 @@ async function seedDefaultSequences(p) {
   } finally {
     client.release()
   }
+}
+
+async function seedDefaultDiagrams(p) {
+  const diagrams = getDefaultDiagrams()
+
+  const client = await p.connect()
+  try {
+    await client.query('BEGIN')
+
+    for (const diag of diagrams) {
+      await client.query(
+        `INSERT INTO diagram_questions (id, subject, topic, title, description, image_url)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [diag.id, diag.subject, diag.topic, diag.title, diag.description, diag.image_url]
+      )
+
+      for (const label of diag.labels) {
+        await client.query(
+          `INSERT INTO diagram_labels (diagram_id, label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [diag.id, label.label_key, label.correct_answer, label.x_percent, label.y_percent, label.pointer_x, label.pointer_y, label.hint || null]
+        )
+      }
+    }
+
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+function getDefaultDiagrams() {
+  return [
+    {
+      id: 'diag_heart_001',
+      subject: 'Science',
+      topic: 'Human Body',
+      title: 'The Human Heart',
+      description: 'Label the parts of the human heart. Identify each structure marked with a letter.',
+      image_url: '/diagrams/heart-unlabeled.svg',
+      labels: [
+        { label_key: 'P', correct_answer: 'Superior Vena Cava', x_percent: 5, y_percent: 10, pointer_x: 24.5, pointer_y: 14, hint: 'Large vein that carries deoxygenated blood from the upper body to the heart' },
+        { label_key: 'K', correct_answer: 'Right Atrium', x_percent: 3, y_percent: 30, pointer_x: 28, pointer_y: 33, hint: 'Upper right chamber that receives deoxygenated blood' },
+        { label_key: 'T', correct_answer: 'Tricuspid Valve', x_percent: 3, y_percent: 46, pointer_x: 30, pointer_y: 47, hint: 'Valve with three flaps between the right atrium and right ventricle' },
+        { label_key: 'W', correct_answer: 'Right Ventricle', x_percent: 3, y_percent: 62, pointer_x: 28, pointer_y: 60, hint: 'Lower right chamber that pumps blood to the lungs' },
+        { label_key: 'H', correct_answer: 'Aorta', x_percent: 68, y_percent: 5, pointer_x: 61, pointer_y: 10, hint: 'The largest artery that carries oxygenated blood to the body' },
+        { label_key: 'M', correct_answer: 'Pulmonary Artery', x_percent: 32, y_percent: 2, pointer_x: 41, pointer_y: 10, hint: 'Artery that carries deoxygenated blood from the heart to the lungs' },
+        { label_key: 'F', correct_answer: 'Pulmonary Veins', x_percent: 93, y_percent: 30, pointer_x: 82, pointer_y: 31, hint: 'Veins that carry oxygenated blood from the lungs back to the heart' },
+        { label_key: 'Y', correct_answer: 'Left Atrium', x_percent: 93, y_percent: 40, pointer_x: 72, pointer_y: 33, hint: 'Upper left chamber that receives oxygenated blood from the lungs' },
+        { label_key: 'N', correct_answer: 'Bicuspid Valve', x_percent: 93, y_percent: 50, pointer_x: 70, pointer_y: 47, hint: 'Also called the mitral valve, it has two flaps and sits between the left atrium and ventricle' },
+        { label_key: 'R', correct_answer: 'Left Ventricle', x_percent: 93, y_percent: 62, pointer_x: 72, pointer_y: 60, hint: 'Lower left chamber with the thickest wall, pumps blood to the entire body' },
+      ]
+    }
+  ]
 }
 
 function getDefaultSequences() {

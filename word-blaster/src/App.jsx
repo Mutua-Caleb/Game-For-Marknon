@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import GamePage from './pages/GamePage'
 import SequenceGamePage from './pages/SequenceGamePage'
+import DiagramGamePage from './pages/DiagramGamePage'
 import TopicSelectPage from './pages/TopicSelectPage'
 import ResultsPage from './pages/ResultsPage'
 import AdminPage from './pages/AdminPage'
@@ -16,6 +17,7 @@ function App() {
         <Route path="/topics" element={<TopicSelectPage />} />
         <Route path="/play" element={<GamePage />} />
         <Route path="/play/sequence" element={<SequenceGamePage />} />
+        <Route path="/play/diagram" element={<DiagramGamePage />} />
         <Route path="/results" element={<ResultsPage />} />
         <Route path="/admin-portal-x7k9" element={<AdminLogin />} />
         <Route path="/admin-dashboard" element={<AdminPage />} />

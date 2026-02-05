@@ -175,6 +175,40 @@ export const sequencesApi = {
   }
 }
 
+// Diagrams API
+export const diagramsApi = {
+  async getAll(params = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.subject) searchParams.set('subject', params.subject)
+    if (params.topic) searchParams.set('topic', params.topic)
+
+    const res = await fetch(`${API_BASE}/diagrams?${searchParams}`)
+    return handleResponse(res)
+  },
+
+  async getById(id) {
+    const res = await fetch(`${API_BASE}/diagrams/${id}`)
+    return handleResponse(res)
+  },
+
+  async create(diagram) {
+    const res = await fetch(`${API_BASE}/diagrams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(diagram)
+    })
+    return handleResponse(res)
+  },
+
+  async delete(id) {
+    const res = await fetch(`${API_BASE}/diagrams/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  }
+}
+
 // Quiz Sessions API
 export const quizSessionApi = {
   async start(data) {

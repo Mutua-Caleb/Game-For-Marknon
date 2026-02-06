@@ -305,10 +305,14 @@
 
 .answer-row.correct .answer-input {
   border-color: #22c55e;
+  color: #166534;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .answer-row.wrong .answer-input {
   border-color: #ef4444;
+  color: #991b1b;
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .correct-answer-show {

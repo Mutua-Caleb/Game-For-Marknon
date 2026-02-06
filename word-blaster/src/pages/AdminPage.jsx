@@ -1032,6 +1032,7 @@ function DiagramsSection({ showNotification }) {
   const [diagrams, setDiagrams] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [editingDiagram, setEditingDiagram] = useState(null) // Diagram being edited
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   useEffect(() => {
@@ -1064,7 +1065,25 @@ function DiagramsSection({ showNotification }) {
   const handleCreated = (newDiagram) => {
     setDiagrams(prev => [newDiagram, ...prev])
     setShowCreateForm(false)
+    setEditingDiagram(null)
     showNotification('Diagram created successfully!')
+  }
+
+  const handleUpdated = (updatedDiagram) => {
+    setDiagrams(prev => prev.map(d => d.id === updatedDiagram.id ? updatedDiagram : d))
+    setEditingDiagram(null)
+    setShowCreateForm(false)
+    showNotification('Diagram updated successfully!')
+  }
+
+  const handleEdit = (diagram) => {
+    setEditingDiagram(diagram)
+    setShowCreateForm(true)
+  }
+
+  const handleCancelForm = () => {
+    setShowCreateForm(false)
+    setEditingDiagram(null)
   }
 
   if (isLoading) {
@@ -1077,13 +1096,13 @@ function DiagramsSection({ showNotification }) {
         <h2>Diagrams ({diagrams.length})</h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="refresh-btn" onClick={loadDiagrams}>Refresh</button>
-          <button className="add-question-btn" onClick={() => setShowCreateForm(!showCreateForm)}>
-            {showCreateForm ? 'Cancel' : '+ Add Diagram'}
+          <button className="add-question-btn" onClick={() => { setShowCreateForm(!showCreateForm); setEditingDiagram(null) }}>
+            {showCreateForm && !editingDiagram ? 'Cancel' : '+ Add Diagram'}
           </button>
         </div>
       </div>
 
-      {/* Create Form */}
+      {/* Create/Edit Form */}
       <AnimatePresence>
         {showCreateForm && (
           <motion.div
@@ -1094,8 +1113,10 @@ function DiagramsSection({ showNotification }) {
             style={{ overflow: 'hidden' }}
           >
             <DiagramCreateForm
+              diagram={editingDiagram}
               onCreated={handleCreated}
-              onCancel={() => setShowCreateForm(false)}
+              onUpdated={handleUpdated}
+              onCancel={handleCancelForm}
               showNotification={showNotification}
             />
           </motion.div>
@@ -1134,6 +1155,7 @@ function DiagramsSection({ showNotification }) {
                 )}
               </div>
               <div className="diagram-card-actions">
+                <button className="edit-btn" onClick={() => handleEdit(diag)}>Edit</button>
                 <button className="delete-btn" onClick={() => setDeleteConfirm(diag)}>Delete</button>
               </div>
             </div>
@@ -1171,15 +1193,17 @@ function DiagramsSection({ showNotification }) {
 }
 
 // Diagram Create Form with Interactive Label Placement
-function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
+function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotification }) {
+  const isEditing = !!diagram
+
   const [formData, setFormData] = useState({
-    subject: 'Science',
-    topic: 'Human Body',
-    title: '',
-    description: ''
+    subject: diagram?.subject || 'Science',
+    topic: diagram?.topic || 'Human Body',
+    title: diagram?.title || '',
+    description: diagram?.description || ''
   })
-  const [imageUrl, setImageUrl] = useState('')
-  const [labels, setLabels] = useState([])
+  const [imageUrl, setImageUrl] = useState(diagram?.image_url || '')
+  const [labels, setLabels] = useState(diagram?.labels || [])
   const [isUploading, setIsUploading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [placementMode, setPlacementMode] = useState(null) // null, 'pointer', or 'label'
@@ -1193,6 +1217,28 @@ function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
   const imageRef = useRef(null)
 
   const currentTopics = TOPICS[formData.subject] || []
+
+  // Reset form when diagram prop changes (switching between create/edit)
+  useEffect(() => {
+    if (diagram) {
+      setFormData({
+        subject: diagram.subject || 'Science',
+        topic: diagram.topic || 'Human Body',
+        title: diagram.title || '',
+        description: diagram.description || ''
+      })
+      setImageUrl(diagram.image_url || '')
+      setLabels(diagram.labels || [])
+    } else {
+      setFormData({ subject: 'Science', topic: 'Human Body', title: '', description: '' })
+      setImageUrl('')
+      setLabels([])
+    }
+    setPlacementMode(null)
+    setPendingLabel(null)
+    setEditingLabelIndex(null)
+    setImageBounds(null)
+  }, [diagram])
 
   // Calculate actual image bounds within container (accounting for object-fit: contain)
   const updateImageBounds = useCallback(() => {
@@ -1239,6 +1285,7 @@ function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
     return () => observer.disconnect()
   }, [updateImageBounds])
 
+  // Convert image to base64 data URI for persistent storage
   const handleImageUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -1250,12 +1297,20 @@ function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
 
     setIsUploading(true)
     try {
-      const result = await uploadApi.uploadImage(file)
-      setImageUrl(result.url)
-      showNotification('Image uploaded!')
+      // Convert to base64 data URI for persistent storage in database
+      const reader = new FileReader()
+      reader.onload = () => {
+        setImageUrl(reader.result) // This is a data:image/... URI
+        setIsUploading(false)
+        showNotification('Image loaded!')
+      }
+      reader.onerror = () => {
+        showNotification('Failed to read image file', 'error')
+        setIsUploading(false)
+      }
+      reader.readAsDataURL(file)
     } catch (err) {
-      showNotification(err.message || 'Failed to upload image', 'error')
-    } finally {
+      showNotification(err.message || 'Failed to load image', 'error')
       setIsUploading(false)
     }
   }
@@ -1356,19 +1411,27 @@ function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
 
     setIsSaving(true)
     try {
-      const id = `diag_${Date.now()}`
-      const result = await diagramsApi.create({
-        id,
+      const diagramData = {
         subject: formData.subject,
         topic,
         title: formData.title.trim(),
         description: formData.description.trim() || null,
         image_url: imageUrl,
         labels
-      })
-      onCreated(result)
+      }
+
+      if (isEditing) {
+        // Update existing diagram
+        const result = await diagramsApi.update(diagram.id, diagramData)
+        onUpdated(result)
+      } else {
+        // Create new diagram
+        const id = `diag_${Date.now()}`
+        const result = await diagramsApi.create({ id, ...diagramData })
+        onCreated(result)
+      }
     } catch (err) {
-      showNotification(err.message || 'Failed to create diagram', 'error')
+      showNotification(err.message || `Failed to ${isEditing ? 'update' : 'create'} diagram`, 'error')
     } finally {
       setIsSaving(false)
     }
@@ -1376,7 +1439,7 @@ function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
 
   return (
     <div className="diagram-create-form">
-      <h3>Create New Diagram</h3>
+      <h3>{isEditing ? 'Edit Diagram' : 'Create New Diagram'}</h3>
 
       {/* Basic fields */}
       <div className="form-row">
@@ -1706,7 +1769,7 @@ function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
           onClick={handleSubmit}
           disabled={isSaving || !formData.title.trim() || !imageUrl || labels.length === 0}
         >
-          {isSaving ? 'Saving...' : 'Save Diagram'}
+          {isSaving ? 'Saving...' : isEditing ? 'Update Diagram' : 'Save Diagram'}
         </button>
       </div>
     </div>

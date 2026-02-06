@@ -200,6 +200,15 @@ export const diagramsApi = {
     return handleResponse(res)
   },
 
+  async update(id, diagram) {
+    const res = await fetch(`${API_BASE}/diagrams/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(diagram)
+    })
+    return handleResponse(res)
+  },
+
   async delete(id) {
     const res = await fetch(`${API_BASE}/diagrams/${id}`, {
       method: 'DELETE',

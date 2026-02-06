@@ -149,4 +149,66 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 })
 
+// PUT /api/diagrams/:id - Update a diagram (admin only)
+router.put('/:id', authenticateToken, async (req, res) => {
+  try {
+    const pool = getPool()
+    const { id } = req.params
+    const { subject, topic, title, description, image_url, labels } = req.body
+
+    if (!subject || !topic || !title || !image_url || !labels || !Array.isArray(labels) || labels.length < 1) {
+      return res.status(400).json({ error: 'subject, topic, title, image_url, and at least 1 label are required' })
+    }
+
+    // Check if diagram exists
+    const existsResult = await pool.query('SELECT id FROM diagram_questions WHERE id = $1', [id])
+    if (existsResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Diagram not found' })
+    }
+
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+
+      // Update the diagram
+      await client.query(
+        `UPDATE diagram_questions SET subject = $1, topic = $2, title = $3, description = $4, image_url = $5
+         WHERE id = $6`,
+        [subject, topic, title, description || null, image_url, id]
+      )
+
+      // Delete existing labels and insert new ones
+      await client.query('DELETE FROM diagram_labels WHERE diagram_id = $1', [id])
+
+      for (const label of labels) {
+        await client.query(
+          `INSERT INTO diagram_labels (diagram_id, label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [id, label.label_key, label.correct_answer, label.x_percent, label.y_percent, label.pointer_x, label.pointer_y, label.hint || null]
+        )
+      }
+
+      await client.query('COMMIT')
+
+      const labelsResult = await pool.query(
+        'SELECT label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint FROM diagram_labels WHERE diagram_id = $1 ORDER BY label_key',
+        [id]
+      )
+
+      res.json({
+        id, subject, topic, title, description, image_url,
+        labels: labelsResult.rows
+      })
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  } catch (err) {
+    console.error('Error updating diagram:', err)
+    res.status(500).json({ error: 'Failed to update diagram' })
+  }
+})
+
 export default router

@@ -275,6 +275,46 @@ export const quizSessionApi = {
   }
 }
 
+// Learning API (Spaced Repetition, Mastery, Interleaving)
+export const learningApi = {
+  // Get questions with spaced repetition and interleaving
+  async getQuestions(learnerId, params = {}) {
+    const searchParams = new URLSearchParams({ learnerId })
+    if (params.subject) searchParams.set('subject', params.subject)
+    if (params.topics) searchParams.set('topics', params.topics.join(','))
+    if (params.limit) searchParams.set('limit', params.limit)
+    if (params.interleave !== undefined) searchParams.set('interleave', params.interleave)
+
+    const res = await fetch(`${API_BASE}/learning/questions?${searchParams}`)
+    return handleResponse(res)
+  },
+
+  // Record answer for spaced repetition
+  async recordAnswer(learnerId, questionId, isCorrect, timeTakenMs) {
+    const res = await fetch(`${API_BASE}/learning/record`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ learnerId, questionId, isCorrect, timeTakenMs })
+    })
+    return handleResponse(res)
+  },
+
+  // Get topic mastery with lock status
+  async getMastery(learnerId, subject = null) {
+    const searchParams = new URLSearchParams({ learnerId })
+    if (subject) searchParams.set('subject', subject)
+
+    const res = await fetch(`${API_BASE}/learning/mastery?${searchParams}`)
+    return handleResponse(res)
+  },
+
+  // Get learning statistics
+  async getStats(learnerId) {
+    const res = await fetch(`${API_BASE}/learning/stats?learnerId=${learnerId}`)
+    return handleResponse(res)
+  }
+}
+
 // Stats API
 export const statsApi = {
   async recordAnswer(questionId, isCorrect) {

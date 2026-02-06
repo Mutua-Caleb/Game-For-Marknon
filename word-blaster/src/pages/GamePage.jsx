@@ -3,12 +3,22 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
-import { quizSessionApi } from '../utils/api'
+import { quizSessionApi, learningApi } from '../utils/api'
 import FallingQuestion from '../components/FallingQuestion'
 import AnswerInput from '../components/AnswerInput'
 import ScoreDisplay from '../components/ScoreDisplay'
 import ExplosionEffect from '../components/ExplosionEffect'
 import './GamePage.css'
+
+// Get or create learner ID (stored in localStorage)
+function getLearnerId() {
+  let learnerId = localStorage.getItem('learnerId')
+  if (!learnerId) {
+    learnerId = 'learner_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+    localStorage.setItem('learnerId', learnerId)
+  }
+  return learnerId
+}
 
 function GamePage() {
   const navigate = useNavigate()
@@ -50,6 +60,7 @@ function GamePage() {
   const gameStartTimeRef = useRef(null)
 
   const MIN_QUIZ_TIME = 900 // 15 minutes in seconds
+  const learnerId = getLearnerId()
 
   const failedQuestionsRef = useRef(new Set())
   const originalPoolSizeRef = useRef(0)
@@ -278,6 +289,14 @@ function GamePage() {
       }).catch(console.error)
     }
 
+    // Record for spaced repetition (wrong/timeout)
+    learningApi.recordAnswer(
+      learnerId,
+      question.id,
+      false,
+      Date.now() - question.startTime
+    ).catch(console.error)
+
     setSessionStats(prev => ({
       ...prev,
       wrong: prev.wrong + 1,
@@ -350,6 +369,14 @@ function GamePage() {
           timeTakenMs: Date.now() - matchedQuestion.startTime
         }).catch(console.error)
       }
+
+      // Record for spaced repetition
+      learningApi.recordAnswer(
+        learnerId,
+        matchedQuestion.id,
+        true,
+        Date.now() - matchedQuestion.startTime
+      ).catch(console.error)
 
       setShowCorrectFeedback(true)
       setTimeout(() => setShowCorrectFeedback(false), 500)

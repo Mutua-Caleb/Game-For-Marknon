@@ -11,6 +11,7 @@ import statsRoutes from './routes/stats.js'
 import sequenceRoutes from './routes/sequences.js'
 import quizSessionRoutes from './routes/quiz-sessions.js'
 import diagramRoutes from './routes/diagrams.js'
+import learningRoutes from './routes/learning.js'
 
 dotenv.config()
 
@@ -39,6 +40,7 @@ app.use('/api/stats', statsRoutes)
 app.use('/api/sequences', sequenceRoutes)
 app.use('/api/quiz-sessions', quizSessionRoutes)
 app.use('/api/diagrams', diagramRoutes)
+app.use('/api/learning', learningRoutes)
 
 // Serve static frontend in production
 if (process.env.NODE_ENV === 'production') {

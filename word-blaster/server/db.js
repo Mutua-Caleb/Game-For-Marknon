@@ -150,6 +150,46 @@ export async function initializeDatabase() {
       pointer_y REAL NOT NULL,
       hint TEXT
     );
+
+    -- Spaced Repetition: Track per-learner question performance
+    CREATE TABLE IF NOT EXISTS learner_progress (
+      id SERIAL PRIMARY KEY,
+      learner_id TEXT NOT NULL,
+      question_id TEXT NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+      ease_factor REAL DEFAULT 2.5,
+      interval_days INTEGER DEFAULT 0,
+      repetitions INTEGER DEFAULT 0,
+      next_review TIMESTAMPTZ DEFAULT NOW(),
+      last_reviewed TIMESTAMPTZ,
+      consecutive_correct INTEGER DEFAULT 0,
+      total_attempts INTEGER DEFAULT 0,
+      total_correct INTEGER DEFAULT 0,
+      UNIQUE(learner_id, question_id)
+    );
+
+    -- Topic Mastery: Track mastery percentage per topic per learner
+    CREATE TABLE IF NOT EXISTS topic_mastery (
+      id SERIAL PRIMARY KEY,
+      learner_id TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      questions_attempted INTEGER DEFAULT 0,
+      questions_mastered INTEGER DEFAULT 0,
+      mastery_percentage REAL DEFAULT 0,
+      last_practiced TIMESTAMPTZ,
+      unlocked BOOLEAN DEFAULT FALSE,
+      UNIQUE(learner_id, subject, topic)
+    );
+
+    -- Topic Prerequisites: Define which topics must be mastered before others
+    CREATE TABLE IF NOT EXISTS topic_prerequisites (
+      id SERIAL PRIMARY KEY,
+      subject TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      prerequisite_topic TEXT NOT NULL,
+      required_mastery REAL DEFAULT 80,
+      UNIQUE(subject, topic, prerequisite_topic)
+    );
   `)
 
   // Create indexes if they don't exist
@@ -164,6 +204,10 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_quiz_tab_events_session ON quiz_tab_events(session_id);
     CREATE INDEX IF NOT EXISTS idx_diagram_questions_subject ON diagram_questions(subject);
     CREATE INDEX IF NOT EXISTS idx_diagram_labels_diagram ON diagram_labels(diagram_id);
+    CREATE INDEX IF NOT EXISTS idx_learner_progress_learner ON learner_progress(learner_id);
+    CREATE INDEX IF NOT EXISTS idx_learner_progress_next_review ON learner_progress(next_review);
+    CREATE INDEX IF NOT EXISTS idx_topic_mastery_learner ON topic_mastery(learner_id);
+    CREATE INDEX IF NOT EXISTS idx_topic_prerequisites_topic ON topic_prerequisites(subject, topic);
   `)
 
   // Seed default admin if none exists
@@ -189,6 +233,42 @@ export async function initializeDatabase() {
   const diagResult = await p.query('SELECT COUNT(*) as count FROM diagram_questions')
   if (parseInt(diagResult.rows[0].count) === 0) {
     await seedDefaultDiagrams(p)
+  }
+
+  // Seed default topic prerequisites if none exist
+  const prereqResult = await p.query('SELECT COUNT(*) as count FROM topic_prerequisites')
+  if (parseInt(prereqResult.rows[0].count) === 0) {
+    await seedDefaultPrerequisites(p)
+  }
+}
+
+async function seedDefaultPrerequisites(p) {
+  // Define topic learning paths
+  // Science: Human Body is foundational, then Chemistry, then Physics, then Earth Science
+  // English: Vocabulary is foundational, then Spelling, then Grammar, then Reading
+  const prerequisites = [
+    // Science path - Chemistry requires Human Body basics
+    { subject: 'Science', topic: 'Chemistry', prerequisite_topic: 'Human Body', required_mastery: 60 },
+    // Physics requires Chemistry basics
+    { subject: 'Science', topic: 'Physics', prerequisite_topic: 'Chemistry', required_mastery: 60 },
+    // Earth Science requires Physics basics
+    { subject: 'Science', topic: 'Earth Science', prerequisite_topic: 'Physics', required_mastery: 60 },
+
+    // English path - Spelling requires Vocabulary
+    { subject: 'English', topic: 'Spelling', prerequisite_topic: 'Vocabulary', required_mastery: 60 },
+    // Grammar requires Spelling
+    { subject: 'English', topic: 'Grammar', prerequisite_topic: 'Spelling', required_mastery: 60 },
+    // Reading requires Grammar
+    { subject: 'English', topic: 'Reading', prerequisite_topic: 'Grammar', required_mastery: 60 },
+  ]
+
+  for (const prereq of prerequisites) {
+    await p.query(
+      `INSERT INTO topic_prerequisites (subject, topic, prerequisite_topic, required_mastery)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (subject, topic, prerequisite_topic) DO NOTHING`,
+      [prereq.subject, prereq.topic, prereq.prerequisite_topic, prereq.required_mastery]
+    )
   }
 }
 

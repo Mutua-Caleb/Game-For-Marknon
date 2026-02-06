@@ -124,6 +124,63 @@
   background: linear-gradient(135deg, #e8e4ff 0%, #d4ccff 100%);
 }
 
+/* Locked topic styles */
+.topic-card.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #e9ecef 0%, #d3d8dc 100%);
+}
+
+.topic-card.locked:hover {
+  transform: none;
+}
+
+.lock-icon {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 1.2rem;
+  filter: grayscale(0.5);
+}
+
+.lock-reason {
+  font-size: 0.7rem;
+  color: #e74c3c;
+  text-align: center;
+  margin-top: 0.3rem;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mastery progress bar */
+.mastery-bar-container {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  margin-top: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.mastery-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #00b894, #55efc4);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.mastery-text {
+  position: absolute;
+  top: -16px;
+  right: 0;
+  font-size: 0.65rem;
+  color: #636e72;
+  font-weight: 600;
+}
+
 .card-icon {
   font-size: 3rem;
 }

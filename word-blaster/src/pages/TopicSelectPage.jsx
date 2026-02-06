@@ -1,10 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
 import { subjects, topics } from '../data/defaultQuestions'
+import { learningApi } from '../utils/api'
 import './TopicSelectPage.css'
+
+// Get or create learner ID (stored in localStorage)
+function getLearnerId() {
+  let learnerId = localStorage.getItem('learnerId')
+  if (!learnerId) {
+    learnerId = 'learner_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+    localStorage.setItem('learnerId', learnerId)
+  }
+  return learnerId
+}
 
 function TopicSelectPage() {
   const navigate = useNavigate()
@@ -22,6 +33,44 @@ function TopicSelectPage() {
   const [selectedSubjectLocal, setSelectedSubjectLocal] = useState(null)
   const [selectedTopicsLocal, setSelectedTopicsLocal] = useState([])
   const [gameMode, setGameMode] = useState('quiz') // 'quiz', 'sequence', or 'diagram'
+  const [topicMastery, setTopicMastery] = useState({}) // { "subject:topic": { mastery_percentage, locked, lockReason } }
+  const [learnerStats, setLearnerStats] = useState(null)
+
+  const learnerId = getLearnerId()
+
+  // Fetch mastery data on mount
+  useEffect(() => {
+    async function fetchMastery() {
+      try {
+        const data = await learningApi.getMastery(learnerId)
+        const masteryMap = {}
+        data.topics.forEach(t => {
+          masteryMap[`${t.subject}:${t.topic}`] = t
+        })
+        setTopicMastery(masteryMap)
+      } catch (err) {
+        console.error('Failed to fetch mastery:', err)
+      }
+    }
+    fetchMastery()
+  }, [learnerId])
+
+  // Fetch learner stats
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const stats = await learningApi.getStats(learnerId)
+        setLearnerStats(stats)
+      } catch (err) {
+        console.error('Failed to fetch stats:', err)
+      }
+    }
+    fetchStats()
+  }, [learnerId])
+
+  const getTopicMastery = useCallback((subject, topic) => {
+    return topicMastery[`${subject}:${topic}`] || { mastery_percentage: 0, locked: false }
+  }, [topicMastery])
 
   const handleSubjectSelect = (subject) => {
     playSound('click')
@@ -30,6 +79,12 @@ function TopicSelectPage() {
   }
 
   const handleTopicToggle = (topic) => {
+    const mastery = getTopicMastery(selectedSubjectLocal, topic)
+    if (mastery.locked) {
+      // Show lock reason but don't select
+      playSound('wrong')
+      return
+    }
     playSound('click')
     setSelectedTopicsLocal(prev => {
       if (prev.includes(topic)) {
@@ -152,24 +207,44 @@ function TopicSelectPage() {
                 </div>
               </div>
               <div className="topics-grid">
-                {topics[selectedSubjectLocal].map(topic => (
-                  <motion.button
-                    key={topic}
-                    className={`topic-card ${selectedTopicsLocal.includes(topic) ? 'selected' : ''}`}
-                    onClick={() => handleTopicToggle(topic)}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    <span className="card-icon">{topicIcons[topic]}</span>
-                    <span className="card-label">{topic}</span>
-                    <span className="card-count">
-                      {questions.filter(q => q.topic === topic).length} questions
-                    </span>
-                    {selectedTopicsLocal.includes(topic) && (
-                      <span className="check-mark">✓</span>
-                    )}
-                  </motion.button>
-                ))}
+                {topics[selectedSubjectLocal].map(topic => {
+                  const mastery = getTopicMastery(selectedSubjectLocal, topic)
+                  const isLocked = mastery.locked
+
+                  return (
+                    <motion.button
+                      key={topic}
+                      className={`topic-card ${selectedTopicsLocal.includes(topic) ? 'selected' : ''} ${isLocked ? 'locked' : ''}`}
+                      onClick={() => handleTopicToggle(topic)}
+                      whileHover={!isLocked ? { scale: 1.03 } : {}}
+                      whileTap={!isLocked ? { scale: 0.97 } : {}}
+                      title={isLocked ? mastery.lockReason : ''}
+                    >
+                      {isLocked && <span className="lock-icon">&#128274;</span>}
+                      <span className="card-icon">{topicIcons[topic]}</span>
+                      <span className="card-label">{topic}</span>
+                      <span className="card-count">
+                        {questions.filter(q => q.topic === topic).length} questions
+                      </span>
+
+                      {/* Mastery Progress Bar */}
+                      <div className="mastery-bar-container">
+                        <div
+                          className="mastery-bar"
+                          style={{ width: `${mastery.mastery_percentage || 0}%` }}
+                        />
+                        <span className="mastery-text">{Math.round(mastery.mastery_percentage || 0)}% mastery</span>
+                      </div>
+
+                      {isLocked && (
+                        <span className="lock-reason">{mastery.lockReason}</span>
+                      )}
+                      {selectedTopicsLocal.includes(topic) && !isLocked && (
+                        <span className="check-mark">&#10003;</span>
+                      )}
+                    </motion.button>
+                  )
+                })}
               </div>
             </motion.section>
           )}

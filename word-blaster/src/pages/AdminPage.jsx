@@ -1187,10 +1187,57 @@ function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
   const [editingLabelIndex, setEditingLabelIndex] = useState(null)
   const [useCustomTopic, setUseCustomTopic] = useState(false)
   const [customTopic, setCustomTopic] = useState('')
+  const [imageBounds, setImageBounds] = useState(null)
   const fileInputRef = useRef(null)
   const imageContainerRef = useRef(null)
+  const imageRef = useRef(null)
 
   const currentTopics = TOPICS[formData.subject] || []
+
+  // Calculate actual image bounds within container (accounting for object-fit: contain)
+  const updateImageBounds = useCallback(() => {
+    if (!imageRef.current || !imageContainerRef.current) return
+
+    const container = imageContainerRef.current.getBoundingClientRect()
+    const img = imageRef.current
+
+    const naturalWidth = img.naturalWidth
+    const naturalHeight = img.naturalHeight
+    if (!naturalWidth || !naturalHeight) return
+
+    const containerAspect = container.width / container.height
+    const imageAspect = naturalWidth / naturalHeight
+
+    let renderWidth, renderHeight, offsetX, offsetY
+
+    if (imageAspect > containerAspect) {
+      renderWidth = container.width
+      renderHeight = container.width / imageAspect
+      offsetX = 0
+      offsetY = (container.height - renderHeight) / 2
+    } else {
+      renderHeight = container.height
+      renderWidth = container.height * imageAspect
+      offsetX = (container.width - renderWidth) / 2
+      offsetY = 0
+    }
+
+    setImageBounds({
+      left: offsetX,
+      top: offsetY,
+      width: renderWidth,
+      height: renderHeight
+    })
+  }, [])
+
+  // Set up ResizeObserver
+  useEffect(() => {
+    const observer = new ResizeObserver(updateImageBounds)
+    if (imageContainerRef.current) {
+      observer.observe(imageContainerRef.current)
+    }
+    return () => observer.disconnect()
+  }, [updateImageBounds])
 
   const handleImageUpload = async (e) => {
     const file = e.target.files[0]
@@ -1214,11 +1261,22 @@ function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
   }
 
   const handleImageClick = (e) => {
-    if (!placementMode || !imageContainerRef.current) return
+    if (!placementMode || !imageContainerRef.current || !imageBounds) return
 
-    const rect = imageContainerRef.current.getBoundingClientRect()
-    const xPercent = ((e.clientX - rect.left) / rect.width) * 100
-    const yPercent = ((e.clientY - rect.top) / rect.height) * 100
+    // Calculate click position relative to the actual rendered image, not the container
+    const containerRect = imageContainerRef.current.getBoundingClientRect()
+    const clickX = e.clientX - containerRect.left
+    const clickY = e.clientY - containerRect.top
+
+    // Check if click is within the actual image bounds
+    if (clickX < imageBounds.left || clickX > imageBounds.left + imageBounds.width ||
+        clickY < imageBounds.top || clickY > imageBounds.top + imageBounds.height) {
+      return // Click was in the letterbox area, ignore
+    }
+
+    // Calculate percentage relative to the actual image, not the container
+    const xPercent = ((clickX - imageBounds.left) / imageBounds.width) * 100
+    const yPercent = ((clickY - imageBounds.top) / imageBounds.height) * 100
 
     if (placementMode === 'pointer') {
       // First click: set where the structure is on the diagram
@@ -1457,65 +1515,86 @@ function DiagramCreateForm({ onCreated, onCancel, showNotification }) {
               className={`diagram-editor-canvas ${placementMode && placementMode !== 'details' ? 'placing' : ''}`}
               onClick={handleImageClick}
             >
-              <img src={imageUrl} alt="Diagram" className="editor-image" />
+              <img
+                ref={imageRef}
+                src={imageUrl}
+                alt="Diagram"
+                className="editor-image"
+                onLoad={updateImageBounds}
+              />
 
-              {/* SVG overlay for lines */}
-              <svg className="editor-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
-                {labels.map((label, i) => (
-                  <line
-                    key={`line-${i}`}
-                    x1={label.x_percent}
-                    y1={label.y_percent}
-                    x2={label.pointer_x}
-                    y2={label.pointer_y}
-                    stroke="#f59e0b"
-                    strokeWidth="0.3"
-                    strokeDasharray="1,0.5"
-                  />
-                ))}
-                {pendingLabel && (
-                  <line
-                    x1={pendingLabel.x_percent}
-                    y1={pendingLabel.y_percent}
-                    x2={pendingLabel.pointer_x}
-                    y2={pendingLabel.pointer_y}
-                    stroke="#22c55e"
-                    strokeWidth="0.3"
-                  />
-                )}
-              </svg>
+              {/* Overlay wrapper positioned exactly over the rendered image */}
+              {imageBounds && (
+                <div
+                  className="editor-overlay-wrapper"
+                  style={{
+                    position: 'absolute',
+                    left: imageBounds.left,
+                    top: imageBounds.top,
+                    width: imageBounds.width,
+                    height: imageBounds.height,
+                    pointerEvents: 'none'
+                  }}
+                >
+                  {/* SVG overlay for lines */}
+                  <svg className="editor-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    {labels.map((label, i) => (
+                      <line
+                        key={`line-${i}`}
+                        x1={label.x_percent}
+                        y1={label.y_percent}
+                        x2={label.pointer_x}
+                        y2={label.pointer_y}
+                        stroke="#f59e0b"
+                        strokeWidth="0.3"
+                        strokeDasharray="1,0.5"
+                      />
+                    ))}
+                    {pendingLabel && (
+                      <line
+                        x1={pendingLabel.x_percent}
+                        y1={pendingLabel.y_percent}
+                        x2={pendingLabel.pointer_x}
+                        y2={pendingLabel.pointer_y}
+                        stroke="#22c55e"
+                        strokeWidth="0.3"
+                      />
+                    )}
+                  </svg>
 
-              {/* Existing labels */}
-              {labels.map((label, i) => (
-                <div key={`marker-${i}`}>
-                  <div
-                    className="editor-label-marker"
-                    style={{ left: `${label.x_percent}%`, top: `${label.y_percent}%` }}
-                    title={`${label.label_key}: ${label.correct_answer}`}
-                  >
-                    {label.label_key}
-                  </div>
-                  <div
-                    className="editor-pointer-dot"
-                    style={{ left: `${label.pointer_x}%`, top: `${label.pointer_y}%` }}
-                  />
+                  {/* Existing labels */}
+                  {labels.map((label, i) => (
+                    <div key={`marker-${i}`}>
+                      <div
+                        className="editor-label-marker"
+                        style={{ left: `${label.x_percent}%`, top: `${label.y_percent}%` }}
+                        title={`${label.label_key}: ${label.correct_answer}`}
+                      >
+                        {label.label_key}
+                      </div>
+                      <div
+                        className="editor-pointer-dot"
+                        style={{ left: `${label.pointer_x}%`, top: `${label.pointer_y}%` }}
+                      />
+                    </div>
+                  ))}
+
+                  {/* Pending label */}
+                  {pendingLabel && (
+                    <>
+                      <div
+                        className="editor-label-marker pending"
+                        style={{ left: `${pendingLabel.x_percent}%`, top: `${pendingLabel.y_percent}%` }}
+                      >
+                        {pendingLabel.label_key || '?'}
+                      </div>
+                      <div
+                        className="editor-pointer-dot pending"
+                        style={{ left: `${pendingLabel.pointer_x}%`, top: `${pendingLabel.pointer_y}%` }}
+                      />
+                    </>
+                  )}
                 </div>
-              ))}
-
-              {/* Pending label */}
-              {pendingLabel && (
-                <>
-                  <div
-                    className="editor-label-marker pending"
-                    style={{ left: `${pendingLabel.x_percent}%`, top: `${pendingLabel.y_percent}%` }}
-                  >
-                    {pendingLabel.label_key || '?'}
-                  </div>
-                  <div
-                    className="editor-pointer-dot pending"
-                    style={{ left: `${pendingLabel.pointer_x}%`, top: `${pendingLabel.pointer_y}%` }}
-                  />
-                </>
               )}
             </div>
 

@@ -114,7 +114,7 @@ function DiagramGamePage() {
     setResults(null)
     setShowHints({})
     setActiveLabel(null)
-    setImageBounds(null) // Reset bounds when diagram changes
+    // Don't reset imageBounds here - let the image load handler update it
   }, [currentIndex, allDiagrams.length, gameStarted])
 
   // Calculate actual image bounds within container (accounting for object-fit: contain)
@@ -167,6 +167,17 @@ function DiagramGamePage() {
   }, [updateImageBounds])
 
   const currentDiagram = allDiagrams[currentIndex]
+
+  // Also update bounds when diagram changes (image might be cached)
+  useEffect(() => {
+    if (!currentDiagram || !imageRef.current) return
+
+    // If image is already loaded (from cache), update bounds immediately
+    if (imageRef.current.complete && imageRef.current.naturalWidth > 0) {
+      // Small delay to ensure container is sized
+      requestAnimationFrame(updateImageBounds)
+    }
+  }, [currentIndex, currentDiagram, updateImageBounds])
 
   const handleAnswerChange = useCallback((labelKey, value) => {
     setAnswers(prev => ({ ...prev, [labelKey]: value }))

@@ -315,6 +315,41 @@ export const learningApi = {
   }
 }
 
+// Learner API (accounts, daily tracking)
+export const learnerApi = {
+  async login(name, pin) {
+    const res = await fetch(`${API_BASE}/learners/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, pin })
+    })
+    return handleResponse(res)
+  },
+
+  async register(name, pin, dailyRequiredMinutes) {
+    const res = await fetch(`${API_BASE}/learners/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, pin, dailyRequiredMinutes })
+    })
+    return handleResponse(res)
+  },
+
+  async getDailyStatus(learnerId) {
+    const res = await fetch(`${API_BASE}/learners/daily-status/${learnerId}`)
+    return handleResponse(res)
+  },
+
+  async recordTime(learnerId, minutes) {
+    const res = await fetch(`${API_BASE}/learners/record-time`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ learnerId, minutes })
+    })
+    return handleResponse(res)
+  }
+}
+
 // Stats API
 export const statsApi = {
   async recordAnswer(questionId, isCorrect) {

@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
-import { quizSessionApi, learningApi } from '../utils/api'
+import { quizSessionApi, learningApi, learnerApi } from '../utils/api'
 import FallingQuestion from '../components/FallingQuestion'
 import AnswerInput from '../components/AnswerInput'
 import ScoreDisplay from '../components/ScoreDisplay'
 import ExplosionEffect from '../components/ExplosionEffect'
 import './GamePage.css'
 
-// Get or create learner ID (stored in localStorage)
+// Get learner ID from account or fallback to random
 function getLearnerId() {
   let learnerId = localStorage.getItem('learnerId')
   if (!learnerId) {
@@ -18,6 +18,16 @@ function getLearnerId() {
     localStorage.setItem('learnerId', learnerId)
   }
   return learnerId
+}
+
+// Get learner account ID (numeric, for daily tracking)
+function getLearnerAccountId() {
+  try {
+    const account = JSON.parse(localStorage.getItem('learnerAccount'))
+    return account?.id || null
+  } catch {
+    return null
+  }
 }
 
 function GamePage() {
@@ -428,6 +438,13 @@ function GamePage() {
         bestStreak: sessionStats.streak,
         durationSeconds
       }).catch(console.error)
+    }
+
+    // Record quiz time for daily tracking (YouTube blocker integration)
+    const accountId = getLearnerAccountId()
+    if (accountId && durationSeconds > 0) {
+      const minutes = durationSeconds / 60
+      learnerApi.recordTime(accountId, minutes).catch(console.error)
     }
 
     setCurrentSession({

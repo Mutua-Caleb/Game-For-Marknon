@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import GamePage from './pages/GamePage'
 import SequenceGamePage from './pages/SequenceGamePage'
@@ -7,18 +7,29 @@ import TopicSelectPage from './pages/TopicSelectPage'
 import ResultsPage from './pages/ResultsPage'
 import AdminPage from './pages/AdminPage'
 import AdminLogin from './pages/AdminLogin'
+import LearnerLoginPage from './pages/LearnerLoginPage'
 import './App.css'
+
+// Check if learner is logged in
+function RequireLearner({ children }) {
+  const learnerAccount = localStorage.getItem('learnerAccount')
+  if (!learnerAccount) {
+    return <Navigate to="/login" replace />
+  }
+  return children
+}
 
 function App() {
   return (
     <div className="app">
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/topics" element={<TopicSelectPage />} />
-        <Route path="/play" element={<GamePage />} />
-        <Route path="/play/sequence" element={<SequenceGamePage />} />
-        <Route path="/play/diagram" element={<DiagramGamePage />} />
-        <Route path="/results" element={<ResultsPage />} />
+        <Route path="/login" element={<LearnerLoginPage />} />
+        <Route path="/" element={<RequireLearner><HomePage /></RequireLearner>} />
+        <Route path="/topics" element={<RequireLearner><TopicSelectPage /></RequireLearner>} />
+        <Route path="/play" element={<RequireLearner><GamePage /></RequireLearner>} />
+        <Route path="/play/sequence" element={<RequireLearner><SequenceGamePage /></RequireLearner>} />
+        <Route path="/play/diagram" element={<RequireLearner><DiagramGamePage /></RequireLearner>} />
+        <Route path="/results" element={<RequireLearner><ResultsPage /></RequireLearner>} />
         <Route path="/admin-portal-x7k9" element={<AdminLogin />} />
         <Route path="/admin-dashboard" element={<AdminPage />} />
       </Routes>

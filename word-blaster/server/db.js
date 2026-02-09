@@ -151,6 +151,26 @@ export async function initializeDatabase() {
       hint TEXT
     );
 
+    -- Learner Accounts: Simple login with name + PIN
+    CREATE TABLE IF NOT EXISTS learner_accounts (
+      id SERIAL PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      pin TEXT NOT NULL,
+      daily_required_minutes INTEGER DEFAULT 30,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Daily Quiz Time: Track minutes spent per day per learner
+    CREATE TABLE IF NOT EXISTS daily_quiz_time (
+      id SERIAL PRIMARY KEY,
+      learner_id INTEGER NOT NULL REFERENCES learner_accounts(id) ON DELETE CASCADE,
+      quiz_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      minutes_completed REAL DEFAULT 0,
+      sessions_count INTEGER DEFAULT 0,
+      last_updated TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(learner_id, quiz_date)
+    );
+
     -- Spaced Repetition: Track per-learner question performance
     CREATE TABLE IF NOT EXISTS learner_progress (
       id SERIAL PRIMARY KEY,
@@ -204,6 +224,9 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_quiz_tab_events_session ON quiz_tab_events(session_id);
     CREATE INDEX IF NOT EXISTS idx_diagram_questions_subject ON diagram_questions(subject);
     CREATE INDEX IF NOT EXISTS idx_diagram_labels_diagram ON diagram_labels(diagram_id);
+    CREATE INDEX IF NOT EXISTS idx_learner_accounts_name ON learner_accounts(name);
+    CREATE INDEX IF NOT EXISTS idx_daily_quiz_time_learner ON daily_quiz_time(learner_id);
+    CREATE INDEX IF NOT EXISTS idx_daily_quiz_time_date ON daily_quiz_time(quiz_date);
     CREATE INDEX IF NOT EXISTS idx_learner_progress_learner ON learner_progress(learner_id);
     CREATE INDEX IF NOT EXISTS idx_learner_progress_next_review ON learner_progress(next_review);
     CREATE INDEX IF NOT EXISTS idx_topic_mastery_learner ON topic_mastery(learner_id);

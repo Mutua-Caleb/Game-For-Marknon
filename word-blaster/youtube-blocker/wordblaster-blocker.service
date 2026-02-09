@@ -1,0 +1,16 @@
+[Unit]
+Description=Word Blaster YouTube Blocker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# CHANGE THESE VALUES:
+# --server-url: The URL where your Word Blaster app is hosted
+# --learner-id: The learner's account ID (shown after registration)
+ExecStart=/usr/bin/python3 /opt/wordblaster-blocker/blocker.py --server-url http://YOUR_SERVER_URL:3001 --learner-id 1
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

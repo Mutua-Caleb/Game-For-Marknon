@@ -1595,6 +1595,14 @@
 .form-group.compact input {
   padding: 0.35rem 0.5rem;
   font-size: 0.85rem;
+  color: #1e293b;
+  background: #fff;
+  border: 2px solid #c6f6d5;
+}
+
+.label-detail-form input {
+  color: #1e293b !important;
+  background-color: #fff !important;
 }
 
 .letter-input {

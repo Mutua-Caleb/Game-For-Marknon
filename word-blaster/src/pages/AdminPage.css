@@ -1,6 +1,19 @@
 .admin-page {
   min-height: 100vh;
   background: #f1f2f6;
+  color: #1e293b;
+}
+
+/* Force all inputs/selects in admin to have dark text on white */
+.admin-page input,
+.admin-page select,
+.admin-page textarea {
+  color: #1e293b !important;
+  background-color: #fff !important;
+}
+
+.admin-page input::placeholder {
+  color: #94a3b8 !important;
 }
 
 .admin-header {

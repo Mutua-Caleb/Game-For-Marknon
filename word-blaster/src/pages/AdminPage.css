@@ -843,6 +843,8 @@
   border: 2px solid #ddd;
   border-radius: 8px;
   font-size: 1rem;
+  color: #1e293b;
+  background-color: #fff;
 }
 
 .form-group input:focus,

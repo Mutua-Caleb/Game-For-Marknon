@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
-import { quizSessionApi } from '../utils/api'
+import { quizSessionApi, learnerApi } from '../utils/api'
 import './SequenceGamePage.css'
 
 function SequenceGamePage() {
@@ -32,7 +32,58 @@ function SequenceGamePage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const gameStartTimeRef = useRef(null)
 
+  // Anti-slacking: only count active time
+  const lastInteractionRef = useRef(Date.now())
+  const activeSecondsRef = useRef(0)
+  const IDLE_THRESHOLD = 30000 // 30 seconds of no interaction = idle
+
   const containerRef = useRef(null)
+
+  // Track user interactions for anti-slacking
+  useEffect(() => {
+    if (!gameStarted || completed) return
+
+    const markActive = () => { lastInteractionRef.current = Date.now() }
+
+    window.addEventListener('pointerdown', markActive)
+    window.addEventListener('keydown', markActive)
+    window.addEventListener('touchstart', markActive)
+
+    // Count active seconds every second
+    const timer = setInterval(() => {
+      if (Date.now() - lastInteractionRef.current < IDLE_THRESHOLD) {
+        activeSecondsRef.current += 1
+      }
+    }, 1000)
+
+    return () => {
+      window.removeEventListener('pointerdown', markActive)
+      window.removeEventListener('keydown', markActive)
+      window.removeEventListener('touchstart', markActive)
+      clearInterval(timer)
+    }
+  }, [gameStarted, completed])
+
+  // Save progress on page unload (so reload doesn't lose time)
+  useEffect(() => {
+    if (!gameStarted) return
+
+    const saveProgress = () => {
+      try {
+        const account = JSON.parse(localStorage.getItem('learnerAccount'))
+        if (account?.id && activeSecondsRef.current > 0) {
+          const activeMinutes = activeSecondsRef.current / 60
+          const data = JSON.stringify({ learnerId: account.id, minutes: activeMinutes })
+          const url = (import.meta.env.VITE_API_URL || '/api') + '/learners/record-time'
+          navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
+          activeSecondsRef.current = 0
+        }
+      } catch { /* no account */ }
+    }
+
+    window.addEventListener('beforeunload', saveProgress)
+    return () => window.removeEventListener('beforeunload', saveProgress)
+  }, [gameStarted])
 
   // Load sequences
   useEffect(() => {
@@ -262,17 +313,28 @@ function SequenceGamePage() {
 
   // Complete quiz session when all sequences done
   useEffect(() => {
-    if (!completed || !quizSessionId) return
+    if (!completed) return
 
     const durationSeconds = gameStartTimeRef.current
       ? Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
       : 0
 
-    quizSessionApi.complete(quizSessionId, {
-      score,
-      bestStreak: 0,
-      durationSeconds
-    }).catch(console.error)
+    if (quizSessionId) {
+      quizSessionApi.complete(quizSessionId, {
+        score,
+        bestStreak: 0,
+        durationSeconds
+      }).catch(console.error)
+    }
+
+    // Record active time for daily tracking (YouTube blocker)
+    try {
+      const account = JSON.parse(localStorage.getItem('learnerAccount'))
+      if (account?.id && activeSecondsRef.current > 0) {
+        const activeMinutes = activeSecondsRef.current / 60
+        learnerApi.recordTime(account.id, activeMinutes).catch(console.error)
+      }
+    } catch { /* no account */ }
   }, [completed, quizSessionId, score])
 
   // Countdown screen

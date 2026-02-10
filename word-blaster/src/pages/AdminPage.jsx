@@ -1215,6 +1215,7 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
   const fileInputRef = useRef(null)
   const imageContainerRef = useRef(null)
   const imageRef = useRef(null)
+  const titleInputRef = useRef(null)
 
   const currentTopics = TOPICS[formData.subject] || []
 
@@ -1437,76 +1438,141 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
     }
   }
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)
+
+      // Ctrl+S / Cmd+S: Save diagram
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        if (formData.title.trim() && imageUrl && labels.length > 0 && !isSaving) {
+          handleSubmit()
+        } else {
+          showNotification('Fill in title, upload image, and add at least one label before saving', 'error')
+        }
+        return
+      }
+
+      // Enter: Save current label (when in label details mode)
+      if (e.key === 'Enter' && placementMode === 'details' && pendingLabel && isTyping) {
+        e.preventDefault()
+        handleSaveLabel()
+        return
+      }
+
+      // Escape: Cancel current action
+      if (e.key === 'Escape') {
+        if (placementMode) {
+          setPendingLabel(null)
+          setPlacementMode(null)
+          setEditingLabelIndex(null)
+        }
+        return
+      }
+
+      if (isTyping) return
+
+      // L: Add label mode
+      if (e.key === 'l' || e.key === 'L') {
+        if (imageUrl) {
+          setPlacementMode(placementMode === 'pointer' ? null : 'pointer')
+          setPendingLabel(null)
+          setEditingLabelIndex(null)
+        }
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [placementMode, pendingLabel, formData, imageUrl, labels, isSaving, handleSubmit, handleSaveLabel])
+
   return (
     <div className="diagram-create-form">
       <h3>{isEditing ? 'Edit Diagram' : 'Create New Diagram'}</h3>
 
-      {/* Basic fields */}
-      <div className="form-row">
-        <div className="form-group">
-          <label>Subject</label>
-          <select
-            value={formData.subject}
-            onChange={(e) => {
-              setFormData(prev => ({
-                ...prev,
-                subject: e.target.value,
-                topic: TOPICS[e.target.value]?.[0] || ''
-              }))
-              setUseCustomTopic(false)
-            }}
-          >
-            {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div className="form-group">
-          <label>
-            Topic
-            <button
-              type="button"
-              className="custom-topic-toggle"
-              onClick={() => setUseCustomTopic(!useCustomTopic)}
+      {/* Keyboard shortcuts help */}
+      <div className="shortcuts-bar">
+        <span className="shortcut-item"><kbd>L</kbd> Add Label</span>
+        <span className="shortcut-item"><kbd>Enter</kbd> Save Label</span>
+        <span className="shortcut-item"><kbd>Esc</kbd> Cancel</span>
+        <span className="shortcut-item"><kbd>Ctrl+S</kbd> Save Diagram</span>
+      </div>
+
+      {/* Sticky header with title and metadata */}
+      <div className="diagram-form-header">
+        <div className="form-row">
+          <div className="form-group">
+            <label>Subject</label>
+            <select
+              value={formData.subject}
+              onChange={(e) => {
+                setFormData(prev => ({
+                  ...prev,
+                  subject: e.target.value,
+                  topic: TOPICS[e.target.value]?.[0] || ''
+                }))
+                setUseCustomTopic(false)
+              }}
             >
-              {useCustomTopic ? 'Use existing' : '+ Custom'}
-            </button>
-          </label>
-          {useCustomTopic ? (
+              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>
+              Topic
+              <button
+                type="button"
+                className="custom-topic-toggle"
+                onClick={() => setUseCustomTopic(!useCustomTopic)}
+              >
+                {useCustomTopic ? 'Use existing' : '+ Custom'}
+              </button>
+            </label>
+            {useCustomTopic ? (
+              <input
+                type="text"
+                value={customTopic}
+                onChange={(e) => setCustomTopic(e.target.value)}
+                placeholder="Enter custom topic..."
+              />
+            ) : (
+              <select
+                value={formData.topic}
+                onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
+              >
+                {currentTopics.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            )}
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group" style={{ flex: 1 }}>
+            <label>Title *</label>
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              placeholder="e.g., Label the countries of Eastern Africa"
+            />
+          </div>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label>Description (optional)</label>
             <input
               type="text"
-              value={customTopic}
-              onChange={(e) => setCustomTopic(e.target.value)}
-              placeholder="Enter custom topic..."
+              value={formData.description}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="e.g., Identify each country marked with a letter"
             />
-          ) : (
-            <select
-              value={formData.topic}
-              onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
-            >
-              {currentTopics.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          )}
+          </div>
         </div>
       </div>
 
-      <div className="form-group">
-        <label>Title</label>
-        <input
-          type="text"
-          value={formData.title}
-          onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-          placeholder="e.g., The Human Heart"
-        />
-      </div>
-
-      <div className="form-group">
-        <label>Description (optional)</label>
-        <input
-          type="text"
-          value={formData.description}
-          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-          placeholder="e.g., Label the parts of the human heart"
-        />
-      </div>
+      {/* Scrollable content area */}
+      <div className="diagram-form-content">
 
       {/* Image upload */}
       <div className="form-group">
@@ -1553,7 +1619,7 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
                   setEditingLabelIndex(null)
                 }}
               >
-                + Add Label (click on structure)
+                + Add Label <kbd>L</kbd>
               </button>
               <button
                 type="button"
@@ -1760,17 +1826,29 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
         />
       </div>
 
-      {/* Actions */}
-      <div className="modal-actions">
-        <button type="button" className="cancel-btn" onClick={onCancel}>Cancel</button>
-        <button
-          type="button"
-          className="save-btn"
-          onClick={handleSubmit}
-          disabled={isSaving || !formData.title.trim() || !imageUrl || labels.length === 0}
-        >
-          {isSaving ? 'Saving...' : isEditing ? 'Update Diagram' : 'Save Diagram'}
-        </button>
+      </div>{/* end diagram-form-content */}
+
+      {/* Sticky save bar at bottom */}
+      <div className="diagram-form-footer">
+        <div className="footer-status">
+          {!formData.title.trim() && <span className="status-missing">Title required</span>}
+          {!imageUrl && <span className="status-missing">Image required</span>}
+          {imageUrl && labels.length === 0 && <span className="status-missing">Add at least 1 label</span>}
+          {formData.title.trim() && imageUrl && labels.length > 0 && (
+            <span className="status-ready">Ready to save ({labels.length} label{labels.length !== 1 ? 's' : ''})</span>
+          )}
+        </div>
+        <div className="footer-actions">
+          <button type="button" className="cancel-btn" onClick={onCancel}>Cancel</button>
+          <button
+            type="button"
+            className="save-btn"
+            onClick={handleSubmit}
+            disabled={isSaving || !formData.title.trim() || !imageUrl || labels.length === 0}
+          >
+            {isSaving ? 'Saving...' : isEditing ? 'Update Diagram' : 'Save Diagram'} <kbd>Ctrl+S</kbd>
+          </button>
+        </div>
       </div>
     </div>
   )

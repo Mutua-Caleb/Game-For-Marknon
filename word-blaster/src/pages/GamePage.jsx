@@ -66,8 +66,14 @@ function GamePage() {
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
   const [showTabWarning, setShowTabWarning] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [activeSeconds, setActiveSeconds] = useState(0)
   const [minTimeReached, setMinTimeReached] = useState(false)
   const gameStartTimeRef = useRef(null)
+
+  // Anti-slacking: only count active time
+  const lastInteractionRef = useRef(Date.now())
+  const activeSecondsRef = useRef(0)
+  const IDLE_THRESHOLD = 30000 // 30 seconds of no interaction = idle
 
   const MIN_QUIZ_TIME = 900 // 15 minutes in seconds
   const learnerId = getLearnerId()
@@ -151,7 +157,24 @@ function GamePage() {
     })
   }, [gameStarted, quizSessionId, selectedSubject, selectedTopics])
 
-  // Elapsed time counter - keeps running even during gameOver resets
+  // Track user interactions for anti-slacking
+  useEffect(() => {
+    if (!gameStarted) return
+
+    const markActive = () => { lastInteractionRef.current = Date.now() }
+
+    window.addEventListener('pointerdown', markActive)
+    window.addEventListener('keydown', markActive)
+    window.addEventListener('touchstart', markActive)
+
+    return () => {
+      window.removeEventListener('pointerdown', markActive)
+      window.removeEventListener('keydown', markActive)
+      window.removeEventListener('touchstart', markActive)
+    }
+  }, [gameStarted])
+
+  // Elapsed time counter - counts only active time (anti-slacking)
   useEffect(() => {
     if (!gameStarted) return
 
@@ -159,13 +182,40 @@ function GamePage() {
       if (gameStartTimeRef.current) {
         const elapsed = Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
         setElapsedSeconds(elapsed)
-        if (elapsed >= MIN_QUIZ_TIME) {
+
+        // Only count active seconds toward quota (anti-slacking)
+        if (Date.now() - lastInteractionRef.current < IDLE_THRESHOLD) {
+          activeSecondsRef.current += 1
+          setActiveSeconds(activeSecondsRef.current)
+        }
+
+        if (activeSecondsRef.current >= MIN_QUIZ_TIME) {
           setMinTimeReached(true)
         }
       }
     }, 1000)
 
     return () => clearInterval(timer)
+  }, [gameStarted])
+
+  // Save progress on page unload (so reload doesn't lose time)
+  useEffect(() => {
+    if (!gameStarted) return
+
+    const saveProgress = () => {
+      const accountId = getLearnerAccountId()
+      if (accountId && activeSecondsRef.current > 0) {
+        const activeMinutes = activeSecondsRef.current / 60
+        // Use sendBeacon for reliable delivery during page unload
+        const data = JSON.stringify({ learnerId: accountId, minutes: activeMinutes })
+        const url = (import.meta.env.VITE_API_URL || '/api') + '/learners/record-time'
+        navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
+        activeSecondsRef.current = 0 // Reset so endGame doesn't double-count
+      }
+    }
+
+    window.addEventListener('beforeunload', saveProgress)
+    return () => window.removeEventListener('beforeunload', saveProgress)
   }, [gameStarted])
 
   // Tab visibility detection
@@ -440,11 +490,11 @@ function GamePage() {
       }).catch(console.error)
     }
 
-    // Record quiz time for daily tracking (YouTube blocker integration)
+    // Record ACTIVE time only for daily tracking (anti-slacking)
     const accountId = getLearnerAccountId()
-    if (accountId && durationSeconds > 0) {
-      const minutes = durationSeconds / 60
-      learnerApi.recordTime(accountId, minutes).catch(console.error)
+    if (accountId && activeSecondsRef.current > 0) {
+      const activeMinutes = activeSecondsRef.current / 60
+      learnerApi.recordTime(accountId, activeMinutes).catch(console.error)
     }
 
     setCurrentSession({
@@ -533,7 +583,7 @@ function GamePage() {
         />
         <div className="header-right-info">
           <div className="quiz-timer">
-            {Math.floor(elapsedSeconds / 60)}:{String(elapsedSeconds % 60).padStart(2, '0')}
+            {Math.floor(activeSeconds / 60)}:{String(activeSeconds % 60).padStart(2, '0')}
             {!minTimeReached && (
               <span className="min-time-note"> / 15:00</span>
             )}
@@ -661,7 +711,7 @@ function GamePage() {
               </div>
               {!minTimeReached && (
                 <div className="min-time-note" style={{ marginTop: '0.5rem', fontSize: '0.85rem', opacity: 0.7 }}>
-                  Quiz ends after {Math.floor((MIN_QUIZ_TIME - elapsedSeconds) / 60)}:{String((MIN_QUIZ_TIME - elapsedSeconds) % 60).padStart(2, '0')} remaining
+                  Active time remaining: {Math.floor(Math.max(0, MIN_QUIZ_TIME - activeSeconds) / 60)}:{String(Math.max(0, MIN_QUIZ_TIME - activeSeconds) % 60).padStart(2, '0')}
                 </div>
               )}
             </div>

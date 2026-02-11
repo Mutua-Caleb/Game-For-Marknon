@@ -140,7 +140,11 @@ function TopicSelectPage() {
 
   const subjectIcons = {
     Science: '🔬',
-    English: '📚'
+    English: '📚',
+    'Christian Religious Education': '✝️',
+    'Creative Arts': '🎨',
+    Agriculture: '🌾',
+    'Social Studies': '🌍'
   }
 
   const topicIcons = {
@@ -151,7 +155,23 @@ function TopicSelectPage() {
     'Vocabulary': '📖',
     'Grammar': '✏️',
     'Spelling': '🔤',
-    'Reading': '📕'
+    'Reading': '📕',
+    'Old Testament': '📜',
+    'New Testament': '📖',
+    'Christian Living': '🙏',
+    'The Church': '⛪',
+    'Drawing & Painting': '🖌️',
+    'Music': '🎵',
+    'Drama': '🎭',
+    'Crafts': '✂️',
+    'Crop Farming': '🌱',
+    'Animal Husbandry': '🐄',
+    'Soil Science': '🪱',
+    'Farm Tools': '🚜',
+    'Geography': '🗺️',
+    'History': '🏛️',
+    'Civics': '⚖️',
+    'Culture': '🎎'
   }
 
   return (

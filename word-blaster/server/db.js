@@ -283,6 +283,26 @@ async function seedDefaultPrerequisites(p) {
     { subject: 'English', topic: 'Grammar', prerequisite_topic: 'Spelling', required_mastery: 60 },
     // Reading requires Grammar
     { subject: 'English', topic: 'Reading', prerequisite_topic: 'Grammar', required_mastery: 60 },
+
+    // CRE path - New Testament after Old Testament
+    { subject: 'Christian Religious Education', topic: 'New Testament', prerequisite_topic: 'Old Testament', required_mastery: 60 },
+    { subject: 'Christian Religious Education', topic: 'Christian Living', prerequisite_topic: 'New Testament', required_mastery: 60 },
+    { subject: 'Christian Religious Education', topic: 'The Church', prerequisite_topic: 'Christian Living', required_mastery: 60 },
+
+    // Creative Arts path
+    { subject: 'Creative Arts', topic: 'Music', prerequisite_topic: 'Drawing & Painting', required_mastery: 60 },
+    { subject: 'Creative Arts', topic: 'Drama', prerequisite_topic: 'Music', required_mastery: 60 },
+    { subject: 'Creative Arts', topic: 'Crafts', prerequisite_topic: 'Drawing & Painting', required_mastery: 60 },
+
+    // Agriculture path
+    { subject: 'Agriculture', topic: 'Animal Husbandry', prerequisite_topic: 'Crop Farming', required_mastery: 60 },
+    { subject: 'Agriculture', topic: 'Soil Science', prerequisite_topic: 'Crop Farming', required_mastery: 60 },
+    { subject: 'Agriculture', topic: 'Farm Tools', prerequisite_topic: 'Soil Science', required_mastery: 60 },
+
+    // Social Studies path
+    { subject: 'Social Studies', topic: 'History', prerequisite_topic: 'Geography', required_mastery: 60 },
+    { subject: 'Social Studies', topic: 'Civics', prerequisite_topic: 'History', required_mastery: 60 },
+    { subject: 'Social Studies', topic: 'Culture', prerequisite_topic: 'Geography', required_mastery: 60 },
   ]
 
   for (const prereq of prerequisites) {
@@ -494,6 +514,92 @@ function getDefaultQuestions() {
     { id: 'eng_rc_001', subject: 'English', topic: 'Reading', question: 'If a character is "trembling", they are probably feeling what?', answer: 'scared', type: 'multiple', options: ['Happy', 'Scared', 'Excited', 'Bored'], hint: 'Trembling is shaking with fear', image: null },
     { id: 'eng_rc_002', subject: 'English', topic: 'Reading', question: 'What is the main character in a story called?', answer: 'protagonist', type: 'text', options: null, hint: 'Pro- means first or main', image: null },
     { id: 'eng_rc_003', subject: 'English', topic: 'Reading', question: 'What do we call the problem in a story?', answer: 'conflict', type: 'text', options: null, hint: 'It creates tension in the plot', image: null },
+
+    // CHRISTIAN RELIGIOUS EDUCATION - Old Testament
+    { id: 'cre_ot_001', subject: 'Christian Religious Education', topic: 'Old Testament', question: 'Who built the ark to survive the great flood?', answer: 'noah', type: 'text', options: null, hint: 'God told him to build it', image: null },
+    { id: 'cre_ot_002', subject: 'Christian Religious Education', topic: 'Old Testament', question: 'Who was given the Ten Commandments on Mount Sinai?', answer: 'moses', type: 'multiple', options: ['Abraham', 'Moses', 'David', 'Elijah'], hint: 'He led the Israelites out of Egypt', image: null },
+    { id: 'cre_ot_003', subject: 'Christian Religious Education', topic: 'Old Testament', question: 'Who killed Goliath with a sling and a stone?', answer: 'david', type: 'text', options: null, hint: 'He later became king of Israel', image: null },
+    { id: 'cre_ot_004', subject: 'Christian Religious Education', topic: 'Old Testament', question: 'How many days did God take to create the world?', answer: '6', type: 'multiple', options: ['5', '6', '7', '10'], hint: 'He rested on the seventh day', image: null },
+    { id: 'cre_ot_005', subject: 'Christian Religious Education', topic: 'Old Testament', question: 'Who was swallowed by a big fish?', answer: 'jonah', type: 'text', options: null, hint: 'God told him to go to Nineveh', image: null },
+
+    // CHRISTIAN RELIGIOUS EDUCATION - New Testament
+    { id: 'cre_nt_001', subject: 'Christian Religious Education', topic: 'New Testament', question: 'In what town was Jesus born?', answer: 'bethlehem', type: 'text', options: null, hint: 'Mary and Joseph traveled there for a census', image: null },
+    { id: 'cre_nt_002', subject: 'Christian Religious Education', topic: 'New Testament', question: 'How many disciples did Jesus choose?', answer: '12', type: 'multiple', options: ['7', '10', '12', '15'], hint: 'A dozen', image: null },
+    { id: 'cre_nt_003', subject: 'Christian Religious Education', topic: 'New Testament', question: 'Who baptized Jesus in the River Jordan?', answer: 'john', type: 'text', options: null, hint: 'John the ___', image: null },
+    { id: 'cre_nt_004', subject: 'Christian Religious Education', topic: 'New Testament', question: 'What was the first miracle Jesus performed?', answer: 'water into wine', type: 'multiple', options: ['Healing the blind', 'Water into wine', 'Walking on water', 'Feeding 5000'], hint: 'It happened at a wedding in Cana', image: null },
+    { id: 'cre_nt_005', subject: 'Christian Religious Education', topic: 'New Testament', question: 'What did Jesus ride into Jerusalem on Palm Sunday?', answer: 'donkey', type: 'text', options: null, hint: 'A small animal related to a horse', image: null },
+
+    // CHRISTIAN RELIGIOUS EDUCATION - Christian Living
+    { id: 'cre_cl_001', subject: 'Christian Religious Education', topic: 'Christian Living', question: 'What prayer did Jesus teach his followers?', answer: "lord's prayer", type: 'text', options: null, hint: 'Our Father who art in heaven...', image: null },
+    { id: 'cre_cl_002', subject: 'Christian Religious Education', topic: 'Christian Living', question: 'Which commandment says "Love your neighbor as yourself"?', answer: 'second', type: 'multiple', options: ['First', 'Second', 'Fifth', 'Tenth'], hint: 'The greatest commandments are two', image: null },
+    { id: 'cre_cl_003', subject: 'Christian Religious Education', topic: 'Christian Living', question: 'What is the Golden Rule?', answer: 'treat others as you want to be treated', type: 'multiple', options: ['Be first in everything', 'Treat others as you want to be treated', 'Always follow rules', 'Never tell lies'], hint: 'Do unto others...', image: null },
+
+    // CHRISTIAN RELIGIOUS EDUCATION - The Church
+    { id: 'cre_ch_001', subject: 'Christian Religious Education', topic: 'The Church', question: 'What event is celebrated on Easter Sunday?', answer: 'resurrection', type: 'text', options: null, hint: 'Jesus rose from the dead', image: null },
+    { id: 'cre_ch_002', subject: 'Christian Religious Education', topic: 'The Church', question: 'What season of the church calendar comes before Easter?', answer: 'lent', type: 'multiple', options: ['Advent', 'Lent', 'Pentecost', 'Ordinary Time'], hint: '40 days of fasting and prayer', image: null },
+
+    // CREATIVE ARTS - Drawing & Painting
+    { id: 'ca_dp_001', subject: 'Creative Arts', topic: 'Drawing & Painting', question: 'What are the three primary colors?', answer: 'red yellow blue', type: 'multiple', options: ['Red, Yellow, Blue', 'Red, Green, Blue', 'Orange, Green, Purple', 'Black, White, Gray'], hint: 'These colors cannot be made by mixing other colors', image: null },
+    { id: 'ca_dp_002', subject: 'Creative Arts', topic: 'Drawing & Painting', question: 'What color do you get when you mix red and blue?', answer: 'purple', type: 'text', options: null, hint: 'The color of grapes', image: null },
+    { id: 'ca_dp_003', subject: 'Creative Arts', topic: 'Drawing & Painting', question: 'What color do you get when you mix red and yellow?', answer: 'orange', type: 'text', options: null, hint: 'Named after a fruit', image: null },
+    { id: 'ca_dp_004', subject: 'Creative Arts', topic: 'Drawing & Painting', question: 'What is the technique of shading with small dots called?', answer: 'stippling', type: 'multiple', options: ['Hatching', 'Stippling', 'Blending', 'Smudging'], hint: 'Think of tiny dots', image: null },
+    { id: 'ca_dp_005', subject: 'Creative Arts', topic: 'Drawing & Painting', question: 'What do warm colors (red, orange, yellow) usually represent?', answer: 'energy', type: 'multiple', options: ['Sadness', 'Energy', 'Coldness', 'Silence'], hint: 'Think of fire and the sun', image: null },
+
+    // CREATIVE ARTS - Music
+    { id: 'ca_mu_001', subject: 'Creative Arts', topic: 'Music', question: 'How many notes are in a musical scale (do, re, mi...)?', answer: '8', type: 'multiple', options: ['5', '7', '8', '12'], hint: 'Do Re Mi Fa Sol La Ti Do', image: null },
+    { id: 'ca_mu_002', subject: 'Creative Arts', topic: 'Music', question: 'What instrument has black and white keys?', answer: 'piano', type: 'text', options: null, hint: 'A large keyboard instrument', image: null },
+    { id: 'ca_mu_003', subject: 'Creative Arts', topic: 'Music', question: 'What do you call a group of singers performing together?', answer: 'choir', type: 'text', options: null, hint: 'Often found in churches', image: null },
+
+    // CREATIVE ARTS - Drama
+    { id: 'ca_dr_001', subject: 'Creative Arts', topic: 'Drama', question: 'What is the area where actors perform called?', answer: 'stage', type: 'text', options: null, hint: 'The raised platform in a theater', image: null },
+    { id: 'ca_dr_002', subject: 'Creative Arts', topic: 'Drama', question: 'What do you call the words actors speak in a play?', answer: 'dialogue', type: 'multiple', options: ['Script', 'Dialogue', 'Monologue', 'Lyrics'], hint: 'A conversation between characters', image: null },
+
+    // CREATIVE ARTS - Crafts
+    { id: 'ca_cr_001', subject: 'Creative Arts', topic: 'Crafts', question: 'What craft involves folding paper into shapes?', answer: 'origami', type: 'text', options: null, hint: 'A Japanese paper art', image: null },
+    { id: 'ca_cr_002', subject: 'Creative Arts', topic: 'Crafts', question: 'What tool is used for cutting fabric or paper?', answer: 'scissors', type: 'text', options: null, hint: 'Has two sharp blades', image: null },
+
+    // AGRICULTURE - Crop Farming
+    { id: 'agr_cf_001', subject: 'Agriculture', topic: 'Crop Farming', question: 'What do plants need to make food through photosynthesis?', answer: 'sunlight', type: 'multiple', options: ['Sunlight', 'Darkness', 'Salt', 'Sand'], hint: 'It comes from the sky during the day', image: null },
+    { id: 'agr_cf_002', subject: 'Agriculture', topic: 'Crop Farming', question: 'What is the process of putting seeds in the soil called?', answer: 'planting', type: 'text', options: null, hint: 'Also called sowing', image: null },
+    { id: 'agr_cf_003', subject: 'Agriculture', topic: 'Crop Farming', question: 'What is the practice of growing crops without chemicals called?', answer: 'organic farming', type: 'multiple', options: ['Organic farming', 'Industrial farming', 'Mono-cropping', 'Irrigation'], hint: 'Natural and chemical-free', image: null },
+    { id: 'agr_cf_004', subject: 'Agriculture', topic: 'Crop Farming', question: 'What staple crop is grown in paddy fields?', answer: 'rice', type: 'text', options: null, hint: 'A grain commonly eaten in Asia and East Africa', image: null },
+    { id: 'agr_cf_005', subject: 'Agriculture', topic: 'Crop Farming', question: 'What is removing unwanted plants from a garden called?', answer: 'weeding', type: 'text', options: null, hint: 'Getting rid of plants that compete with crops', image: null },
+
+    // AGRICULTURE - Animal Husbandry
+    { id: 'agr_ah_001', subject: 'Agriculture', topic: 'Animal Husbandry', question: 'What is a young cow called?', answer: 'calf', type: 'text', options: null, hint: 'Baby cattle', image: null },
+    { id: 'agr_ah_002', subject: 'Agriculture', topic: 'Animal Husbandry', question: 'What product do we get from dairy cows?', answer: 'milk', type: 'multiple', options: ['Wool', 'Milk', 'Eggs', 'Honey'], hint: 'A white liquid', image: null },
+    { id: 'agr_ah_003', subject: 'Agriculture', topic: 'Animal Husbandry', question: 'What is a place where bees are kept called?', answer: 'apiary', type: 'text', options: null, hint: 'Also called a bee yard', image: null },
+    { id: 'agr_ah_004', subject: 'Agriculture', topic: 'Animal Husbandry', question: 'What animal gives us wool?', answer: 'sheep', type: 'text', options: null, hint: 'It says "baa"', image: null },
+
+    // AGRICULTURE - Soil Science
+    { id: 'agr_ss_001', subject: 'Agriculture', topic: 'Soil Science', question: 'What are the three main types of soil?', answer: 'sand silt clay', type: 'multiple', options: ['Sand, Silt, Clay', 'Rock, Mud, Dirt', 'Gravel, Peat, Chalk', 'Sand, Rock, Mud'], hint: 'Classified by particle size', image: null },
+    { id: 'agr_ss_002', subject: 'Agriculture', topic: 'Soil Science', question: 'What is the dark, nutrient-rich top layer of soil called?', answer: 'humus', type: 'text', options: null, hint: 'Formed from decomposed organic matter', image: null },
+    { id: 'agr_ss_003', subject: 'Agriculture', topic: 'Soil Science', question: 'What type of soil holds the most water?', answer: 'clay', type: 'multiple', options: ['Sandy', 'Clay', 'Loam', 'Gravel'], hint: 'Has the smallest particles', image: null },
+
+    // AGRICULTURE - Farm Tools
+    { id: 'agr_ft_001', subject: 'Agriculture', topic: 'Farm Tools', question: 'What tool is used for digging soil?', answer: 'hoe', type: 'text', options: null, hint: 'A simple hand tool with a flat blade', image: null },
+    { id: 'agr_ft_002', subject: 'Agriculture', topic: 'Farm Tools', question: 'What tool is used for cutting grass or crops?', answer: 'panga', type: 'multiple', options: ['Rake', 'Panga', 'Spade', 'Fork'], hint: 'A large cutting tool, also called a machete', image: null },
+
+    // SOCIAL STUDIES - Geography
+    { id: 'ss_geo_001', subject: 'Social Studies', topic: 'Geography', question: 'What is the longest river in Africa?', answer: 'nile', type: 'text', options: null, hint: 'It flows through Egypt', image: null },
+    { id: 'ss_geo_002', subject: 'Social Studies', topic: 'Geography', question: 'What is the largest continent?', answer: 'asia', type: 'multiple', options: ['Africa', 'Asia', 'Europe', 'North America'], hint: 'China and India are on this continent', image: null },
+    { id: 'ss_geo_003', subject: 'Social Studies', topic: 'Geography', question: 'What is the tallest mountain in Africa?', answer: 'kilimanjaro', type: 'text', options: null, hint: 'Located in Tanzania', image: null },
+    { id: 'ss_geo_004', subject: 'Social Studies', topic: 'Geography', question: 'What ocean borders East Africa?', answer: 'indian', type: 'multiple', options: ['Atlantic', 'Indian', 'Pacific', 'Arctic'], hint: 'Named after a large Asian country', image: null },
+    { id: 'ss_geo_005', subject: 'Social Studies', topic: 'Geography', question: 'What is the largest lake in Africa?', answer: 'victoria', type: 'text', options: null, hint: 'Shared by Kenya, Uganda, and Tanzania', image: null },
+
+    // SOCIAL STUDIES - History
+    { id: 'ss_his_001', subject: 'Social Studies', topic: 'History', question: 'Which country was the first to gain independence in East Africa?', answer: 'tanzania', type: 'multiple', options: ['Kenya', 'Tanzania', 'Uganda', 'Rwanda'], hint: 'It gained independence in 1961', image: null },
+    { id: 'ss_his_002', subject: 'Social Studies', topic: 'History', question: 'What year did Kenya gain independence?', answer: '1963', type: 'text', options: null, hint: 'In the 1960s', image: null },
+    { id: 'ss_his_003', subject: 'Social Studies', topic: 'History', question: 'Who was the first president of Kenya?', answer: 'jomo kenyatta', type: 'text', options: null, hint: 'The Nairobi airport is named after him', image: null },
+
+    // SOCIAL STUDIES - Civics
+    { id: 'ss_civ_001', subject: 'Social Studies', topic: 'Civics', question: 'What is the supreme law of a country called?', answer: 'constitution', type: 'text', options: null, hint: 'It outlines the rules for how a country is governed', image: null },
+    { id: 'ss_civ_002', subject: 'Social Studies', topic: 'Civics', question: 'What are the three branches of government?', answer: 'executive legislature judiciary', type: 'multiple', options: ['Executive, Legislature, Judiciary', 'President, Senate, Army', 'Police, Courts, Parliament', 'Mayor, Governor, President'], hint: 'They provide checks and balances', image: null },
+    { id: 'ss_civ_003', subject: 'Social Studies', topic: 'Civics', question: 'What is the right to vote called?', answer: 'suffrage', type: 'text', options: null, hint: 'A democratic right for citizens', image: null },
+
+    // SOCIAL STUDIES - Culture
+    { id: 'ss_cul_001', subject: 'Social Studies', topic: 'Culture', question: 'What is a language spoken widely in East Africa alongside English?', answer: 'swahili', type: 'text', options: null, hint: 'Jambo! Habari?', image: null },
+    { id: 'ss_cul_002', subject: 'Social Studies', topic: 'Culture', question: 'What is the traditional Maasai home called?', answer: 'manyatta', type: 'multiple', options: ['Igloo', 'Manyatta', 'Tepee', 'Hut'], hint: 'Made from mud, sticks, and cow dung', image: null },
   ]
 }
 

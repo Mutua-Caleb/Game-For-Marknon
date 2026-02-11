@@ -5,10 +5,14 @@ import { useGame } from '../context/GameContext'
 import { uploadApi, questionsApi, diagramsApi, statsApi, authApi, quizSessionApi } from '../utils/api'
 import './AdminPage.css'
 
-const SUBJECTS = ['Science', 'English']
+const SUBJECTS = ['Science', 'English', 'Christian Religious Education', 'Creative Arts', 'Agriculture', 'Social Studies']
 const TOPICS = {
   Science: ['Human Body', 'Physics', 'Chemistry', 'Earth Science'],
-  English: ['Vocabulary', 'Grammar', 'Spelling', 'Reading']
+  English: ['Vocabulary', 'Grammar', 'Spelling', 'Reading'],
+  'Christian Religious Education': ['Old Testament', 'New Testament', 'Christian Living', 'The Church'],
+  'Creative Arts': ['Drawing & Painting', 'Music', 'Drama', 'Crafts'],
+  Agriculture: ['Crop Farming', 'Animal Husbandry', 'Soil Science', 'Farm Tools'],
+  'Social Studies': ['Geography', 'History', 'Civics', 'Culture']
 }
 
 function AdminPage() {

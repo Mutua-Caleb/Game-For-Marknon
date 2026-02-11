@@ -75,7 +75,7 @@ function HomePage() {
           </div>
         </motion.div>
 
-        <p className="tagline">Learn Science & English while having fun!</p>
+        <p className="tagline">Learn Science, English, CRE & more while having fun!</p>
 
         {/* Daily Progress Card */}
         {dailyStatus && (

@@ -456,9 +456,13 @@ export const defaultQuestions = [
   }
 ]
 
-export const subjects = ['Science', 'English']
+export const subjects = ['Science', 'English', 'Christian Religious Education', 'Creative Arts', 'Agriculture', 'Social Studies']
 
 export const topics = {
   Science: ['Human Body', 'Physics', 'Chemistry', 'Earth Science'],
-  English: ['Vocabulary', 'Grammar', 'Spelling', 'Reading']
+  English: ['Vocabulary', 'Grammar', 'Spelling', 'Reading'],
+  'Christian Religious Education': ['Old Testament', 'New Testament', 'Christian Living', 'The Church'],
+  'Creative Arts': ['Drawing & Painting', 'Music', 'Drama', 'Crafts'],
+  Agriculture: ['Crop Farming', 'Animal Husbandry', 'Soil Science', 'Farm Tools'],
+  'Social Studies': ['Geography', 'History', 'Civics', 'Culture']
 }

@@ -1985,7 +1985,7 @@ function ImportExportSection({ questions, onImportComplete, showNotification }) 
           <div className="column-list">
             <div className="column-item required">
               <span className="column-name">Subject</span>
-              <span className="column-desc">Science or English</span>
+              <span className="column-desc">e.g. Science, English, Agriculture, etc.</span>
             </div>
             <div className="column-item required">
               <span className="column-name">Topic</span>

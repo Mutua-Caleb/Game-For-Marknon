@@ -111,7 +111,7 @@ function HomePage() {
 
         <div className="home-features">
           <div className="feature">
-            <span className="feature-icon">&#129504;</span>
+            <span className="feature-icon">&#128300;</span>
             <span className="feature-text">Science</span>
           </div>
           <div className="feature">
@@ -119,8 +119,20 @@ function HomePage() {
             <span className="feature-text">English</span>
           </div>
           <div className="feature">
-            <span className="feature-icon">&#127918;</span>
-            <span className="feature-text">Fun Games</span>
+            <span className="feature-icon">&#10013;&#65039;</span>
+            <span className="feature-text">CRE</span>
+          </div>
+          <div className="feature">
+            <span className="feature-icon">&#127912;</span>
+            <span className="feature-text">Creative Arts</span>
+          </div>
+          <div className="feature">
+            <span className="feature-icon">&#127806;</span>
+            <span className="feature-text">Agriculture</span>
+          </div>
+          <div className="feature">
+            <span className="feature-icon">&#127757;</span>
+            <span className="feature-text">Social Studies</span>
           </div>
         </div>
 

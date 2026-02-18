@@ -261,6 +261,85 @@
   font-weight: 700;
 }
 
+/* Earnings Card */
+.earnings-card {
+  background: rgba(5, 150, 105, 0.25);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.5rem;
+  border: 2px solid rgba(16, 185, 129, 0.4);
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.earnings-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0.6rem;
+}
+
+.earnings-card-icon {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #a7f3d0;
+}
+
+.earnings-card-title {
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.earnings-card-amounts {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.earnings-stat {
+  text-align: center;
+  flex: 1;
+}
+
+.earnings-stat-value {
+  display: block;
+  color: #a7f3d0;
+  font-weight: 800;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.earnings-balance {
+  color: #fbbf24;
+}
+
+.earnings-stat-label {
+  display: block;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+
+.earnings-divider {
+  width: 1px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.earnings-card-rate {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.7rem;
+  margin-top: 0.5rem;
+}
+
 @media (max-width: 768px) {
   .game-title {
     font-size: 2.5rem;

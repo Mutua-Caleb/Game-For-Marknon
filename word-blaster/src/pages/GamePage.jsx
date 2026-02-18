@@ -8,6 +8,7 @@ import FallingQuestion from '../components/FallingQuestion'
 import AnswerInput from '../components/AnswerInput'
 import ScoreDisplay from '../components/ScoreDisplay'
 import ExplosionEffect from '../components/ExplosionEffect'
+import EarningsBar from '../components/EarningsBar'
 import './GamePage.css'
 
 // Get learner ID from account or fallback to random
@@ -69,6 +70,11 @@ function GamePage() {
   const [activeSeconds, setActiveSeconds] = useState(0)
   const [minTimeReached, setMinTimeReached] = useState(false)
   const gameStartTimeRef = useRef(null)
+
+  // Earnings tracking
+  const [serverEarnings, setServerEarnings] = useState(0)
+  const sessionCorrectRef = useRef(0)
+  const [sessionCorrectCount, setSessionCorrectCount] = useState(0)
 
   // Anti-slacking: only count active time
   const lastInteractionRef = useRef(Date.now())
@@ -157,6 +163,16 @@ function GamePage() {
     })
   }, [gameStarted, quizSessionId, selectedSubject, selectedTopics])
 
+  // Fetch today's earnings on mount
+  useEffect(() => {
+    const accountId = getLearnerAccountId()
+    if (accountId) {
+      learnerApi.getEarnings(accountId)
+        .then(data => setServerEarnings(data.todayEarnings))
+        .catch(console.error)
+    }
+  }, [])
+
   // Track user interactions for anti-slacking
   useEffect(() => {
     if (!gameStarted) return
@@ -204,13 +220,19 @@ function GamePage() {
 
     const saveProgress = () => {
       const accountId = getLearnerAccountId()
+      const apiBase = import.meta.env.VITE_API_URL || '/api'
       if (accountId && activeSecondsRef.current > 0) {
         const activeMinutes = activeSecondsRef.current / 60
         // Use sendBeacon for reliable delivery during page unload
         const data = JSON.stringify({ learnerId: accountId, minutes: activeMinutes })
-        const url = (import.meta.env.VITE_API_URL || '/api') + '/learners/record-time'
-        navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
+        navigator.sendBeacon(apiBase + '/learners/record-time', new Blob([data], { type: 'application/json' }))
         activeSecondsRef.current = 0 // Reset so endGame doesn't double-count
+      }
+      // Also save earnings on page unload
+      if (accountId && sessionCorrectRef.current > 0) {
+        const earningsData = JSON.stringify({ learnerId: accountId, correctAnswers: sessionCorrectRef.current })
+        navigator.sendBeacon(apiBase + '/learners/record-earning', new Blob([earningsData], { type: 'application/json' }))
+        sessionCorrectRef.current = 0
       }
     }
 
@@ -416,6 +438,10 @@ function GamePage() {
         }
       })
 
+      // Track earnings (KSh 0.50 per correct answer)
+      sessionCorrectRef.current += 1
+      setSessionCorrectCount(sessionCorrectRef.current)
+
       recordAnswer(matchedQuestion.id, true)
 
       // Record detailed answer for quiz session
@@ -497,6 +523,12 @@ function GamePage() {
       learnerApi.recordTime(accountId, activeMinutes).catch(console.error)
     }
 
+    // Record earnings for this session
+    if (accountId && sessionCorrectRef.current > 0) {
+      learnerApi.recordEarning(accountId, sessionCorrectRef.current).catch(console.error)
+      sessionCorrectRef.current = 0
+    }
+
     setCurrentSession({
       ...sessionStats,
       tabSwitches: tabSwitchCount,
@@ -528,6 +560,11 @@ function GamePage() {
 
   return (
     <div className="game-page" ref={gameAreaRef}>
+      {/* Earnings Bar */}
+      {gameStarted && (
+        <EarningsBar sessionCorrect={sessionCorrectCount} serverEarnings={serverEarnings} />
+      )}
+
       {/* Background particles */}
       <div className="game-particles"></div>
 

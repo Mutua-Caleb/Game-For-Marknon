@@ -201,6 +201,19 @@ export async function initializeDatabase() {
       UNIQUE(learner_id, subject, topic)
     );
 
+    -- Learner Earnings: Track money earned per day (KSh 0.50 per correct answer)
+    CREATE TABLE IF NOT EXISTS learner_earnings (
+      id SERIAL PRIMARY KEY,
+      learner_id INTEGER NOT NULL REFERENCES learner_accounts(id) ON DELETE CASCADE,
+      earning_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      amount_ksh REAL DEFAULT 0,
+      correct_answers INTEGER DEFAULT 0,
+      paid BOOLEAN DEFAULT FALSE,
+      paid_at TIMESTAMPTZ,
+      last_updated TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(learner_id, earning_date)
+    );
+
     -- Topic Prerequisites: Define which topics must be mastered before others
     CREATE TABLE IF NOT EXISTS topic_prerequisites (
       id SERIAL PRIMARY KEY,
@@ -231,6 +244,9 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_learner_progress_next_review ON learner_progress(next_review);
     CREATE INDEX IF NOT EXISTS idx_topic_mastery_learner ON topic_mastery(learner_id);
     CREATE INDEX IF NOT EXISTS idx_topic_prerequisites_topic ON topic_prerequisites(subject, topic);
+    CREATE INDEX IF NOT EXISTS idx_learner_earnings_learner ON learner_earnings(learner_id);
+    CREATE INDEX IF NOT EXISTS idx_learner_earnings_date ON learner_earnings(earning_date);
+    CREATE INDEX IF NOT EXISTS idx_learner_earnings_unpaid ON learner_earnings(learner_id, paid);
   `)
 
   // Seed default admin if none exists

@@ -4,6 +4,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
 import { quizSessionApi, learnerApi } from '../utils/api'
+import EarningsBar from '../components/EarningsBar'
 import './SequenceGamePage.css'
 
 function SequenceGamePage() {
@@ -32,12 +33,29 @@ function SequenceGamePage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const gameStartTimeRef = useRef(null)
 
+  // Earnings tracking
+  const [serverEarnings, setServerEarnings] = useState(0)
+  const sessionCorrectRef = useRef(0)
+  const [sessionCorrectCount, setSessionCorrectCount] = useState(0)
+
   // Anti-slacking: only count active time
   const lastInteractionRef = useRef(Date.now())
   const activeSecondsRef = useRef(0)
   const IDLE_THRESHOLD = 30000 // 30 seconds of no interaction = idle
 
   const containerRef = useRef(null)
+
+  // Fetch today's earnings on mount
+  useEffect(() => {
+    try {
+      const account = JSON.parse(localStorage.getItem('learnerAccount'))
+      if (account?.id) {
+        learnerApi.getEarnings(account.id)
+          .then(data => setServerEarnings(data.todayEarnings))
+          .catch(console.error)
+      }
+    } catch { /* no account */ }
+  }, [])
 
   // Track user interactions for anti-slacking
   useEffect(() => {
@@ -71,12 +89,17 @@ function SequenceGamePage() {
     const saveProgress = () => {
       try {
         const account = JSON.parse(localStorage.getItem('learnerAccount'))
+        const apiBase = import.meta.env.VITE_API_URL || '/api'
         if (account?.id && activeSecondsRef.current > 0) {
           const activeMinutes = activeSecondsRef.current / 60
           const data = JSON.stringify({ learnerId: account.id, minutes: activeMinutes })
-          const url = (import.meta.env.VITE_API_URL || '/api') + '/learners/record-time'
-          navigator.sendBeacon(url, new Blob([data], { type: 'application/json' }))
+          navigator.sendBeacon(apiBase + '/learners/record-time', new Blob([data], { type: 'application/json' }))
           activeSecondsRef.current = 0
+        }
+        if (account?.id && sessionCorrectRef.current > 0) {
+          const earningsData = JSON.stringify({ learnerId: account.id, correctAnswers: sessionCorrectRef.current })
+          navigator.sendBeacon(apiBase + '/learners/record-earning', new Blob([earningsData], { type: 'application/json' }))
+          sessionCorrectRef.current = 0
         }
       } catch { /* no account */ }
     }
@@ -211,6 +234,10 @@ function SequenceGamePage() {
       const attemptScore = Math.max(10, 50 - (attempts * 10))
       setScore(prev => prev + attemptScore)
 
+      // Track earnings (each correct sequence = 1 correct answer)
+      sessionCorrectRef.current += 1
+      setSessionCorrectCount(sessionCorrectRef.current)
+
       setSequenceResults(prev => [...prev, {
         title: currentSequence.title,
         attempts: attempts + 1,
@@ -334,6 +361,11 @@ function SequenceGamePage() {
         const activeMinutes = activeSecondsRef.current / 60
         learnerApi.recordTime(account.id, activeMinutes).catch(console.error)
       }
+      // Record earnings
+      if (account?.id && sessionCorrectRef.current > 0) {
+        learnerApi.recordEarning(account.id, sessionCorrectRef.current).catch(console.error)
+        sessionCorrectRef.current = 0
+      }
     } catch { /* no account */ }
   }, [completed, quizSessionId, score])
 
@@ -433,6 +465,9 @@ function SequenceGamePage() {
 
   return (
     <div className="sequence-page" ref={containerRef}>
+      {/* Earnings Bar */}
+      <EarningsBar sessionCorrect={sessionCorrectCount} serverEarnings={serverEarnings} />
+
       {/* Tab Switch Warning */}
       <AnimatePresence>
         {showTabWarning && (

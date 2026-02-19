@@ -201,7 +201,7 @@ export async function initializeDatabase() {
       UNIQUE(learner_id, subject, topic)
     );
 
-    -- Learner Earnings: Track money earned per day (KSh 0.50 per correct answer)
+    -- Learner Earnings: Track money earned per day (KSh 0.25 per correct answer)
     CREATE TABLE IF NOT EXISTS learner_earnings (
       id SERIAL PRIMARY KEY,
       learner_id INTEGER NOT NULL REFERENCES learner_accounts(id) ON DELETE CASCADE,

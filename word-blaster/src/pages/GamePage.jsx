@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
 import { quizSessionApi, learningApi, learnerApi } from '../utils/api'
+import { speakQuestionAnswer, cancelSpeech } from '../utils/voiceover'
 import FallingQuestion from '../components/FallingQuestion'
 import AnswerInput from '../components/AnswerInput'
 import ScoreDisplay from '../components/ScoreDisplay'
@@ -190,6 +191,11 @@ function GamePage() {
     }
   }, [gameStarted])
 
+  // Cancel any voice-over speech when leaving the page
+  useEffect(() => {
+    return () => cancelSpeech()
+  }, [])
+
   // Elapsed time counter - counts only active time (anti-slacking)
   useEffect(() => {
     if (!gameStarted) return
@@ -355,6 +361,9 @@ function GamePage() {
     })
     setTimeout(() => setShowWrongFeedback(null), 2500)
 
+    // Voice-over: read the question and correct answer aloud
+    speakQuestionAnswer(question.question, question.answer)
+
     // Record as wrong and track for spaced repetition
     recordAnswer(question.id, false)
     failedQuestionsRef.current.add(question.id)
@@ -438,7 +447,7 @@ function GamePage() {
         }
       })
 
-      // Track earnings (KSh 0.50 per correct answer)
+      // Track earnings (KSh 0.25 per correct answer)
       sessionCorrectRef.current += 1
       setSessionCorrectCount(sessionCorrectRef.current)
 

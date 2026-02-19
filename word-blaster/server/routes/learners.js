@@ -163,7 +163,7 @@ router.post('/record-earning', async (req, res) => {
       return res.status(400).json({ error: 'learnerId and positive correctAnswers are required' })
     }
 
-    const RATE_PER_CORRECT = 0.50 // KSh 0.50 per correct answer
+    const RATE_PER_CORRECT = 0.25 // KSh 0.25 per correct answer
     const amountKsh = correctAnswers * RATE_PER_CORRECT
 
     const pool = getPool()

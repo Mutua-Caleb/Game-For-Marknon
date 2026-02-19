@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import './EarningsBar.css'
 
-const RATE_PER_CORRECT = 0.50 // KSh 0.50 per correct answer
+const RATE_PER_CORRECT = 0.25 // KSh 0.25 per correct answer
 
 function EarningsBar({ sessionCorrect = 0, serverEarnings = 0 }) {
   const [showPop, setShowPop] = useState(false)
@@ -46,7 +46,7 @@ function EarningsBar({ sessionCorrect = 0, serverEarnings = 0 }) {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.6 }}
           >
-            +0.50
+            +0.25
           </motion.span>
         )}
       </AnimatePresence>

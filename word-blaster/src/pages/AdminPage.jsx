@@ -1928,7 +1928,7 @@ function EarningsSection({ showNotification }) {
           <span className="stat-label">Learners</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">KSh 0.50</span>
+          <span className="stat-value">KSh 0.25</span>
           <span className="stat-label">Per Correct Answer</span>
         </div>
       </div>

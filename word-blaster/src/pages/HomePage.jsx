@@ -132,7 +132,7 @@ function HomePage() {
               </div>
             </div>
             <div className="earnings-card-rate">
-              KSh 0.50 per correct answer
+              KSh 0.25 per correct answer
             </div>
           </motion.div>
         )}

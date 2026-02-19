@@ -438,7 +438,7 @@ function GamePage() {
         }
       })
 
-      // Track earnings (KSh 0.50 per correct answer)
+      // Track earnings (KSh 0.25 per correct answer)
       sessionCorrectRef.current += 1
       setSessionCorrectCount(sessionCorrectRef.current)
 

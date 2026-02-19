@@ -308,7 +308,7 @@ function DiagramGamePage() {
     const points = Math.round((correctCount / totalLabels) * 100)
     setScore(prev => prev + points)
 
-    // Track earnings (each correct label = 1 correct answer = KSh 0.50)
+    // Track earnings (each correct label = 1 correct answer = KSh 0.25)
     if (correctCount > 0) {
       sessionCorrectRef.current += correctCount
       setSessionCorrectCount(sessionCorrectRef.current)

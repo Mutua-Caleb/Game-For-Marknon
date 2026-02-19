@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
 import { quizSessionApi, learnerApi } from '../utils/api'
+import { speakCorrections, cancelSpeech } from '../utils/voiceover'
 import EarningsBar from '../components/EarningsBar'
 import './DiagramGamePage.css'
 
@@ -83,6 +84,11 @@ function DiagramGamePage() {
       clearInterval(timer)
     }
   }, [gameStarted, completed])
+
+  // Cancel any voice-over speech when leaving the page
+  useEffect(() => {
+    return () => cancelSpeech()
+  }, [])
 
   // Save progress on page unload (so reload doesn't lose time)
   useEffect(() => {
@@ -327,6 +333,15 @@ function DiagramGamePage() {
       playSound('click')
     } else {
       playSound('wrong')
+    }
+
+    // Voice-over: read out the wrong labels with correct answers
+    const wrongLabels = currentDiagram.labels.filter(l => !checkResults[l.label_key])
+    if (wrongLabels.length > 0) {
+      const corrections = wrongLabels.map(l =>
+        `Label ${l.label_key} is ${l.correct_answer}`
+      )
+      speakCorrections(corrections)
     }
   }, [currentDiagram, answers, playSound, quizSessionId])
 

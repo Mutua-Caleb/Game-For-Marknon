@@ -4,6 +4,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
 import { quizSessionApi, learnerApi } from '../utils/api'
+import { speakSequenceOrder, cancelSpeech } from '../utils/voiceover'
 import EarningsBar from '../components/EarningsBar'
 import './SequenceGamePage.css'
 
@@ -81,6 +82,11 @@ function SequenceGamePage() {
       clearInterval(timer)
     }
   }, [gameStarted, completed])
+
+  // Cancel any voice-over speech when leaving the page
+  useEffect(() => {
+    return () => cancelSpeech()
+  }, [])
 
   // Save progress on page unload (so reload doesn't lose time)
   useEffect(() => {
@@ -307,6 +313,11 @@ function SequenceGamePage() {
       }).catch(console.error)
     }
 
+    // Voice-over: read the correct order aloud
+    if (currentSequence?.steps) {
+      speakSequenceOrder(currentSequence.title, currentSequence.steps)
+    }
+
     if (currentIndex < allSequences.length - 1) {
       setCurrentIndex(prev => prev + 1)
     } else {
@@ -321,6 +332,11 @@ function SequenceGamePage() {
     setShuffledSteps(sorted)
     setResult('revealed')
     setWrongPositions([])
+
+    // Voice-over: read the correct order aloud
+    if (currentSequence?.steps) {
+      speakSequenceOrder(currentSequence.title, currentSequence.steps)
+    }
 
     setSequenceResults(prev => [...prev, {
       title: currentSequence?.title || 'Unknown',

@@ -9,6 +9,7 @@ function HomePage() {
   const navigate = useNavigate()
   const { playSound, isMuted, toggleMute } = useSound()
   const [dailyStatus, setDailyStatus] = useState(null)
+  const [earnings, setEarnings] = useState(null)
 
   // Get learner account from localStorage
   const learnerAccount = (() => {
@@ -19,11 +20,14 @@ function HomePage() {
     }
   })()
 
-  // Fetch daily status on mount
+  // Fetch daily status and earnings on mount
   useEffect(() => {
     if (learnerAccount?.id) {
       learnerApi.getDailyStatus(learnerAccount.id)
         .then(setDailyStatus)
+        .catch(console.error)
+      learnerApi.getEarnings(learnerAccount.id)
+        .then(setEarnings)
         .catch(console.error)
     }
   }, [learnerAccount?.id])
@@ -95,6 +99,40 @@ function HomePage() {
             <div className="progress-text">
               {dailyStatus.minutesCompleted} / {dailyStatus.minutesRequired} minutes
               {dailyStatus.quotaMet && <span className="quota-met"> - Done!</span>}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Earnings Card */}
+        {earnings && (
+          <motion.div
+            className="earnings-card"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            <div className="earnings-card-header">
+              <span className="earnings-card-icon">KSh</span>
+              <span className="earnings-card-title">My Earnings</span>
+            </div>
+            <div className="earnings-card-amounts">
+              <div className="earnings-stat">
+                <span className="earnings-stat-value">KSh {earnings.todayEarnings.toFixed(2)}</span>
+                <span className="earnings-stat-label">Today ({earnings.todayCorrect} correct)</span>
+              </div>
+              <div className="earnings-divider"></div>
+              <div className="earnings-stat">
+                <span className="earnings-stat-value">KSh {earnings.weekEarnings.toFixed(2)}</span>
+                <span className="earnings-stat-label">This week</span>
+              </div>
+              <div className="earnings-divider"></div>
+              <div className="earnings-stat">
+                <span className="earnings-stat-value earnings-balance">KSh {earnings.unpaidTotal.toFixed(2)}</span>
+                <span className="earnings-stat-label">Balance</span>
+              </div>
+            </div>
+            <div className="earnings-card-rate">
+              KSh 0.50 per correct answer
             </div>
           </motion.div>
         )}

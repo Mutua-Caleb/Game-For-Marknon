@@ -347,6 +347,35 @@ export const learnerApi = {
       body: JSON.stringify({ learnerId, minutes })
     })
     return handleResponse(res)
+  },
+
+  async recordEarning(learnerId, correctAnswers) {
+    const res = await fetch(`${API_BASE}/learners/record-earning`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ learnerId, correctAnswers })
+    })
+    return handleResponse(res)
+  },
+
+  async getEarnings(learnerId) {
+    const res = await fetch(`${API_BASE}/learners/earnings/${learnerId}`)
+    return handleResponse(res)
+  },
+
+  async getEarningsSummary() {
+    const res = await fetch(`${API_BASE}/learners/earnings-summary`, {
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  },
+
+  async payout(learnerId) {
+    const res = await fetch(`${API_BASE}/learners/payout/${learnerId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
+    })
+    return handleResponse(res)
   }
 }
 

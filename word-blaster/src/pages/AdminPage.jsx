@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
-import { uploadApi, questionsApi, diagramsApi, statsApi, authApi, quizSessionApi } from '../utils/api'
+import { uploadApi, questionsApi, diagramsApi, statsApi, authApi, quizSessionApi, learnerApi } from '../utils/api'
 import './AdminPage.css'
 
 const SUBJECTS = ['Science', 'English', 'Christian Religious Education', 'Creative Arts', 'Agriculture', 'Social Studies']
@@ -169,6 +169,12 @@ function AdminPage() {
           Diagrams
         </button>
         <button
+          className={`tab ${activeTab === 'earnings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('earnings')}
+        >
+          Earnings
+        </button>
+        <button
           className={`tab ${activeTab === 'import' ? 'active' : ''}`}
           onClick={() => setActiveTab('import')}
         >
@@ -263,6 +269,10 @@ function AdminPage() {
 
         {activeTab === 'diagrams' && (
           <DiagramsSection showNotification={showNotification} />
+        )}
+
+        {activeTab === 'earnings' && (
+          <EarningsSection showNotification={showNotification} />
         )}
 
         {activeTab === 'import' && (
@@ -1854,6 +1864,123 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Earnings Section - Admin view of learner earnings with payout
+function EarningsSection({ showNotification }) {
+  const [learners, setLearners] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [payingOut, setPayingOut] = useState(null)
+
+  useEffect(() => {
+    loadEarnings()
+  }, [])
+
+  const loadEarnings = async () => {
+    setIsLoading(true)
+    try {
+      const data = await learnerApi.getEarningsSummary()
+      setLearners(data)
+    } catch (err) {
+      console.error('Failed to load earnings:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handlePayout = async (learnerId, learnerName) => {
+    if (!confirm(`Pay out all unpaid earnings for ${learnerName}? This will reset their balance to KSh 0.`)) return
+
+    setPayingOut(learnerId)
+    try {
+      const result = await learnerApi.payout(learnerId)
+      showNotification(`Paid KSh ${result.paidAmount.toFixed(2)} to ${learnerName}`)
+      loadEarnings()
+    } catch (err) {
+      showNotification('Payout failed: ' + (err.message || 'Server error'), 'error')
+    } finally {
+      setPayingOut(null)
+    }
+  }
+
+  if (isLoading) {
+    return <div className="sessions-loading">Loading earnings data...</div>
+  }
+
+  const totalUnpaid = learners.reduce((sum, l) => sum + l.unpaidTotal, 0)
+
+  return (
+    <div className="earnings-admin-section">
+      <div className="sessions-header">
+        <h2>Learner Earnings</h2>
+        <button className="refresh-btn" onClick={loadEarnings}>Refresh</button>
+      </div>
+
+      <div className="earnings-admin-summary">
+        <div className="stat-card">
+          <span className="stat-value">KSh {totalUnpaid.toFixed(2)}</span>
+          <span className="stat-label">Total Unpaid</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-value">{learners.length}</span>
+          <span className="stat-label">Learners</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-value">KSh 0.50</span>
+          <span className="stat-label">Per Correct Answer</span>
+        </div>
+      </div>
+
+      {learners.length === 0 ? (
+        <div className="empty-state">
+          <span className="empty-icon">&#128176;</span>
+          <p>No learner earnings yet. Earnings are tracked when learners answer questions correctly.</p>
+        </div>
+      ) : (
+        <div className="earnings-learner-list">
+          {learners.map(learner => (
+            <div key={learner.id} className="earnings-learner-card">
+              <div className="earnings-learner-info">
+                <h3 className="earnings-learner-name">{learner.name}</h3>
+                {learner.lastActive && (
+                  <span className="earnings-last-active">
+                    Last active: {new Date(learner.lastActive).toLocaleDateString('en-US', {
+                      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </span>
+                )}
+              </div>
+
+              <div className="earnings-learner-stats">
+                <div className="earnings-learner-stat">
+                  <span className="earnings-learner-stat-value unpaid">KSh {learner.unpaidTotal.toFixed(2)}</span>
+                  <span className="earnings-learner-stat-label">Unpaid ({learner.unpaidCorrect} answers)</span>
+                </div>
+                <div className="earnings-learner-stat">
+                  <span className="earnings-learner-stat-value">KSh {learner.allTimeTotal.toFixed(2)}</span>
+                  <span className="earnings-learner-stat-label">All time ({learner.allTimeCorrect} answers)</span>
+                </div>
+              </div>
+
+              <div className="earnings-learner-actions">
+                {learner.unpaidTotal > 0 ? (
+                  <button
+                    className="payout-btn"
+                    onClick={() => handlePayout(learner.id, learner.name)}
+                    disabled={payingOut === learner.id}
+                  >
+                    {payingOut === learner.id ? 'Processing...' : `Pay KSh ${learner.unpaidTotal.toFixed(2)}`}
+                  </button>
+                ) : (
+                  <span className="paid-up-badge">Paid up</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

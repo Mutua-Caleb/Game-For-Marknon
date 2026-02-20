@@ -75,6 +75,7 @@ function GamePage() {
   // Earnings tracking
   const [serverEarnings, setServerEarnings] = useState(0)
   const sessionCorrectRef = useRef(0)
+  const flushedCorrectRef = useRef(0) // Track what's already been sent to server
   const [sessionCorrectCount, setSessionCorrectCount] = useState(0)
 
   // Anti-slacking: only count active time
@@ -196,6 +197,37 @@ function GamePage() {
     return () => cancelSpeech()
   }, [])
 
+  // Flush pending earnings to server (used by periodic flush, unmount, and beforeunload)
+  const flushEarnings = useCallback((useSendBeacon = false) => {
+    const accountId = getLearnerAccountId()
+    const pending = sessionCorrectRef.current - flushedCorrectRef.current
+    if (!accountId || pending <= 0) return
+
+    if (useSendBeacon) {
+      const apiBase = import.meta.env.VITE_API_URL || '/api'
+      const earningsData = JSON.stringify({ learnerId: accountId, correctAnswers: pending })
+      navigator.sendBeacon(apiBase + '/learners/record-earning', new Blob([earningsData], { type: 'application/json' }))
+    } else {
+      learnerApi.recordEarning(accountId, pending).catch(console.error)
+    }
+    flushedCorrectRef.current = sessionCorrectRef.current
+  }, [])
+
+  // Periodic earnings flush every 15 seconds + flush on unmount (React Router navigation)
+  useEffect(() => {
+    if (!gameStarted) return
+
+    const interval = setInterval(() => {
+      flushEarnings(false)
+    }, 15000)
+
+    return () => {
+      clearInterval(interval)
+      // Flush remaining earnings when component unmounts (e.g. navigating away)
+      flushEarnings(false)
+    }
+  }, [gameStarted, flushEarnings])
+
   // Elapsed time counter - counts only active time (anti-slacking)
   useEffect(() => {
     if (!gameStarted) return
@@ -234,17 +266,13 @@ function GamePage() {
         navigator.sendBeacon(apiBase + '/learners/record-time', new Blob([data], { type: 'application/json' }))
         activeSecondsRef.current = 0 // Reset so endGame doesn't double-count
       }
-      // Also save earnings on page unload
-      if (accountId && sessionCorrectRef.current > 0) {
-        const earningsData = JSON.stringify({ learnerId: accountId, correctAnswers: sessionCorrectRef.current })
-        navigator.sendBeacon(apiBase + '/learners/record-earning', new Blob([earningsData], { type: 'application/json' }))
-        sessionCorrectRef.current = 0
-      }
+      // Also save earnings on page unload (only unsent delta)
+      flushEarnings(true)
     }
 
     window.addEventListener('beforeunload', saveProgress)
     return () => window.removeEventListener('beforeunload', saveProgress)
-  }, [gameStarted])
+  }, [gameStarted, flushEarnings])
 
   // Tab visibility detection
   useEffect(() => {
@@ -532,11 +560,8 @@ function GamePage() {
       learnerApi.recordTime(accountId, activeMinutes).catch(console.error)
     }
 
-    // Record earnings for this session
-    if (accountId && sessionCorrectRef.current > 0) {
-      learnerApi.recordEarning(accountId, sessionCorrectRef.current).catch(console.error)
-      sessionCorrectRef.current = 0
-    }
+    // Record any remaining unflushed earnings
+    flushEarnings(false)
 
     setCurrentSession({
       ...sessionStats,
@@ -545,7 +570,7 @@ function GamePage() {
       timestamp: Date.now()
     })
     navigate('/results', { state: { ...sessionStats, tabSwitches: tabSwitchCount, durationSeconds } })
-  }, [sessionStats, setCurrentSession, navigate, quizSessionId, tabSwitchCount])
+  }, [sessionStats, setCurrentSession, navigate, quizSessionId, tabSwitchCount, flushEarnings])
 
   // Handle game over - enforce minimum time
   useEffect(() => {

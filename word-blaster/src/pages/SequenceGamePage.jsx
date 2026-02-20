@@ -37,6 +37,7 @@ function SequenceGamePage() {
   // Earnings tracking
   const [serverEarnings, setServerEarnings] = useState(0)
   const sessionCorrectRef = useRef(0)
+  const flushedCorrectRef = useRef(0) // Track what's already been sent to server
   const [sessionCorrectCount, setSessionCorrectCount] = useState(0)
 
   // Anti-slacking: only count active time
@@ -88,6 +89,38 @@ function SequenceGamePage() {
     return () => cancelSpeech()
   }, [])
 
+  // Flush pending earnings to server
+  const flushEarnings = useCallback((useSendBeacon = false) => {
+    try {
+      const account = JSON.parse(localStorage.getItem('learnerAccount'))
+      const pending = sessionCorrectRef.current - flushedCorrectRef.current
+      if (!account?.id || pending <= 0) return
+
+      if (useSendBeacon) {
+        const apiBase = import.meta.env.VITE_API_URL || '/api'
+        const earningsData = JSON.stringify({ learnerId: account.id, correctAnswers: pending })
+        navigator.sendBeacon(apiBase + '/learners/record-earning', new Blob([earningsData], { type: 'application/json' }))
+      } else {
+        learnerApi.recordEarning(account.id, pending).catch(console.error)
+      }
+      flushedCorrectRef.current = sessionCorrectRef.current
+    } catch { /* no account */ }
+  }, [])
+
+  // Periodic earnings flush every 15 seconds + flush on unmount (React Router navigation)
+  useEffect(() => {
+    if (!gameStarted) return
+
+    const interval = setInterval(() => {
+      flushEarnings(false)
+    }, 15000)
+
+    return () => {
+      clearInterval(interval)
+      flushEarnings(false)
+    }
+  }, [gameStarted, flushEarnings])
+
   // Save progress on page unload (so reload doesn't lose time)
   useEffect(() => {
     if (!gameStarted) return
@@ -102,17 +135,14 @@ function SequenceGamePage() {
           navigator.sendBeacon(apiBase + '/learners/record-time', new Blob([data], { type: 'application/json' }))
           activeSecondsRef.current = 0
         }
-        if (account?.id && sessionCorrectRef.current > 0) {
-          const earningsData = JSON.stringify({ learnerId: account.id, correctAnswers: sessionCorrectRef.current })
-          navigator.sendBeacon(apiBase + '/learners/record-earning', new Blob([earningsData], { type: 'application/json' }))
-          sessionCorrectRef.current = 0
-        }
+        // Flush any remaining earnings via sendBeacon
+        flushEarnings(true)
       } catch { /* no account */ }
     }
 
     window.addEventListener('beforeunload', saveProgress)
     return () => window.removeEventListener('beforeunload', saveProgress)
-  }, [gameStarted])
+  }, [gameStarted, flushEarnings])
 
   // Load sequences
   useEffect(() => {
@@ -377,13 +407,11 @@ function SequenceGamePage() {
         const activeMinutes = activeSecondsRef.current / 60
         learnerApi.recordTime(account.id, activeMinutes).catch(console.error)
       }
-      // Record earnings
-      if (account?.id && sessionCorrectRef.current > 0) {
-        learnerApi.recordEarning(account.id, sessionCorrectRef.current).catch(console.error)
-        sessionCorrectRef.current = 0
-      }
     } catch { /* no account */ }
-  }, [completed, quizSessionId, score])
+
+    // Record any remaining unflushed earnings
+    flushEarnings(false)
+  }, [completed, quizSessionId, score, flushEarnings])
 
   // Countdown screen
   if (countdown > 0) {

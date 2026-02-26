@@ -10,6 +10,7 @@ import AnswerInput from '../components/AnswerInput'
 import ScoreDisplay from '../components/ScoreDisplay'
 import ExplosionEffect from '../components/ExplosionEffect'
 import EarningsBar from '../components/EarningsBar'
+import DiagramChallenge from '../components/DiagramChallenge'
 import './GamePage.css'
 
 // Get learner ID from account or fallback to random
@@ -37,6 +38,7 @@ function GamePage() {
   const { playSound } = useSound()
   const {
     getWeightedQuestions,
+    getFilteredDiagrams,
     gameSettings,
     recordAnswer,
     playerStats,
@@ -90,6 +92,12 @@ function GamePage() {
   const originalPoolSizeRef = useRef(0)
   const lastRebuildCycleRef = useRef(0)
 
+  // Diagram challenge state
+  const [diagramPool, setDiagramPool] = useState([])
+  const [activeDiagram, setActiveDiagram] = useState(null)
+  const diagramIndexRef = useRef(0)
+  const questionsUntilDiagramRef = useRef(8) // Show diagram every ~8 questions
+
   const gameAreaRef = useRef(null)
   const inputRef = useRef(null)
   const questionTimerRef = useRef(null)
@@ -104,6 +112,13 @@ function GamePage() {
     setQuestionPool(questions)
     originalPoolSizeRef.current = questions.length
   }, [getWeightedQuestions, navigate])
+
+  // Initialize diagram pool (shuffled)
+  useEffect(() => {
+    const diagrams = getFilteredDiagrams()
+    const shuffled = [...diagrams].sort(() => Math.random() - 0.5)
+    setDiagramPool(shuffled)
+  }, [getFilteredDiagrams])
 
   // Rebuild question pool with spaced repetition after each full cycle
   useEffect(() => {
@@ -310,7 +325,7 @@ function GamePage() {
 
   // Spawn new question
   const spawnQuestion = useCallback(() => {
-    if (questionPool.length === 0 || gameOver || isPaused) return
+    if (questionPool.length === 0 || gameOver || isPaused || activeDiagram) return
 
     const questionData = questionPool[currentQuestionIndex % questionPool.length]
     const size = getQuestionSize(questionData)
@@ -348,11 +363,11 @@ function GamePage() {
 
     setActiveQuestions(prev => [...prev, newQuestion])
     setCurrentQuestionIndex(prev => prev + 1)
-  }, [questionPool, currentQuestionIndex, gameOver, isPaused, activeQuestions, getQuestionSize])
+  }, [questionPool, currentQuestionIndex, gameOver, isPaused, activeDiagram, activeQuestions, getQuestionSize])
 
-  // Game loop - spawn questions
+  // Game loop - spawn questions (paused during diagram challenges)
   useEffect(() => {
-    if (!gameStarted || gameOver || isPaused) return
+    if (!gameStarted || gameOver || isPaused || activeDiagram) return
 
     // Spawn first question immediately
     if (activeQuestions.length === 0) {
@@ -367,7 +382,7 @@ function GamePage() {
     }, 8000)
 
     return () => clearInterval(spawnInterval)
-  }, [gameStarted, gameOver, isPaused, activeQuestions.length, spawnQuestion])
+  }, [gameStarted, gameOver, isPaused, activeDiagram, activeQuestions.length, spawnQuestion])
 
   // Handle question timeout (falls to bottom)
   const handleQuestionTimeout = useCallback((question) => {
@@ -507,12 +522,25 @@ function GamePage() {
       // Remove the answered question
       setActiveQuestions(prev => prev.filter(q => q.instanceId !== matchedQuestion.instanceId))
 
-      // Spawn next question after a short delay
-      setTimeout(() => {
-        if (!gameOver && !isPaused) {
-          spawnQuestion()
-        }
-      }, 1000)
+      // Check if it's time for a diagram challenge
+      questionsUntilDiagramRef.current -= 1
+      if (questionsUntilDiagramRef.current <= 0 && diagramPool.length > 0) {
+        // Clear active questions before showing diagram
+        setTimeout(() => {
+          setActiveQuestions([])
+          const diagram = diagramPool[diagramIndexRef.current % diagramPool.length]
+          diagramIndexRef.current += 1
+          setActiveDiagram(diagram)
+          questionsUntilDiagramRef.current = 6 + Math.floor(Math.random() * 5) // Next diagram in 6-10 questions
+        }, 800)
+      } else {
+        // Spawn next question after a short delay
+        setTimeout(() => {
+          if (!gameOver && !isPaused) {
+            spawnQuestion()
+          }
+        }, 1000)
+      }
     } else {
       // Wrong answer - shake effect
       playSound('wrong')
@@ -525,12 +553,33 @@ function GamePage() {
         }, 500)
       }
     }
-  }, [activeQuestions, playSound, gameSettings.questionTime, recordAnswer, sessionStats.streak, spawnQuestion, gameOver, isPaused])
+  }, [activeQuestions, playSound, gameSettings.questionTime, recordAnswer, sessionStats.streak, spawnQuestion, gameOver, isPaused, diagramPool])
 
   // Handle option click for multiple choice
   const handleOptionClick = useCallback((option) => {
     handleAnswer(option)
   }, [handleAnswer])
+
+  // Handle diagram challenge completion
+  const handleDiagramComplete = useCallback(({ correctCount, totalLabels }) => {
+    // Award earnings for correct diagram labels
+    if (correctCount > 0) {
+      sessionCorrectRef.current += correctCount
+      setSessionCorrectCount(sessionCorrectRef.current)
+    }
+
+    // Award score points
+    const points = Math.round((correctCount / totalLabels) * 100)
+    setSessionStats(prev => ({
+      ...prev,
+      correct: prev.correct + correctCount,
+      wrong: prev.wrong + (totalLabels - correctCount),
+      score: prev.score + points
+    }))
+
+    // Clear diagram and resume falling questions
+    setActiveDiagram(null)
+  }, [])
 
   // Pause/Resume game
   const togglePause = useCallback(() => {
@@ -745,8 +794,8 @@ function GamePage() {
         </div>
       </div>
 
-      {/* Answer Input - floating compact at bottom-right */}
-      {gameStarted && !gameOver && (
+      {/* Answer Input - floating compact at bottom-right (hidden during diagram) */}
+      {gameStarted && !gameOver && !activeDiagram && (
         <div className="input-floating" ref={inputRef}>
           <AnswerInput
             onSubmit={handleAnswer}
@@ -755,6 +804,18 @@ function GamePage() {
           />
         </div>
       )}
+
+      {/* Diagram Challenge Overlay */}
+      <AnimatePresence>
+        {activeDiagram && (
+          <DiagramChallenge
+            diagram={activeDiagram}
+            onComplete={handleDiagramComplete}
+            playSound={playSound}
+            quizSessionId={quizSessionId}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Pause Overlay */}
       <AnimatePresence>

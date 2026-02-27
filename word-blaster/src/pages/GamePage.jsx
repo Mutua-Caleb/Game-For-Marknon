@@ -11,6 +11,7 @@ import ScoreDisplay from '../components/ScoreDisplay'
 import ExplosionEffect from '../components/ExplosionEffect'
 import EarningsBar from '../components/EarningsBar'
 import DiagramChallenge from '../components/DiagramChallenge'
+import PassageChallenge from '../components/PassageChallenge'
 import './GamePage.css'
 
 // Get learner ID from account or fallback to random
@@ -39,6 +40,7 @@ function GamePage() {
   const {
     getWeightedQuestions,
     getFilteredDiagrams,
+    getFilteredPassages,
     gameSettings,
     recordAnswer,
     playerStats,
@@ -92,11 +94,15 @@ function GamePage() {
   const originalPoolSizeRef = useRef(0)
   const lastRebuildCycleRef = useRef(0)
 
-  // Diagram challenge state
+  // Diagram + Passage challenge state
   const [diagramPool, setDiagramPool] = useState([])
+  const [passagePool, setPassagePool] = useState([])
   const [activeDiagram, setActiveDiagram] = useState(null)
+  const [activePassage, setActivePassage] = useState(null)
   const diagramIndexRef = useRef(0)
-  const questionsUntilDiagramRef = useRef(8) // Show diagram every ~8 questions
+  const passageIndexRef = useRef(0)
+  const questionsUntilChallengeRef = useRef(8) // Show challenge every ~8 questions
+  const nextChallengeTypeRef = useRef('diagram') // Alternate between diagram and passage
 
   const gameAreaRef = useRef(null)
   const inputRef = useRef(null)
@@ -113,12 +119,14 @@ function GamePage() {
     originalPoolSizeRef.current = questions.length
   }, [getWeightedQuestions, navigate])
 
-  // Initialize diagram pool (shuffled)
+  // Initialize diagram and passage pools (shuffled)
   useEffect(() => {
     const diagrams = getFilteredDiagrams()
-    const shuffled = [...diagrams].sort(() => Math.random() - 0.5)
-    setDiagramPool(shuffled)
-  }, [getFilteredDiagrams])
+    setDiagramPool([...diagrams].sort(() => Math.random() - 0.5))
+
+    const passages = getFilteredPassages()
+    setPassagePool([...passages].sort(() => Math.random() - 0.5))
+  }, [getFilteredDiagrams, getFilteredPassages])
 
   // Rebuild question pool with spaced repetition after each full cycle
   useEffect(() => {
@@ -325,7 +333,7 @@ function GamePage() {
 
   // Spawn new question
   const spawnQuestion = useCallback(() => {
-    if (questionPool.length === 0 || gameOver || isPaused || activeDiagram) return
+    if (questionPool.length === 0 || gameOver || isPaused || activeDiagram || activePassage) return
 
     const questionData = questionPool[currentQuestionIndex % questionPool.length]
     const size = getQuestionSize(questionData)
@@ -363,11 +371,11 @@ function GamePage() {
 
     setActiveQuestions(prev => [...prev, newQuestion])
     setCurrentQuestionIndex(prev => prev + 1)
-  }, [questionPool, currentQuestionIndex, gameOver, isPaused, activeDiagram, activeQuestions, getQuestionSize])
+  }, [questionPool, currentQuestionIndex, gameOver, isPaused, activeDiagram, activePassage, activeQuestions, getQuestionSize])
 
-  // Game loop - spawn questions (paused during diagram challenges)
+  // Game loop - spawn questions (paused during diagram/passage challenges)
   useEffect(() => {
-    if (!gameStarted || gameOver || isPaused || activeDiagram) return
+    if (!gameStarted || gameOver || isPaused || activeDiagram || activePassage) return
 
     // Spawn first question immediately
     if (activeQuestions.length === 0) {
@@ -382,12 +390,12 @@ function GamePage() {
     }, 8000)
 
     return () => clearInterval(spawnInterval)
-  }, [gameStarted, gameOver, isPaused, activeDiagram, activeQuestions.length, spawnQuestion])
+  }, [gameStarted, gameOver, isPaused, activeDiagram, activePassage, activeQuestions.length, spawnQuestion])
 
   // Handle question timeout (falls to bottom)
   const handleQuestionTimeout = useCallback((question) => {
-    // Don't process timeouts during diagram challenges
-    if (activeDiagram) return
+    // Don't process timeouts during diagram/passage challenges
+    if (activeDiagram || activePassage) return
 
     playSound('explosion')
 
@@ -457,7 +465,7 @@ function GamePage() {
       }
       return newLives
     })
-  }, [playSound, recordAnswer, activeDiagram])
+  }, [playSound, recordAnswer, activeDiagram, activePassage])
 
   // Handle answer submission
   const handleAnswer = useCallback((answer) => {
@@ -525,16 +533,34 @@ function GamePage() {
       // Remove the answered question
       setActiveQuestions(prev => prev.filter(q => q.instanceId !== matchedQuestion.instanceId))
 
-      // Check if it's time for a diagram challenge
-      questionsUntilDiagramRef.current -= 1
-      if (questionsUntilDiagramRef.current <= 0 && diagramPool.length > 0) {
-        // Clear active questions before showing diagram
+      // Check if it's time for a challenge (diagram or passage)
+      questionsUntilChallengeRef.current -= 1
+      const hasDiagrams = diagramPool.length > 0
+      const hasPassages = passagePool.length > 0
+      if (questionsUntilChallengeRef.current <= 0 && (hasDiagrams || hasPassages)) {
         setTimeout(() => {
           setActiveQuestions([])
-          const diagram = diagramPool[diagramIndexRef.current % diagramPool.length]
-          diagramIndexRef.current += 1
-          setActiveDiagram(diagram)
-          questionsUntilDiagramRef.current = 6 + Math.floor(Math.random() * 5) // Next diagram in 6-10 questions
+
+          // Decide which challenge to show (alternate, or use what's available)
+          let showDiagram = false
+          if (hasDiagrams && hasPassages) {
+            showDiagram = nextChallengeTypeRef.current === 'diagram'
+            nextChallengeTypeRef.current = showDiagram ? 'passage' : 'diagram'
+          } else {
+            showDiagram = hasDiagrams
+          }
+
+          if (showDiagram) {
+            const diagram = diagramPool[diagramIndexRef.current % diagramPool.length]
+            diagramIndexRef.current += 1
+            setActiveDiagram(diagram)
+          } else {
+            const passage = passagePool[passageIndexRef.current % passagePool.length]
+            passageIndexRef.current += 1
+            setActivePassage(passage)
+          }
+
+          questionsUntilChallengeRef.current = 6 + Math.floor(Math.random() * 5)
         }, 800)
       } else {
         // Spawn next question after a short delay
@@ -556,7 +582,7 @@ function GamePage() {
         }, 500)
       }
     }
-  }, [activeQuestions, playSound, gameSettings.questionTime, recordAnswer, sessionStats.streak, spawnQuestion, gameOver, isPaused, diagramPool])
+  }, [activeQuestions, playSound, gameSettings.questionTime, recordAnswer, sessionStats.streak, spawnQuestion, gameOver, isPaused, diagramPool, passagePool])
 
   // Handle option click for multiple choice
   const handleOptionClick = useCallback((option) => {
@@ -582,6 +608,27 @@ function GamePage() {
 
     // Clear diagram and resume falling questions
     setActiveDiagram(null)
+  }, [])
+
+  // Handle passage challenge completion
+  const handlePassageComplete = useCallback(({ correctCount, totalQuestions }) => {
+    // Award earnings for correct passage answers
+    if (correctCount > 0) {
+      sessionCorrectRef.current += correctCount
+      setSessionCorrectCount(sessionCorrectRef.current)
+    }
+
+    // Award score points
+    const points = Math.round((correctCount / totalQuestions) * 100)
+    setSessionStats(prev => ({
+      ...prev,
+      correct: prev.correct + correctCount,
+      wrong: prev.wrong + (totalQuestions - correctCount),
+      score: prev.score + points
+    }))
+
+    // Clear passage and resume falling questions
+    setActivePassage(null)
   }, [])
 
   // Pause/Resume game
@@ -730,8 +777,8 @@ function GamePage() {
 
       {/* Game Area */}
       <div className="game-area">
-        {/* Falling Questions (hidden during diagram challenge) */}
-        {!activeDiagram && (
+        {/* Falling Questions (hidden during diagram/passage challenge) */}
+        {!activeDiagram && !activePassage && (
           <AnimatePresence>
             {activeQuestions.map(question => (
               <FallingQuestion
@@ -799,8 +846,8 @@ function GamePage() {
         </div>
       </div>
 
-      {/* Answer Input - floating compact at bottom-right (hidden during diagram) */}
-      {gameStarted && !gameOver && !activeDiagram && (
+      {/* Answer Input - floating compact at bottom-right (hidden during diagram/passage) */}
+      {gameStarted && !gameOver && !activeDiagram && !activePassage && (
         <div className="input-floating" ref={inputRef}>
           <AnswerInput
             onSubmit={handleAnswer}
@@ -816,6 +863,18 @@ function GamePage() {
           <DiagramChallenge
             diagram={activeDiagram}
             onComplete={handleDiagramComplete}
+            playSound={playSound}
+            quizSessionId={quizSessionId}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Passage Challenge Overlay */}
+      <AnimatePresence>
+        {activePassage && (
+          <PassageChallenge
+            passage={activePassage}
+            onComplete={handlePassageComplete}
             playSound={playSound}
             quizSessionId={quizSessionId}
           />

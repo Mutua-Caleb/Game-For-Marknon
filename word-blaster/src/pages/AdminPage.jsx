@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
-import { uploadApi, questionsApi, diagramsApi, statsApi, authApi, quizSessionApi, learnerApi } from '../utils/api'
+import { uploadApi, questionsApi, diagramsApi, passagesApi, statsApi, authApi, quizSessionApi, learnerApi } from '../utils/api'
 import './AdminPage.css'
 
 const SUBJECTS = ['Science', 'English', 'Christian Religious Education', 'Creative Arts', 'Agriculture', 'Social Studies']
@@ -169,6 +169,12 @@ function AdminPage() {
           Diagrams
         </button>
         <button
+          className={`tab ${activeTab === 'passages' ? 'active' : ''}`}
+          onClick={() => setActiveTab('passages')}
+        >
+          Passages
+        </button>
+        <button
           className={`tab ${activeTab === 'earnings' ? 'active' : ''}`}
           onClick={() => setActiveTab('earnings')}
         >
@@ -269,6 +275,10 @@ function AdminPage() {
 
         {activeTab === 'diagrams' && (
           <DiagramsSection showNotification={showNotification} />
+        )}
+
+        {activeTab === 'passages' && (
+          <PassagesSection showNotification={showNotification} />
         )}
 
         {activeTab === 'earnings' && (
@@ -1863,6 +1873,460 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
             {isSaving ? 'Saving...' : isEditing ? 'Update Diagram' : 'Save Diagram'} <kbd>Ctrl+S</kbd>
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Passages Section - CRUD for reading comprehension passages
+function PassagesSection({ showNotification }) {
+  const [passages, setPassages] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [editingPassage, setEditingPassage] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+
+  useEffect(() => {
+    loadPassages()
+  }, [])
+
+  const loadPassages = async () => {
+    setIsLoading(true)
+    try {
+      const data = await passagesApi.getAll()
+      setPassages(data)
+    } catch (err) {
+      console.error('Failed to load passages:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    try {
+      await passagesApi.delete(id)
+      setPassages(prev => prev.filter(p => p.id !== id))
+      setDeleteConfirm(null)
+      showNotification('Passage deleted')
+    } catch (err) {
+      showNotification('Failed to delete passage', 'error')
+    }
+  }
+
+  const handleCreated = (newPassage) => {
+    setPassages(prev => [newPassage, ...prev])
+    setShowCreateForm(false)
+    setEditingPassage(null)
+    showNotification('Passage created successfully!')
+  }
+
+  const handleUpdated = (updatedPassage) => {
+    setPassages(prev => prev.map(p => p.id === updatedPassage.id ? updatedPassage : p))
+    setEditingPassage(null)
+    setShowCreateForm(false)
+    showNotification('Passage updated successfully!')
+  }
+
+  const handleEdit = (passage) => {
+    setEditingPassage(passage)
+    setShowCreateForm(true)
+  }
+
+  const handleCancelForm = () => {
+    setShowCreateForm(false)
+    setEditingPassage(null)
+  }
+
+  if (isLoading) {
+    return <div className="sessions-loading">Loading passages...</div>
+  }
+
+  return (
+    <div className="diagrams-admin-section">
+      <div className="sessions-header">
+        <h2>Passages ({passages.length})</h2>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="refresh-btn" onClick={loadPassages}>Refresh</button>
+          <button className="add-question-btn" onClick={() => { setShowCreateForm(!showCreateForm); setEditingPassage(null) }}>
+            {showCreateForm && !editingPassage ? 'Cancel' : '+ Add Passage'}
+          </button>
+        </div>
+      </div>
+
+      {/* Create/Edit Form */}
+      <AnimatePresence>
+        {showCreateForm && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <PassageCreateForm
+              passage={editingPassage}
+              onCreated={handleCreated}
+              onUpdated={handleUpdated}
+              onCancel={handleCancelForm}
+              showNotification={showNotification}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Passages list */}
+      {passages.length === 0 && !showCreateForm ? (
+        <div className="empty-state">
+          <span className="empty-icon">&#128214;</span>
+          <p>No passages yet. Click "+ Add Passage" to create one.</p>
+        </div>
+      ) : (
+        <div className="diagrams-list">
+          {passages.map(p => (
+            <div key={p.id} className="diagram-admin-card">
+              <div className="diagram-card-info" style={{ flex: 1 }}>
+                <h3>{p.title}</h3>
+                <div className="diagram-card-meta">
+                  <span className="subject-badge">{p.subject}</span>
+                  <span className="topic-badge">{p.topic}</span>
+                  <span className="label-count">{p.questions?.length || 0} questions</span>
+                </div>
+                <p className="diagram-card-desc" style={{ whiteSpace: 'pre-wrap', maxHeight: '80px', overflow: 'hidden' }}>
+                  {p.content?.substring(0, 200)}{p.content?.length > 200 ? '...' : ''}
+                </p>
+                {p.questions && p.questions.length > 0 && (
+                  <div className="diagram-card-labels">
+                    {p.questions.map((q, i) => (
+                      <span key={i} className="label-chip">
+                        <strong>Q{i + 1}:</strong> {q.question.substring(0, 40)}{q.question.length > 40 ? '...' : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="diagram-card-actions">
+                <button className="edit-btn" onClick={() => handleEdit(p)}>Edit</button>
+                <button className="delete-btn" onClick={() => setDeleteConfirm(p)}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Delete confirm */}
+      <AnimatePresence>
+        {deleteConfirm && (
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="delete-confirm"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h3>Delete Passage?</h3>
+              <p>"{deleteConfirm.title}" with {deleteConfirm.questions?.length || 0} questions</p>
+              <div className="confirm-actions">
+                <button className="cancel-btn" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+                <button className="delete-btn" onClick={() => handleDelete(deleteConfirm.id)}>Delete</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// Passage Create/Edit Form
+function PassageCreateForm({ passage, onCreated, onUpdated, onCancel, showNotification }) {
+  const isEditing = !!passage
+
+  const [formData, setFormData] = useState({
+    subject: passage?.subject || 'Science',
+    topic: passage?.topic || 'Human Body',
+    title: passage?.title || '',
+    content: passage?.content || ''
+  })
+  const [questions, setQuestions] = useState(
+    passage?.questions?.map(q => ({
+      question: q.question,
+      answer: q.answer,
+      type: q.type || 'text',
+      options: q.options || ['', '', '', ''],
+      hint: q.hint || ''
+    })) || [{ question: '', answer: '', type: 'text', options: ['', '', '', ''], hint: '' }]
+  )
+  const [isSaving, setIsSaving] = useState(false)
+  const [useCustomTopic, setUseCustomTopic] = useState(false)
+  const [customTopic, setCustomTopic] = useState('')
+
+  const currentTopics = TOPICS[formData.subject] || []
+
+  useEffect(() => {
+    if (passage) {
+      setFormData({
+        subject: passage.subject || 'Science',
+        topic: passage.topic || 'Human Body',
+        title: passage.title || '',
+        content: passage.content || ''
+      })
+      setQuestions(
+        passage.questions?.map(q => ({
+          question: q.question,
+          answer: q.answer,
+          type: q.type || 'text',
+          options: q.options || ['', '', '', ''],
+          hint: q.hint || ''
+        })) || [{ question: '', answer: '', type: 'text', options: ['', '', '', ''], hint: '' }]
+      )
+    } else {
+      setFormData({ subject: 'Science', topic: 'Human Body', title: '', content: '' })
+      setQuestions([{ question: '', answer: '', type: 'text', options: ['', '', '', ''], hint: '' }])
+    }
+  }, [passage])
+
+  const addQuestion = () => {
+    setQuestions(prev => [...prev, { question: '', answer: '', type: 'text', options: ['', '', '', ''], hint: '' }])
+  }
+
+  const removeQuestion = (index) => {
+    if (questions.length <= 1) return
+    setQuestions(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const updateQuestion = (index, field, value) => {
+    setQuestions(prev => prev.map((q, i) => i === index ? { ...q, [field]: value } : q))
+  }
+
+  const updateQuestionOption = (qIndex, optIndex, value) => {
+    setQuestions(prev => prev.map((q, i) => {
+      if (i !== qIndex) return q
+      const newOptions = [...q.options]
+      newOptions[optIndex] = value
+      return { ...q, options: newOptions }
+    }))
+  }
+
+  const handleSubmit = async () => {
+    const topic = useCustomTopic && customTopic.trim() ? customTopic.trim() : formData.topic
+
+    if (!formData.title.trim() || !formData.content.trim()) {
+      showNotification('Title and content are required', 'error')
+      return
+    }
+
+    const validQuestions = questions.filter(q => q.question.trim() && q.answer.trim())
+    if (validQuestions.length === 0) {
+      showNotification('At least one question with an answer is required', 'error')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const passageData = {
+        id: isEditing ? passage.id : `passage_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        subject: formData.subject,
+        topic,
+        title: formData.title.trim(),
+        content: formData.content.trim(),
+        questions: validQuestions.map(q => ({
+          question: q.question.trim(),
+          answer: q.answer.trim(),
+          type: q.type,
+          options: q.type === 'multiple' ? q.options.filter(o => o.trim()) : null,
+          hint: q.hint.trim() || null
+        }))
+      }
+
+      if (isEditing) {
+        const result = await passagesApi.update(passage.id, passageData)
+        onUpdated(result)
+      } else {
+        const result = await passagesApi.create(passageData)
+        onCreated(result)
+      }
+    } catch (err) {
+      showNotification(err.message || 'Failed to save passage', 'error')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className="diagram-create-form" style={{ maxWidth: '100%' }}>
+      <h3>{isEditing ? 'Edit Passage' : 'Create New Passage'}</h3>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label>Subject</label>
+          <select
+            value={formData.subject}
+            onChange={(e) => {
+              const newSubject = e.target.value
+              setFormData(prev => ({
+                ...prev,
+                subject: newSubject,
+                topic: TOPICS[newSubject]?.[0] || ''
+              }))
+              setUseCustomTopic(false)
+            }}
+          >
+            {SUBJECTS.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>
+            Topic
+            <button
+              type="button"
+              className="custom-topic-toggle"
+              onClick={() => setUseCustomTopic(!useCustomTopic)}
+            >
+              {useCustomTopic ? 'Use existing' : '+ Custom'}
+            </button>
+          </label>
+          {useCustomTopic ? (
+            <input
+              type="text"
+              value={customTopic}
+              onChange={(e) => setCustomTopic(e.target.value)}
+              placeholder="Enter custom topic..."
+            />
+          ) : (
+            <select
+              value={formData.topic}
+              onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
+            >
+              {currentTopics.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label>Passage Title</label>
+        <input
+          type="text"
+          value={formData.title}
+          onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+          placeholder="e.g. The Human Digestive System"
+        />
+      </div>
+
+      <div className="form-group">
+        <label>Passage Content</label>
+        <textarea
+          value={formData.content}
+          onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+          placeholder="Paste or type the full passage here..."
+          rows={8}
+          style={{ fontFamily: 'inherit', lineHeight: '1.6' }}
+        />
+      </div>
+
+      <div style={{ marginTop: '1rem', marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h4 style={{ margin: 0 }}>Questions ({questions.length})</h4>
+        <button className="add-question-btn" onClick={addQuestion} style={{ fontSize: '0.85rem', padding: '0.3rem 0.8rem' }}>
+          + Add Question
+        </button>
+      </div>
+
+      {questions.map((q, qi) => (
+        <div key={qi} style={{
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: '8px',
+          padding: '0.75rem',
+          marginBottom: '0.75rem',
+          background: 'rgba(255,255,255,0.03)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <strong style={{ fontSize: '0.9rem' }}>Question {qi + 1}</strong>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <select
+                value={q.type}
+                onChange={(e) => updateQuestion(qi, 'type', e.target.value)}
+                style={{ fontSize: '0.8rem', padding: '0.2rem 0.4rem' }}
+              >
+                <option value="text">Type Answer</option>
+                <option value="multiple">Multiple Choice</option>
+              </select>
+              {questions.length > 1 && (
+                <button
+                  className="delete-btn"
+                  onClick={() => removeQuestion(qi)}
+                  style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+            <input
+              type="text"
+              value={q.question}
+              onChange={(e) => updateQuestion(qi, 'question', e.target.value)}
+              placeholder="Enter question..."
+            />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: '0.5rem' }}>
+            <input
+              type="text"
+              value={q.answer}
+              onChange={(e) => updateQuestion(qi, 'answer', e.target.value)}
+              placeholder="Correct answer..."
+            />
+          </div>
+
+          {q.type === 'multiple' && (
+            <div style={{ marginBottom: '0.5rem' }}>
+              <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Options (include the correct answer)</label>
+              {q.options.map((opt, oi) => (
+                <input
+                  key={oi}
+                  type="text"
+                  value={opt}
+                  onChange={(e) => updateQuestionOption(qi, oi, e.target.value)}
+                  placeholder={`Option ${oi + 1}`}
+                  style={{ marginBottom: '0.25rem' }}
+                />
+              ))}
+            </div>
+          )}
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <input
+              type="text"
+              value={q.hint}
+              onChange={(e) => updateQuestion(qi, 'hint', e.target.value)}
+              placeholder="Hint (optional)"
+              style={{ fontSize: '0.85rem', opacity: 0.8 }}
+            />
+          </div>
+        </div>
+      ))}
+
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+        <button className="cancel-btn" onClick={onCancel}>Cancel</button>
+        <button
+          className="add-question-btn"
+          onClick={handleSubmit}
+          disabled={isSaving || !formData.title.trim() || !formData.content.trim() || questions.every(q => !q.question.trim() || !q.answer.trim())}
+        >
+          {isSaving ? 'Saving...' : isEditing ? 'Update Passage' : 'Save Passage'}
+        </button>
       </div>
     </div>
   )

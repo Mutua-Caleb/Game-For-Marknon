@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { questionsApi, sequencesApi, diagramsApi, statsApi } from '../utils/api'
+import { questionsApi, sequencesApi, diagramsApi, passagesApi, statsApi } from '../utils/api'
 
 const GameContext = createContext()
 
@@ -22,6 +22,7 @@ export function GameProvider({ children }) {
   const [questionStats, setQuestionStats] = useState({})
   const [sequences, setSequences] = useState([])
   const [diagrams, setDiagrams] = useState([])
+  const [passages, setPassages] = useState([])
   const [currentSession, setCurrentSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -56,6 +57,14 @@ export function GameProvider({ children }) {
           setDiagrams(fetchedDiagrams)
         } catch (diagError) {
           console.error('Error loading diagrams:', diagError)
+        }
+
+        // Load passages
+        try {
+          const fetchedPassages = await passagesApi.getAll()
+          setPassages(fetchedPassages)
+        } catch (passError) {
+          console.error('Error loading passages:', passError)
         }
 
         // Load settings from localStorage
@@ -142,6 +151,21 @@ export function GameProvider({ children }) {
 
     return filtered
   }, [diagrams, selectedSubject, selectedTopics])
+
+  // Get passages filtered by subject and topics
+  const getFilteredPassages = useCallback(() => {
+    let filtered = passages
+
+    if (selectedSubject) {
+      filtered = filtered.filter(p => p.subject === selectedSubject)
+    }
+
+    if (selectedTopics.length > 0) {
+      filtered = filtered.filter(p => selectedTopics.includes(p.topic))
+    }
+
+    return filtered
+  }, [passages, selectedSubject, selectedTopics])
 
   // Get questions weighted by failure rate (failed questions appear more often)
   const getWeightedQuestions = useCallback(() => {
@@ -287,6 +311,7 @@ export function GameProvider({ children }) {
     questions,
     sequences,
     diagrams,
+    passages,
     selectedSubject,
     setSelectedSubject,
     selectedTopics,
@@ -301,6 +326,7 @@ export function GameProvider({ children }) {
     getFilteredQuestions,
     getFilteredSequences,
     getFilteredDiagrams,
+    getFilteredPassages,
     getWeightedQuestions,
     recordAnswer,
     addQuestion,

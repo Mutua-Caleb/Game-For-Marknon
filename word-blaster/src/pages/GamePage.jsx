@@ -386,6 +386,9 @@ function GamePage() {
 
   // Handle question timeout (falls to bottom)
   const handleQuestionTimeout = useCallback((question) => {
+    // Don't process timeouts during diagram challenges
+    if (activeDiagram) return
+
     playSound('explosion')
 
     // Create explosion at the bottom
@@ -454,7 +457,7 @@ function GamePage() {
       }
       return newLives
     })
-  }, [playSound, recordAnswer])
+  }, [playSound, recordAnswer, activeDiagram])
 
   // Handle answer submission
   const handleAnswer = useCallback((answer) => {
@@ -727,19 +730,21 @@ function GamePage() {
 
       {/* Game Area */}
       <div className="game-area">
-        {/* Falling Questions */}
-        <AnimatePresence>
-          {activeQuestions.map(question => (
-            <FallingQuestion
-              key={question.instanceId}
-              question={question}
-              duration={gameSettings.questionTime}
-              isPaused={isPaused}
-              onTimeout={() => handleQuestionTimeout(question)}
-              onOptionClick={handleOptionClick}
-            />
-          ))}
-        </AnimatePresence>
+        {/* Falling Questions (hidden during diagram challenge) */}
+        {!activeDiagram && (
+          <AnimatePresence>
+            {activeQuestions.map(question => (
+              <FallingQuestion
+                key={question.instanceId}
+                question={question}
+                duration={gameSettings.questionTime}
+                isPaused={isPaused}
+                onTimeout={() => handleQuestionTimeout(question)}
+                onOptionClick={handleOptionClick}
+              />
+            ))}
+          </AnimatePresence>
+        )}
 
         {/* Explosions */}
         <AnimatePresence>

@@ -218,6 +218,44 @@ export const diagramsApi = {
   }
 }
 
+// Passages API
+export const passagesApi = {
+  async getAll(params = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.subject) searchParams.set('subject', params.subject)
+    if (params.topic) searchParams.set('topic', params.topic)
+
+    const res = await fetch(`${API_BASE}/passages?${searchParams}`)
+    return handleResponse(res)
+  },
+
+  async create(passage) {
+    const res = await fetch(`${API_BASE}/passages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(passage)
+    })
+    return handleResponse(res)
+  },
+
+  async update(id, passage) {
+    const res = await fetch(`${API_BASE}/passages/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(passage)
+    })
+    return handleResponse(res)
+  },
+
+  async delete(id) {
+    const res = await fetch(`${API_BASE}/passages/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  }
+}
+
 // Quiz Sessions API
 export const quizSessionApi = {
   async start(data) {

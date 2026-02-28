@@ -223,6 +223,26 @@ export async function initializeDatabase() {
       required_mastery REAL DEFAULT 80,
       UNIQUE(subject, topic, prerequisite_topic)
     );
+
+    -- Reading Passages: Long text passages with comprehension questions
+    CREATE TABLE IF NOT EXISTS passages (
+      id TEXT PRIMARY KEY,
+      subject TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS passage_questions (
+      id SERIAL PRIMARY KEY,
+      passage_id TEXT NOT NULL REFERENCES passages(id) ON DELETE CASCADE,
+      question TEXT NOT NULL,
+      answer TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'text',
+      options TEXT,
+      hint TEXT
+    );
   `)
 
   // Create indexes if they don't exist
@@ -247,6 +267,8 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_learner_earnings_learner ON learner_earnings(learner_id);
     CREATE INDEX IF NOT EXISTS idx_learner_earnings_date ON learner_earnings(earning_date);
     CREATE INDEX IF NOT EXISTS idx_learner_earnings_unpaid ON learner_earnings(learner_id, paid);
+    CREATE INDEX IF NOT EXISTS idx_passages_subject ON passages(subject);
+    CREATE INDEX IF NOT EXISTS idx_passage_questions_passage ON passage_questions(passage_id);
   `)
 
   // Seed default admin if none exists

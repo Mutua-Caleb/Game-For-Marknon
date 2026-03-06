@@ -1216,7 +1216,7 @@ function DiagramsSection({ showNotification }) {
   )
 }
 
-// Diagram Create Form with Interactive Label Placement
+// Diagram Create Form - Click image to place letter markers, type answers in list
 function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotification }) {
   const isEditing = !!diagram
 
@@ -1230,20 +1230,26 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
   const [labels, setLabels] = useState(diagram?.labels || [])
   const [isUploading, setIsUploading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [placementMode, setPlacementMode] = useState(null) // null, 'pointer', or 'label'
-  const [pendingLabel, setPendingLabel] = useState(null) // label being placed
-  const [editingLabelIndex, setEditingLabelIndex] = useState(null)
+  const [placingLabel, setPlacingLabel] = useState(false) // Click-to-place mode
+  const [movingLabelIndex, setMovingLabelIndex] = useState(null) // Moving existing label
   const [useCustomTopic, setUseCustomTopic] = useState(false)
   const [customTopic, setCustomTopic] = useState('')
-  const [imageBounds, setImageBounds] = useState(null)
   const fileInputRef = useRef(null)
   const imageContainerRef = useRef(null)
-  const imageRef = useRef(null)
-  const titleInputRef = useRef(null)
 
   const currentTopics = TOPICS[formData.subject] || []
 
-  // Reset form when diagram prop changes (switching between create/edit)
+  // Get next letter (A, B, C, ...)
+  const getNextLetter = useCallback(() => {
+    const usedLetters = new Set(labels.map(l => l.label_key))
+    for (let i = 0; i < 26; i++) {
+      const letter = String.fromCharCode(65 + i)
+      if (!usedLetters.has(letter)) return letter
+    }
+    return '?'
+  }, [labels])
+
+  // Reset form when diagram prop changes
   useEffect(() => {
     if (diagram) {
       setFormData({
@@ -1259,58 +1265,10 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
       setImageUrl('')
       setLabels([])
     }
-    setPlacementMode(null)
-    setPendingLabel(null)
-    setEditingLabelIndex(null)
-    setImageBounds(null)
+    setPlacingLabel(false)
+    setMovingLabelIndex(null)
   }, [diagram])
 
-  // Calculate actual image bounds within container (accounting for object-fit: contain)
-  const updateImageBounds = useCallback(() => {
-    if (!imageRef.current || !imageContainerRef.current) return
-
-    const container = imageContainerRef.current.getBoundingClientRect()
-    const img = imageRef.current
-
-    const naturalWidth = img.naturalWidth
-    const naturalHeight = img.naturalHeight
-    if (!naturalWidth || !naturalHeight) return
-
-    const containerAspect = container.width / container.height
-    const imageAspect = naturalWidth / naturalHeight
-
-    let renderWidth, renderHeight, offsetX, offsetY
-
-    if (imageAspect > containerAspect) {
-      renderWidth = container.width
-      renderHeight = container.width / imageAspect
-      offsetX = 0
-      offsetY = (container.height - renderHeight) / 2
-    } else {
-      renderHeight = container.height
-      renderWidth = container.height * imageAspect
-      offsetX = (container.width - renderWidth) / 2
-      offsetY = 0
-    }
-
-    setImageBounds({
-      left: offsetX,
-      top: offsetY,
-      width: renderWidth,
-      height: renderHeight
-    })
-  }, [])
-
-  // Set up ResizeObserver
-  useEffect(() => {
-    const observer = new ResizeObserver(updateImageBounds)
-    if (imageContainerRef.current) {
-      observer.observe(imageContainerRef.current)
-    }
-    return () => observer.disconnect()
-  }, [updateImageBounds])
-
-  // Convert image to base64 data URI for persistent storage
   const handleImageUpload = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -1322,10 +1280,9 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
 
     setIsUploading(true)
     try {
-      // Convert to base64 data URI for persistent storage in database
       const reader = new FileReader()
       reader.onload = () => {
-        setImageUrl(reader.result) // This is a data:image/... URI
+        setImageUrl(reader.result)
         setIsUploading(false)
         showNotification('Image loaded!')
       }
@@ -1340,82 +1297,43 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
     }
   }
 
+  // Click image to place a letter marker
   const handleImageClick = (e) => {
-    if (!placementMode || !imageContainerRef.current || !imageBounds) return
+    if (!imageContainerRef.current) return
+    if (!placingLabel && movingLabelIndex === null) return
 
-    // Calculate click position relative to the actual rendered image, not the container
-    const containerRect = imageContainerRef.current.getBoundingClientRect()
-    const clickX = e.clientX - containerRect.left
-    const clickY = e.clientY - containerRect.top
+    const rect = imageContainerRef.current.getBoundingClientRect()
+    const xPercent = ((e.clientX - rect.left) / rect.width) * 100
+    const yPercent = ((e.clientY - rect.top) / rect.height) * 100
+    const x = Math.round(xPercent * 10) / 10
+    const y = Math.round(yPercent * 10) / 10
 
-    // Check if click is within the actual image bounds
-    if (clickX < imageBounds.left || clickX > imageBounds.left + imageBounds.width ||
-        clickY < imageBounds.top || clickY > imageBounds.top + imageBounds.height) {
-      return // Click was in the letterbox area, ignore
-    }
-
-    // Calculate percentage relative to the actual image, not the container
-    const xPercent = ((clickX - imageBounds.left) / imageBounds.width) * 100
-    const yPercent = ((clickY - imageBounds.top) / imageBounds.height) * 100
-
-    if (placementMode === 'pointer') {
-      // First click: set where the structure is on the diagram
-      const labelX = xPercent < 50 ? Math.max(2, xPercent - 18) : Math.min(98, xPercent + 18)
-      const labelY = yPercent
-
-      setPendingLabel({
-        label_key: '',
+    if (movingLabelIndex !== null) {
+      // Move existing label
+      setLabels(prev => prev.map((l, i) =>
+        i === movingLabelIndex ? { ...l, x_percent: x, y_percent: y } : l
+      ))
+      setMovingLabelIndex(null)
+    } else {
+      // Place new label with auto letter
+      const letter = getNextLetter()
+      setLabels(prev => [...prev, {
+        label_key: letter,
         correct_answer: '',
-        hint: '',
-        pointer_x: Math.round(xPercent * 10) / 10,
-        pointer_y: Math.round(yPercent * 10) / 10,
-        x_percent: Math.round(labelX * 10) / 10,
-        y_percent: Math.round(labelY * 10) / 10
-      })
-      setPlacementMode('details')
-    } else if (placementMode === 'move-label' && editingLabelIndex !== null) {
-      // Reposition the label circle
-      setLabels(prev => prev.map((l, i) =>
-        i === editingLabelIndex
-          ? { ...l, x_percent: Math.round(xPercent * 10) / 10, y_percent: Math.round(yPercent * 10) / 10 }
-          : l
-      ))
-      setPlacementMode(null)
-      setEditingLabelIndex(null)
-    } else if (placementMode === 'move-pointer' && editingLabelIndex !== null) {
-      // Reposition the pointer dot
-      setLabels(prev => prev.map((l, i) =>
-        i === editingLabelIndex
-          ? { ...l, pointer_x: Math.round(xPercent * 10) / 10, pointer_y: Math.round(yPercent * 10) / 10 }
-          : l
-      ))
-      setPlacementMode(null)
-      setEditingLabelIndex(null)
+        x_percent: x,
+        y_percent: y,
+        hint: ''
+      }])
+      // Stay in placing mode for quick multi-add
     }
-  }
-
-  const handleSaveLabel = () => {
-    if (!pendingLabel || !pendingLabel.label_key.trim() || !pendingLabel.correct_answer.trim()) {
-      showNotification('Letter and correct answer are required', 'error')
-      return
-    }
-
-    // Check for duplicate label keys
-    if (labels.some(l => l.label_key.toUpperCase() === pendingLabel.label_key.toUpperCase())) {
-      showNotification('This letter is already used', 'error')
-      return
-    }
-
-    setLabels(prev => [...prev, {
-      ...pendingLabel,
-      label_key: pendingLabel.label_key.toUpperCase()
-    }])
-    setPendingLabel(null)
-    setPlacementMode(null)
   }
 
   const handleRemoveLabel = (index) => {
     setLabels(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const updateLabelField = (index, field, value) => {
+    setLabels(prev => prev.map((l, i) => i === index ? { ...l, [field]: value } : l))
   }
 
   const handleSubmit = async () => {
@@ -1429,8 +1347,9 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
       showNotification('Please upload a diagram image', 'error')
       return
     }
-    if (labels.length === 0) {
-      showNotification('Add at least one label', 'error')
+    const validLabels = labels.filter(l => l.correct_answer.trim())
+    if (validLabels.length === 0) {
+      showNotification('Add at least one label with an answer', 'error')
       return
     }
 
@@ -1442,15 +1361,13 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
         title: formData.title.trim(),
         description: formData.description.trim() || null,
         image_url: imageUrl,
-        labels
+        labels: validLabels
       }
 
       if (isEditing) {
-        // Update existing diagram
         const result = await diagramsApi.update(diagram.id, diagramData)
         onUpdated(result)
       } else {
-        // Create new diagram
         const id = `diag_${Date.now()}`
         const result = await diagramsApi.create({ id, ...diagramData })
         onCreated(result)
@@ -1465,66 +1382,32 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)
-
-      // Ctrl+S / Cmd+S: Save diagram
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
-        if (formData.title.trim() && imageUrl && labels.length > 0 && !isSaving) {
+        if (formData.title.trim() && imageUrl && labels.some(l => l.correct_answer.trim()) && !isSaving) {
           handleSubmit()
-        } else {
-          showNotification('Fill in title, upload image, and add at least one label before saving', 'error')
         }
         return
       }
-
-      // Enter: Save current label (when in label details mode)
-      if (e.key === 'Enter' && placementMode === 'details' && pendingLabel && isTyping) {
-        e.preventDefault()
-        handleSaveLabel()
-        return
-      }
-
-      // Escape: Cancel current action
       if (e.key === 'Escape') {
-        if (placementMode) {
-          setPendingLabel(null)
-          setPlacementMode(null)
-          setEditingLabelIndex(null)
-        }
-        return
-      }
-
-      if (isTyping) return
-
-      // L: Add label mode
-      if (e.key === 'l' || e.key === 'L') {
-        if (imageUrl) {
-          setPlacementMode(placementMode === 'pointer' ? null : 'pointer')
-          setPendingLabel(null)
-          setEditingLabelIndex(null)
-        }
+        setPlacingLabel(false)
+        setMovingLabelIndex(null)
         return
       }
     }
-
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [placementMode, pendingLabel, formData, imageUrl, labels, isSaving, handleSubmit, handleSaveLabel])
+  }, [formData, imageUrl, labels, isSaving, handleSubmit])
 
   return (
     <div className="diagram-create-form">
       <h3>{isEditing ? 'Edit Diagram' : 'Create New Diagram'}</h3>
 
-      {/* Keyboard shortcuts help */}
       <div className="shortcuts-bar">
-        <span className="shortcut-item"><kbd>L</kbd> Add Label</span>
-        <span className="shortcut-item"><kbd>Enter</kbd> Save Label</span>
-        <span className="shortcut-item"><kbd>Esc</kbd> Cancel</span>
+        <span className="shortcut-item"><kbd>Esc</kbd> Cancel placing</span>
         <span className="shortcut-item"><kbd>Ctrl+S</kbd> Save Diagram</span>
       </div>
 
-      {/* Sticky header with title and metadata */}
       <div className="diagram-form-header">
         <div className="form-row">
           <div className="form-group">
@@ -1576,11 +1459,10 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
           <div className="form-group" style={{ flex: 1 }}>
             <label>Title *</label>
             <input
-              ref={titleInputRef}
               type="text"
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              placeholder="e.g., Label the countries of Eastern Africa"
+              placeholder="e.g., Label the parts of the human heart"
             />
           </div>
           <div className="form-group" style={{ flex: 1 }}>
@@ -1589,16 +1471,14 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
               type="text"
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="e.g., Identify each country marked with a letter"
+              placeholder="e.g., Identify each structure marked with a letter"
             />
           </div>
         </div>
       </div>
 
-      {/* Scrollable content area */}
       <div className="diagram-form-content">
 
-      {/* Image upload */}
       <div className="form-group">
         <label>Diagram Image</label>
         {!imageUrl ? (
@@ -1636,14 +1516,10 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
             <div className="diagram-editor-toolbar">
               <button
                 type="button"
-                className={`editor-btn ${placementMode === 'pointer' ? 'active' : ''}`}
-                onClick={() => {
-                  setPlacementMode(placementMode === 'pointer' ? null : 'pointer')
-                  setPendingLabel(null)
-                  setEditingLabelIndex(null)
-                }}
+                className={`editor-btn ${placingLabel ? 'active' : ''}`}
+                onClick={() => { setPlacingLabel(!placingLabel); setMovingLabelIndex(null) }}
               >
-                + Add Label <kbd>L</kbd>
+                {placingLabel ? 'Done Placing' : '+ Click to Add Labels'}
               </button>
               <button
                 type="button"
@@ -1652,153 +1528,47 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
               >
                 Change Image
               </button>
-              {placementMode && (
-                <span className="placement-hint">
-                  {placementMode === 'pointer' && 'Click on the structure you want to label'}
-                  {placementMode === 'details' && 'Fill in the label details below'}
-                  {placementMode === 'move-label' && 'Click where to place the label circle'}
-                  {placementMode === 'move-pointer' && 'Click on the structure to move the pointer'}
-                </span>
+              {placingLabel && (
+                <span className="placement-hint">Click on the image to place letter markers (A, B, C...)</span>
+              )}
+              {movingLabelIndex !== null && (
+                <span className="placement-hint">Click where to move label {labels[movingLabelIndex]?.label_key}</span>
               )}
             </div>
 
-            {/* Interactive diagram preview */}
+            {/* Diagram image with letter markers */}
             <div
               ref={imageContainerRef}
-              className={`diagram-editor-canvas ${placementMode && placementMode !== 'details' ? 'placing' : ''}`}
+              className={`diagram-editor-canvas ${placingLabel || movingLabelIndex !== null ? 'placing' : ''}`}
               onClick={handleImageClick}
+              style={{ position: 'relative', display: 'inline-block', width: '100%' }}
             >
               <img
-                ref={imageRef}
                 src={imageUrl}
                 alt="Diagram"
                 className="editor-image"
-                onLoad={updateImageBounds}
+                style={{ width: '100%', display: 'block' }}
               />
 
-              {/* Overlay wrapper positioned exactly over the rendered image */}
-              {imageBounds && (
+              {/* Letter markers on image */}
+              {labels.map((label, i) => (
                 <div
-                  className="editor-overlay-wrapper"
+                  key={`marker-${i}`}
+                  className={`editor-label-marker ${movingLabelIndex === i ? 'moving' : ''}`}
                   style={{
+                    left: `${label.x_percent}%`,
+                    top: `${label.y_percent}%`,
                     position: 'absolute',
-                    left: imageBounds.left,
-                    top: imageBounds.top,
-                    width: imageBounds.width,
-                    height: imageBounds.height,
+                    transform: 'translate(-50%, -50%)',
                     pointerEvents: 'none'
                   }}
                 >
-                  {/* SVG overlay for lines */}
-                  <svg className="editor-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    {labels.map((label, i) => (
-                      <line
-                        key={`line-${i}`}
-                        x1={label.x_percent}
-                        y1={label.y_percent}
-                        x2={label.pointer_x}
-                        y2={label.pointer_y}
-                        stroke="#f59e0b"
-                        strokeWidth="0.3"
-                        strokeDasharray="1,0.5"
-                      />
-                    ))}
-                    {pendingLabel && (
-                      <line
-                        x1={pendingLabel.x_percent}
-                        y1={pendingLabel.y_percent}
-                        x2={pendingLabel.pointer_x}
-                        y2={pendingLabel.pointer_y}
-                        stroke="#22c55e"
-                        strokeWidth="0.3"
-                      />
-                    )}
-                  </svg>
-
-                  {/* Existing labels */}
-                  {labels.map((label, i) => (
-                    <div key={`marker-${i}`}>
-                      <div
-                        className="editor-label-marker"
-                        style={{ left: `${label.x_percent}%`, top: `${label.y_percent}%` }}
-                        title={`${label.label_key}: ${label.correct_answer}`}
-                      >
-                        {label.label_key}
-                      </div>
-                      <div
-                        className="editor-pointer-dot"
-                        style={{ left: `${label.pointer_x}%`, top: `${label.pointer_y}%` }}
-                      />
-                    </div>
-                  ))}
-
-                  {/* Pending label */}
-                  {pendingLabel && (
-                    <>
-                      <div
-                        className="editor-label-marker pending"
-                        style={{ left: `${pendingLabel.x_percent}%`, top: `${pendingLabel.y_percent}%` }}
-                      >
-                        {pendingLabel.label_key || '?'}
-                      </div>
-                      <div
-                        className="editor-pointer-dot pending"
-                        style={{ left: `${pendingLabel.pointer_x}%`, top: `${pendingLabel.pointer_y}%` }}
-                      />
-                    </>
-                  )}
+                  {label.label_key}
                 </div>
-              )}
+              ))}
             </div>
 
-            {/* Pending label detail form */}
-            {placementMode === 'details' && pendingLabel && (
-              <div className="label-detail-form">
-                <h4>New Label Details</h4>
-                <div className="label-detail-fields">
-                  <div className="form-group compact">
-                    <label>Letter</label>
-                    <input
-                      type="text"
-                      value={pendingLabel.label_key}
-                      onChange={(e) => setPendingLabel(prev => ({ ...prev, label_key: e.target.value.slice(0, 2) }))}
-                      placeholder="e.g., A"
-                      maxLength={2}
-                      autoFocus
-                      className="letter-input"
-                    />
-                  </div>
-                  <div className="form-group compact">
-                    <label>Correct Answer</label>
-                    <input
-                      type="text"
-                      value={pendingLabel.correct_answer}
-                      onChange={(e) => setPendingLabel(prev => ({ ...prev, correct_answer: e.target.value }))}
-                      placeholder="e.g., Left Ventricle"
-                    />
-                  </div>
-                  <div className="form-group compact">
-                    <label>Hint (optional)</label>
-                    <input
-                      type="text"
-                      value={pendingLabel.hint}
-                      onChange={(e) => setPendingLabel(prev => ({ ...prev, hint: e.target.value }))}
-                      placeholder="e.g., The thickest chamber..."
-                    />
-                  </div>
-                </div>
-                <div className="label-detail-actions">
-                  <button type="button" className="save-btn" onClick={handleSaveLabel}>
-                    Add Label
-                  </button>
-                  <button type="button" className="cancel-btn" onClick={() => { setPendingLabel(null); setPlacementMode(null) }}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Labels list */}
+            {/* Labels answer list */}
             {labels.length > 0 && (
               <div className="labels-list-admin">
                 <h4>Labels ({labels.length})</h4>
@@ -1806,24 +1576,30 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
                   {labels.map((label, i) => (
                     <div key={i} className="label-row-admin">
                       <span className="label-key-badge">{label.label_key}</span>
-                      <span className="label-answer-text">{label.correct_answer}</span>
-                      <span className="label-hint-text">{label.hint || '-'}</span>
+                      <input
+                        type="text"
+                        value={label.correct_answer}
+                        onChange={(e) => updateLabelField(i, 'correct_answer', e.target.value)}
+                        placeholder="Correct answer..."
+                        className="label-answer-input"
+                        style={{ flex: 1, padding: '0.3rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: 'inherit' }}
+                      />
+                      <input
+                        type="text"
+                        value={label.hint || ''}
+                        onChange={(e) => updateLabelField(i, 'hint', e.target.value)}
+                        placeholder="Hint (optional)"
+                        className="label-hint-input"
+                        style={{ width: '160px', padding: '0.3rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'inherit', fontSize: '0.85rem' }}
+                      />
                       <div className="label-row-actions">
                         <button
                           type="button"
                           className="move-btn"
-                          onClick={() => { setEditingLabelIndex(i); setPlacementMode('move-label') }}
-                          title="Move label position"
+                          onClick={() => { setMovingLabelIndex(i); setPlacingLabel(false) }}
+                          title="Move this label on the image"
                         >
                           Move
-                        </button>
-                        <button
-                          type="button"
-                          className="move-btn"
-                          onClick={() => { setEditingLabelIndex(i); setPlacementMode('move-pointer') }}
-                          title="Move pointer position"
-                        >
-                          Pointer
                         </button>
                         <button
                           type="button"
@@ -1852,14 +1628,14 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
 
       </div>{/* end diagram-form-content */}
 
-      {/* Sticky save bar at bottom */}
       <div className="diagram-form-footer">
         <div className="footer-status">
           {!formData.title.trim() && <span className="status-missing">Title required</span>}
           {!imageUrl && <span className="status-missing">Image required</span>}
           {imageUrl && labels.length === 0 && <span className="status-missing">Add at least 1 label</span>}
-          {formData.title.trim() && imageUrl && labels.length > 0 && (
-            <span className="status-ready">Ready to save ({labels.length} label{labels.length !== 1 ? 's' : ''})</span>
+          {imageUrl && labels.length > 0 && !labels.some(l => l.correct_answer.trim()) && <span className="status-missing">Fill in answers for labels</span>}
+          {formData.title.trim() && imageUrl && labels.some(l => l.correct_answer.trim()) && (
+            <span className="status-ready">Ready to save ({labels.filter(l => l.correct_answer.trim()).length} label{labels.filter(l => l.correct_answer.trim()).length !== 1 ? 's' : ''})</span>
           )}
         </div>
         <div className="footer-actions">
@@ -1868,7 +1644,7 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
             type="button"
             className="save-btn"
             onClick={handleSubmit}
-            disabled={isSaving || !formData.title.trim() || !imageUrl || labels.length === 0}
+            disabled={isSaving || !formData.title.trim() || !imageUrl || !labels.some(l => l.correct_answer.trim())}
           >
             {isSaving ? 'Saving...' : isEditing ? 'Update Diagram' : 'Save Diagram'} <kbd>Ctrl+S</kbd>
           </button>

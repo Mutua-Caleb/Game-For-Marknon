@@ -146,8 +146,8 @@ export async function initializeDatabase() {
       correct_answer TEXT NOT NULL,
       x_percent REAL NOT NULL,
       y_percent REAL NOT NULL,
-      pointer_x REAL NOT NULL,
-      pointer_y REAL NOT NULL,
+      pointer_x REAL DEFAULT 0,
+      pointer_y REAL DEFAULT 0,
       hint TEXT
     );
 
@@ -310,6 +310,12 @@ export async function initializeDatabase() {
   await p.query("UPDATE topic_mastery SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
   await p.query("UPDATE diagram_questions SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
   await p.query("UPDATE passages SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
+
+  // Make pointer_x/pointer_y optional (letter-marker approach doesn't need pointer lines)
+  await p.query("ALTER TABLE diagram_labels ALTER COLUMN pointer_x SET DEFAULT 0")
+  await p.query("ALTER TABLE diagram_labels ALTER COLUMN pointer_y SET DEFAULT 0")
+  await p.query("ALTER TABLE diagram_labels ALTER COLUMN pointer_x DROP NOT NULL").catch(() => {})
+  await p.query("ALTER TABLE diagram_labels ALTER COLUMN pointer_y DROP NOT NULL").catch(() => {})
 }
 
 async function seedDefaultPrerequisites(p) {

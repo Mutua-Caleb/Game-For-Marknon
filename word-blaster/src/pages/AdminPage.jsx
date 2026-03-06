@@ -1295,7 +1295,7 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
   const addLabel = () => {
     const letter = getNextLetter()
     setLabels(prev => [...prev, {
-      label_key: letter,
+      label_key: letter,  // Pre-fills next letter, but user can change it
       correct_answer: '',
       hint: ''
     }])
@@ -1515,7 +1515,14 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
               <div className="labels-table">
                 {labels.map((label, i) => (
                   <div key={i} className="label-row-admin">
-                    <span className="label-key-badge">{label.label_key}</span>
+                    <input
+                      type="text"
+                      value={label.label_key}
+                      onChange={(e) => updateLabelField(i, 'label_key', e.target.value.toUpperCase().slice(0, 3))}
+                      placeholder="A"
+                      className="label-key-input"
+                      style={{ width: '42px', padding: '0.3rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(99,102,241,0.15)', color: 'white', textAlign: 'center', fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase' }}
+                    />
                     <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem' }}>=</span>
                     <input
                       type="text"

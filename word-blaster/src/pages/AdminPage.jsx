@@ -1230,12 +1230,9 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
   const [labels, setLabels] = useState(diagram?.labels || [])
   const [isUploading, setIsUploading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [placingLabel, setPlacingLabel] = useState(false) // Click-to-place mode
-  const [movingLabelIndex, setMovingLabelIndex] = useState(null) // Moving existing label
   const [useCustomTopic, setUseCustomTopic] = useState(false)
   const [customTopic, setCustomTopic] = useState('')
   const fileInputRef = useRef(null)
-  const imageContainerRef = useRef(null)
 
   const currentTopics = TOPICS[formData.subject] || []
 
@@ -1265,8 +1262,6 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
       setImageUrl('')
       setLabels([])
     }
-    setPlacingLabel(false)
-    setMovingLabelIndex(null)
   }, [diagram])
 
   const handleImageUpload = async (e) => {
@@ -1297,35 +1292,13 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
     }
   }
 
-  // Click image to place a letter marker
-  const handleImageClick = (e) => {
-    if (!imageContainerRef.current) return
-    if (!placingLabel && movingLabelIndex === null) return
-
-    const rect = imageContainerRef.current.getBoundingClientRect()
-    const xPercent = ((e.clientX - rect.left) / rect.width) * 100
-    const yPercent = ((e.clientY - rect.top) / rect.height) * 100
-    const x = Math.round(xPercent * 10) / 10
-    const y = Math.round(yPercent * 10) / 10
-
-    if (movingLabelIndex !== null) {
-      // Move existing label
-      setLabels(prev => prev.map((l, i) =>
-        i === movingLabelIndex ? { ...l, x_percent: x, y_percent: y } : l
-      ))
-      setMovingLabelIndex(null)
-    } else {
-      // Place new label with auto letter
-      const letter = getNextLetter()
-      setLabels(prev => [...prev, {
-        label_key: letter,
-        correct_answer: '',
-        x_percent: x,
-        y_percent: y,
-        hint: ''
-      }])
-      // Stay in placing mode for quick multi-add
-    }
+  const addLabel = () => {
+    const letter = getNextLetter()
+    setLabels(prev => [...prev, {
+      label_key: letter,
+      correct_answer: '',
+      hint: ''
+    }])
   }
 
   const handleRemoveLabel = (index) => {
@@ -1387,12 +1360,6 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
         if (formData.title.trim() && imageUrl && labels.some(l => l.correct_answer.trim()) && !isSaving) {
           handleSubmit()
         }
-        return
-      }
-      if (e.key === 'Escape') {
-        setPlacingLabel(false)
-        setMovingLabelIndex(null)
-        return
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -1404,7 +1371,6 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
       <h3>{isEditing ? 'Edit Diagram' : 'Create New Diagram'}</h3>
 
       <div className="shortcuts-bar">
-        <span className="shortcut-item"><kbd>Esc</kbd> Cancel placing</span>
         <span className="shortcut-item"><kbd>Ctrl+S</kbd> Save Diagram</span>
       </div>
 
@@ -1516,105 +1482,74 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
             <div className="diagram-editor-toolbar">
               <button
                 type="button"
-                className={`editor-btn ${placingLabel ? 'active' : ''}`}
-                onClick={() => { setPlacingLabel(!placingLabel); setMovingLabelIndex(null) }}
-              >
-                {placingLabel ? 'Done Placing' : '+ Click to Add Labels'}
-              </button>
-              <button
-                type="button"
                 className="editor-btn change"
                 onClick={() => { setImageUrl(''); setLabels([]); if (fileInputRef.current) fileInputRef.current.value = '' }}
               >
                 Change Image
               </button>
-              {placingLabel && (
-                <span className="placement-hint">Click on the image to place letter markers (A, B, C...)</span>
-              )}
-              {movingLabelIndex !== null && (
-                <span className="placement-hint">Click where to move label {labels[movingLabelIndex]?.label_key}</span>
-              )}
+              <span className="placement-hint">Pre-label your image (A, B, C...) in an image editor before uploading</span>
             </div>
 
-            {/* Diagram image with letter markers */}
-            <div
-              ref={imageContainerRef}
-              className={`diagram-editor-canvas ${placingLabel || movingLabelIndex !== null ? 'placing' : ''}`}
-              onClick={handleImageClick}
-              style={{ position: 'relative', display: 'inline-block', width: '100%' }}
-            >
+            {/* Diagram image preview (labels are drawn on the image itself) */}
+            <div className="diagram-editor-canvas" style={{ display: 'inline-block', width: '100%' }}>
               <img
                 src={imageUrl}
                 alt="Diagram"
                 className="editor-image"
-                style={{ width: '100%', display: 'block' }}
+                style={{ width: '100%', display: 'block', borderRadius: '8px' }}
               />
-
-              {/* Letter markers on image */}
-              {labels.map((label, i) => (
-                <div
-                  key={`marker-${i}`}
-                  className={`editor-label-marker ${movingLabelIndex === i ? 'moving' : ''}`}
-                  style={{
-                    left: `${label.x_percent}%`,
-                    top: `${label.y_percent}%`,
-                    position: 'absolute',
-                    transform: 'translate(-50%, -50%)',
-                    pointerEvents: 'none'
-                  }}
-                >
-                  {label.label_key}
-                </div>
-              ))}
             </div>
 
             {/* Labels answer list */}
-            {labels.length > 0 && (
-              <div className="labels-list-admin">
-                <h4>Labels ({labels.length})</h4>
-                <div className="labels-table">
-                  {labels.map((label, i) => (
-                    <div key={i} className="label-row-admin">
-                      <span className="label-key-badge">{label.label_key}</span>
-                      <input
-                        type="text"
-                        value={label.correct_answer}
-                        onChange={(e) => updateLabelField(i, 'correct_answer', e.target.value)}
-                        placeholder="Correct answer..."
-                        className="label-answer-input"
-                        style={{ flex: 1, padding: '0.3rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: 'inherit' }}
-                      />
-                      <input
-                        type="text"
-                        value={label.hint || ''}
-                        onChange={(e) => updateLabelField(i, 'hint', e.target.value)}
-                        placeholder="Hint (optional)"
-                        className="label-hint-input"
-                        style={{ width: '160px', padding: '0.3rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'inherit', fontSize: '0.85rem' }}
-                      />
-                      <div className="label-row-actions">
-                        <button
-                          type="button"
-                          className="move-btn"
-                          onClick={() => { setMovingLabelIndex(i); setPlacingLabel(false) }}
-                          title="Move this label on the image"
-                        >
-                          Move
-                        </button>
-                        <button
-                          type="button"
-                          className="remove-option-btn"
-                          onClick={() => handleRemoveLabel(i)}
-                          title="Remove label"
-                        >
-                          x
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <div className="labels-list-admin">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <h4 style={{ margin: 0 }}>Answer Key ({labels.length} label{labels.length !== 1 ? 's' : ''})</h4>
+                <button
+                  type="button"
+                  className="editor-btn"
+                  onClick={addLabel}
+                >
+                  + Add Label
+                </button>
               </div>
-            )}
+              <div className="labels-table">
+                {labels.map((label, i) => (
+                  <div key={i} className="label-row-admin">
+                    <span className="label-key-badge">{label.label_key}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem' }}>=</span>
+                    <input
+                      type="text"
+                      value={label.correct_answer}
+                      onChange={(e) => updateLabelField(i, 'correct_answer', e.target.value)}
+                      placeholder="Correct answer..."
+                      className="label-answer-input"
+                      style={{ flex: 1, padding: '0.3rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.05)', color: 'inherit' }}
+                    />
+                    <input
+                      type="text"
+                      value={label.hint || ''}
+                      onChange={(e) => updateLabelField(i, 'hint', e.target.value)}
+                      placeholder="Hint (optional)"
+                      className="label-hint-input"
+                      style={{ width: '160px', padding: '0.3rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: 'inherit', fontSize: '0.85rem' }}
+                    />
+                    <button
+                      type="button"
+                      className="remove-option-btn"
+                      onClick={() => handleRemoveLabel(i)}
+                      title="Remove label"
+                    >
+                      x
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {labels.length === 0 && (
+                <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '1rem', fontSize: '0.85rem' }}>
+                  Click "+ Add Label" to add answer mappings (A = skull, B = patella, etc.)
+                </p>
+              )}
+            </div>
           </div>
         )}
         <input

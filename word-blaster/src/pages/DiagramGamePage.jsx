@@ -44,10 +44,7 @@ function DiagramGamePage() {
   const IDLE_THRESHOLD = 30000 // 30 seconds of no interaction = idle
 
   const containerRef = useRef(null)
-  const imageContainerRef = useRef(null)
-  const imageRef = useRef(null)
   const inputRefs = useRef({})
-  const [imageBounds, setImageBounds] = useState(null)
 
   // Fetch today's earnings on mount
   useEffect(() => {
@@ -224,70 +221,9 @@ function DiagramGamePage() {
     setResults(null)
     setShowHints({})
     setActiveLabel(null)
-    // Don't reset imageBounds here - let the image load handler update it
   }, [currentIndex, allDiagrams.length, gameStarted])
 
-  // Calculate actual image bounds within container (accounting for object-fit: contain)
-  const updateImageBounds = useCallback(() => {
-    if (!imageRef.current || !imageContainerRef.current) return
-
-    const container = imageContainerRef.current.getBoundingClientRect()
-    const img = imageRef.current
-
-    // Get natural dimensions
-    const naturalWidth = img.naturalWidth
-    const naturalHeight = img.naturalHeight
-    if (!naturalWidth || !naturalHeight) return
-
-    // Calculate the actual rendered size and position (object-fit: contain)
-    const containerAspect = container.width / container.height
-    const imageAspect = naturalWidth / naturalHeight
-
-    let renderWidth, renderHeight, offsetX, offsetY
-
-    if (imageAspect > containerAspect) {
-      // Image is wider than container - letterbox top/bottom
-      renderWidth = container.width
-      renderHeight = container.width / imageAspect
-      offsetX = 0
-      offsetY = (container.height - renderHeight) / 2
-    } else {
-      // Image is taller than container - letterbox left/right
-      renderHeight = container.height
-      renderWidth = container.height * imageAspect
-      offsetX = (container.width - renderWidth) / 2
-      offsetY = 0
-    }
-
-    setImageBounds({
-      left: offsetX,
-      top: offsetY,
-      width: renderWidth,
-      height: renderHeight
-    })
-  }, [])
-
-  // Set up ResizeObserver to update bounds when container resizes
-  useEffect(() => {
-    const observer = new ResizeObserver(updateImageBounds)
-    if (imageContainerRef.current) {
-      observer.observe(imageContainerRef.current)
-    }
-    return () => observer.disconnect()
-  }, [updateImageBounds])
-
   const currentDiagram = allDiagrams[currentIndex]
-
-  // Also update bounds when diagram changes (image might be cached)
-  useEffect(() => {
-    if (!currentDiagram || !imageRef.current) return
-
-    // If image is already loaded (from cache), update bounds immediately
-    if (imageRef.current.complete && imageRef.current.naturalWidth > 0) {
-      // Small delay to ensure container is sized
-      requestAnimationFrame(updateImageBounds)
-    }
-  }, [currentIndex, currentDiagram, updateImageBounds])
 
   const handleAnswerChange = useCallback((labelKey, value) => {
     setAnswers(prev => ({ ...prev, [labelKey]: value }))
@@ -565,82 +501,37 @@ function DiagramGamePage() {
 
       {/* Main content: diagram + answer panel */}
       <div className="diagram-content">
-        {/* Diagram with labels */}
-        <div className="diagram-image-container" ref={imageContainerRef}>
+        {/* Diagram with letter markers */}
+        <div className="diagram-image-container" style={{ position: 'relative' }}>
           <img
-            ref={imageRef}
             src={currentDiagram.image_url}
             alt={currentDiagram.title}
             className="diagram-image"
-            onLoad={updateImageBounds}
+            style={{ width: '100%', display: 'block' }}
           />
 
-          {/* Overlay wrapper positioned exactly over the rendered image */}
-          {imageBounds && (
-            <div
-              className="diagram-overlay-wrapper"
+          {/* Letter markers positioned on the image */}
+          {currentDiagram.labels.map(label => (
+            <motion.div
+              key={`label-${label.label_key}`}
+              className={`diagram-label-marker ${
+                activeLabel === label.label_key ? 'active' : ''
+              } ${
+                results ? (results[label.label_key] ? 'correct' : 'wrong') : ''
+              }`}
               style={{
+                left: `${label.x_percent}%`,
+                top: `${label.y_percent}%`,
                 position: 'absolute',
-                left: imageBounds.left,
-                top: imageBounds.top,
-                width: imageBounds.width,
-                height: imageBounds.height,
-                pointerEvents: 'none'
+                transform: 'translate(-50%, -50%)'
               }}
+              onClick={() => handleLabelClick(label.label_key)}
+              whileHover={{ scale: 1.2 }}
+              whileTap={{ scale: 0.9 }}
             >
-              {/* SVG overlay for pointer lines */}
-              <svg className="diagram-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
-                {currentDiagram.labels.map(label => (
-                  <line
-                    key={`line-${label.label_key}`}
-                    x1={label.x_percent}
-                    y1={label.y_percent}
-                    x2={label.pointer_x}
-                    y2={label.pointer_y}
-                    stroke={results ? (results[label.label_key] ? '#22c55e' : '#ef4444') : (activeLabel === label.label_key ? '#f59e0b' : '#475569')}
-                    strokeWidth="0.3"
-                    strokeDasharray={results ? 'none' : '1,0.5'}
-                  />
-                ))}
-              </svg>
-
-              {/* Label circles positioned on the diagram */}
-              {currentDiagram.labels.map(label => (
-                <motion.div
-                  key={`label-${label.label_key}`}
-                  className={`diagram-label-marker ${
-                    activeLabel === label.label_key ? 'active' : ''
-                  } ${
-                    results ? (results[label.label_key] ? 'correct' : 'wrong') : ''
-                  }`}
-                  style={{
-                    left: `${label.x_percent}%`,
-                    top: `${label.y_percent}%`,
-                    pointerEvents: 'auto'
-                  }}
-                  onClick={() => handleLabelClick(label.label_key)}
-                  whileHover={{ scale: 1.2 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  {label.label_key}
-                </motion.div>
-              ))}
-
-              {/* Pointer dots on the diagram */}
-              {currentDiagram.labels.map(label => (
-                <div
-                  key={`dot-${label.label_key}`}
-                  className={`diagram-pointer-dot ${
-                    results ? (results[label.label_key] ? 'correct' : 'wrong') : ''
-                  }`}
-                  style={{
-                    left: `${label.pointer_x}%`,
-                    top: `${label.pointer_y}%`
-                  }}
-                />
-              ))}
-            </div>
-          )}
+              {label.label_key}
+            </motion.div>
+          ))}
         </div>
 
         {/* Answer panel */}

@@ -112,27 +112,12 @@
 
 .diagram-image {
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  display: block;
   max-height: calc(100vh - 180px);
 }
 
-.diagram-overlay-wrapper {
-  z-index: 2;
-}
-
-.diagram-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-/* Label markers (the letter circles on the diagram) */
+/* Label markers (letter circles on the diagram) */
 .diagram-label-marker {
-  position: absolute;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -145,7 +130,6 @@
   font-weight: 800;
   font-size: 0.85rem;
   cursor: pointer;
-  transform: translate(-50%, -50%);
   z-index: 5;
   user-select: none;
   transition: all 0.2s ease;
@@ -168,29 +152,6 @@
   border-color: #ef4444;
   background: rgba(239, 68, 68, 0.3);
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
-}
-
-/* Pointer dots on the diagram structure */
-.diagram-pointer-dot {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #475569;
-  border: 1.5px solid #94a3b8;
-  transform: translate(-50%, -50%);
-  z-index: 4;
-  pointer-events: none;
-}
-
-.diagram-pointer-dot.correct {
-  background: #22c55e;
-  border-color: #16a34a;
-}
-
-.diagram-pointer-dot.wrong {
-  background: #ef4444;
-  border-color: #dc2626;
 }
 
 /* Answer panel */

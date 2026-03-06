@@ -1,71 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useCallback, useRef } from 'react'
+import { motion } from 'framer-motion'
 import { quizSessionApi } from '../utils/api'
 import { speakCorrections } from '../utils/voiceover'
 import './DiagramChallenge.css'
 
 /**
  * Inline diagram challenge that appears within the Quiz Blaster flow.
- * Shows a diagram image with labels to fill in, then calls onComplete when done.
+ * Shows a diagram image with letter markers (A, B, C...) placed on it.
+ * Student types answers in a simple list on the right: A = ___, B = ___, etc.
  */
 function DiagramChallenge({ diagram, onComplete, playSound, quizSessionId }) {
   const [answers, setAnswers] = useState({})
   const [results, setResults] = useState(null)
   const [activeLabel, setActiveLabel] = useState(null)
   const [showHints, setShowHints] = useState({})
-  const [imageBounds, setImageBounds] = useState(null)
 
-  const imageContainerRef = useRef(null)
-  const imageRef = useRef(null)
   const inputRefs = useRef({})
-
-  // Calculate actual image bounds within container (accounting for object-fit: contain)
-  const updateImageBounds = useCallback(() => {
-    if (!imageRef.current || !imageContainerRef.current) return
-
-    const container = imageContainerRef.current.getBoundingClientRect()
-    const img = imageRef.current
-
-    const naturalWidth = img.naturalWidth
-    const naturalHeight = img.naturalHeight
-    if (!naturalWidth || !naturalHeight) return
-
-    const containerAspect = container.width / container.height
-    const imageAspect = naturalWidth / naturalHeight
-
-    let renderWidth, renderHeight, offsetX, offsetY
-
-    if (imageAspect > containerAspect) {
-      renderWidth = container.width
-      renderHeight = container.width / imageAspect
-      offsetX = 0
-      offsetY = (container.height - renderHeight) / 2
-    } else {
-      renderHeight = container.height
-      renderWidth = container.height * imageAspect
-      offsetX = (container.width - renderWidth) / 2
-      offsetY = 0
-    }
-
-    setImageBounds({ left: offsetX, top: offsetY, width: renderWidth, height: renderHeight })
-  }, [])
-
-  // Update bounds on resize
-  useEffect(() => {
-    const observer = new ResizeObserver(updateImageBounds)
-    if (imageContainerRef.current) {
-      observer.observe(imageContainerRef.current)
-    }
-    return () => observer.disconnect()
-  }, [updateImageBounds])
-
-  // Update bounds when image might already be cached
-  useEffect(() => {
-    if (!imageRef.current) return
-    if (imageRef.current.complete && imageRef.current.naturalWidth > 0) {
-      requestAnimationFrame(updateImageBounds)
-    }
-  }, [diagram, updateImageBounds])
 
   const handleAnswerChange = useCallback((labelKey, value) => {
     setAnswers(prev => ({ ...prev, [labelKey]: value }))
@@ -101,7 +51,6 @@ function DiagramChallenge({ diagram, onComplete, playSound, quizSessionId }) {
       checkResults[label.label_key] = isCorrect
       if (isCorrect) correctCount++
 
-      // Record in quiz session for monitoring
       if (quizSessionId) {
         quizSessionApi.recordAnswer(quizSessionId, {
           questionId: `diagram_${diagram.id}_${label.label_key}`,
@@ -116,7 +65,6 @@ function DiagramChallenge({ diagram, onComplete, playSound, quizSessionId }) {
 
     setResults(checkResults)
 
-    // Voice-over for wrong labels
     const wrongLabels = diagram.labels.filter(l => !checkResults[l.label_key])
     if (wrongLabels.length > 0) {
       const corrections = wrongLabels.map(l =>
@@ -132,17 +80,15 @@ function DiagramChallenge({ diagram, onComplete, playSound, quizSessionId }) {
     } else {
       playSound('wrong')
     }
-  }, [diagram, answers, playSound])
+  }, [diagram, answers, playSound, quizSessionId])
 
   const handleContinue = useCallback(() => {
     if (!diagram || !results) return
 
     const correctCount = Object.values(results).filter(Boolean).length
-    const totalLabels = diagram.labels.length
-
     onComplete({
       correctCount,
-      totalLabels,
+      totalLabels: diagram.labels.length,
       diagramTitle: diagram.title
     })
   }, [diagram, results, onComplete])
@@ -166,78 +112,37 @@ function DiagramChallenge({ diagram, onComplete, playSound, quizSessionId }) {
         </div>
 
         <div className="dc-content">
-          {/* Diagram image with labels */}
-          <div className="dc-image-container" ref={imageContainerRef}>
+          {/* Diagram image with letter markers */}
+          <div className="dc-image-container" style={{ position: 'relative' }}>
             <img
-              ref={imageRef}
               src={diagram.image_url}
               alt={diagram.title}
               className="dc-image"
-              onLoad={updateImageBounds}
+              style={{ width: '100%', display: 'block' }}
             />
 
-            {imageBounds && (
-              <div
-                className="dc-overlay-wrapper"
+            {/* Letter markers positioned on the image */}
+            {diagram.labels.map(label => (
+              <motion.div
+                key={`label-${label.label_key}`}
+                className={`dc-label-marker ${
+                  activeLabel === label.label_key ? 'active' : ''
+                } ${
+                  results ? (results[label.label_key] ? 'correct' : 'wrong') : ''
+                }`}
                 style={{
+                  left: `${label.x_percent}%`,
+                  top: `${label.y_percent}%`,
                   position: 'absolute',
-                  left: imageBounds.left,
-                  top: imageBounds.top,
-                  width: imageBounds.width,
-                  height: imageBounds.height,
-                  pointerEvents: 'none'
+                  transform: 'translate(-50%, -50%)'
                 }}
+                onClick={() => handleLabelClick(label.label_key)}
+                whileHover={{ scale: 1.2 }}
+                whileTap={{ scale: 0.9 }}
               >
-                <svg className="dc-overlay-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-                  {diagram.labels.map(label => (
-                    <line
-                      key={`line-${label.label_key}`}
-                      x1={label.x_percent}
-                      y1={label.y_percent}
-                      x2={label.pointer_x}
-                      y2={label.pointer_y}
-                      stroke={results ? (results[label.label_key] ? '#22c55e' : '#ef4444') : (activeLabel === label.label_key ? '#f59e0b' : '#475569')}
-                      strokeWidth="0.3"
-                      strokeDasharray={results ? 'none' : '1,0.5'}
-                    />
-                  ))}
-                </svg>
-
-                {diagram.labels.map(label => (
-                  <motion.div
-                    key={`label-${label.label_key}`}
-                    className={`dc-label-marker ${
-                      activeLabel === label.label_key ? 'active' : ''
-                    } ${
-                      results ? (results[label.label_key] ? 'correct' : 'wrong') : ''
-                    }`}
-                    style={{
-                      left: `${label.x_percent}%`,
-                      top: `${label.y_percent}%`,
-                      pointerEvents: 'auto'
-                    }}
-                    onClick={() => handleLabelClick(label.label_key)}
-                    whileHover={{ scale: 1.2 }}
-                    whileTap={{ scale: 0.9 }}
-                  >
-                    {label.label_key}
-                  </motion.div>
-                ))}
-
-                {diagram.labels.map(label => (
-                  <div
-                    key={`dot-${label.label_key}`}
-                    className={`dc-pointer-dot ${
-                      results ? (results[label.label_key] ? 'correct' : 'wrong') : ''
-                    }`}
-                    style={{
-                      left: `${label.pointer_x}%`,
-                      top: `${label.pointer_y}%`
-                    }}
-                  />
-                ))}
-              </div>
-            )}
+                {label.label_key}
+              </motion.div>
+            ))}
           </div>
 
           {/* Answer panel */}

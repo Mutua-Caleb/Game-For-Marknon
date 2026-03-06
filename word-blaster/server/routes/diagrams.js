@@ -101,7 +101,7 @@ router.post('/', authenticateToken, async (req, res) => {
         await client.query(
           `INSERT INTO diagram_labels (diagram_id, label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [id, label.label_key, label.correct_answer, label.x_percent, label.y_percent, label.pointer_x, label.pointer_y, label.hint || null]
+          [id, label.label_key, label.correct_answer, label.x_percent, label.y_percent, label.pointer_x || 0, label.pointer_y || 0, label.hint || null]
         )
       }
 
@@ -184,7 +184,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
         await client.query(
           `INSERT INTO diagram_labels (diagram_id, label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [id, label.label_key, label.correct_answer, label.x_percent, label.y_percent, label.pointer_x, label.pointer_y, label.hint || null]
+          [id, label.label_key, label.correct_answer, label.x_percent, label.y_percent, label.pointer_x || 0, label.pointer_y || 0, label.hint || null]
         )
       }
 

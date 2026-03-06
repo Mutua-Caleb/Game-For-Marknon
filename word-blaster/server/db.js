@@ -308,7 +308,7 @@ export async function initializeDatabase() {
   // Rename 'Human Body' to 'Biology' in existing data
   await p.query("UPDATE questions SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
   await p.query("UPDATE topic_mastery SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
-  await p.query("UPDATE diagrams SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
+  await p.query("UPDATE diagram_questions SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
   await p.query("UPDATE passages SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
 }
 

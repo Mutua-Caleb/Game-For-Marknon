@@ -1,9 +1,9 @@
 export const defaultQuestions = [
-  // SCIENCE - Human Body
+  // SCIENCE - Biology
   {
     id: 'sci_hb_001',
     subject: 'Science',
-    topic: 'Human Body',
+    topic: 'Biology',
     question: 'What organ pumps blood throughout your body?',
     answer: 'heart',
     type: 'text',
@@ -14,7 +14,7 @@ export const defaultQuestions = [
   {
     id: 'sci_hb_002',
     subject: 'Science',
-    topic: 'Human Body',
+    topic: 'Biology',
     question: 'What is the largest organ in the human body?',
     answer: 'skin',
     type: 'text',
@@ -25,7 +25,7 @@ export const defaultQuestions = [
   {
     id: 'sci_hb_003',
     subject: 'Science',
-    topic: 'Human Body',
+    topic: 'Biology',
     question: 'How many bones does an adult human have?',
     answer: '206',
     type: 'multiple',
@@ -36,7 +36,7 @@ export const defaultQuestions = [
   {
     id: 'sci_hb_004',
     subject: 'Science',
-    topic: 'Human Body',
+    topic: 'Biology',
     question: 'What part of the body helps you breathe?',
     answer: 'lungs',
     type: 'text',
@@ -47,7 +47,7 @@ export const defaultQuestions = [
   {
     id: 'sci_hb_005',
     subject: 'Science',
-    topic: 'Human Body',
+    topic: 'Biology',
     question: 'What is the control center of the body?',
     answer: 'brain',
     type: 'multiple',
@@ -58,7 +58,7 @@ export const defaultQuestions = [
   {
     id: 'sci_hb_006',
     subject: 'Science',
-    topic: 'Human Body',
+    topic: 'Biology',
     question: 'What carries blood away from the heart?',
     answer: 'arteries',
     type: 'text',
@@ -69,7 +69,7 @@ export const defaultQuestions = [
   {
     id: 'sci_hb_007',
     subject: 'Science',
-    topic: 'Human Body',
+    topic: 'Biology',
     question: 'What type of blood cells fight infection?',
     answer: 'white',
     type: 'multiple',
@@ -459,7 +459,7 @@ export const defaultQuestions = [
 export const subjects = ['Science', 'English', 'Christian Religious Education', 'Creative Arts', 'Agriculture', 'Social Studies']
 
 export const topics = {
-  Science: ['Human Body', 'Physics', 'Chemistry', 'Earth Science'],
+  Science: ['Biology', 'Physics', 'Chemistry', 'Earth Science'],
   English: ['Vocabulary', 'Grammar', 'Spelling', 'Reading'],
   'Christian Religious Education': ['Old Testament', 'New Testament', 'Christian Living', 'The Church'],
   'Creative Arts': ['Drawing & Painting', 'Music', 'Drama', 'Crafts'],

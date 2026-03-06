@@ -1,0 +1,15 @@
+[Unit]
+Description=YouTube Blocker - Blocks YouTube until daily quiz quota is met
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/youtube-blocker/blocker.py
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

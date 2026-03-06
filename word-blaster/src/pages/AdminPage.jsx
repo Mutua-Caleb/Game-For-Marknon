@@ -7,7 +7,7 @@ import './AdminPage.css'
 
 const SUBJECTS = ['Science', 'English', 'Christian Religious Education', 'Creative Arts', 'Agriculture', 'Social Studies']
 const TOPICS = {
-  Science: ['Human Body', 'Physics', 'Chemistry', 'Earth Science'],
+  Science: ['Biology', 'Physics', 'Chemistry', 'Earth Science'],
   English: ['Vocabulary', 'Grammar', 'Spelling', 'Reading'],
   'Christian Religious Education': ['Old Testament', 'New Testament', 'Christian Living', 'The Church'],
   'Creative Arts': ['Drawing & Painting', 'Music', 'Drama', 'Crafts'],
@@ -409,7 +409,7 @@ function QuestionCard({ question, stats, onEdit, onDelete }) {
 function QuestionModal({ question, onClose, onSave, showNotification }) {
   const [formData, setFormData] = useState({
     subject: question?.subject || 'Science',
-    topic: question?.topic || 'Human Body',
+    topic: question?.topic || 'Biology',
     question: question?.question || '',
     answer: question?.answer || '',
     type: question?.type || 'text',
@@ -1222,7 +1222,7 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
 
   const [formData, setFormData] = useState({
     subject: diagram?.subject || 'Science',
-    topic: diagram?.topic || 'Human Body',
+    topic: diagram?.topic || 'Biology',
     title: diagram?.title || '',
     description: diagram?.description || ''
   })
@@ -1248,14 +1248,14 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
     if (diagram) {
       setFormData({
         subject: diagram.subject || 'Science',
-        topic: diagram.topic || 'Human Body',
+        topic: diagram.topic || 'Biology',
         title: diagram.title || '',
         description: diagram.description || ''
       })
       setImageUrl(diagram.image_url || '')
       setLabels(diagram.labels || [])
     } else {
-      setFormData({ subject: 'Science', topic: 'Human Body', title: '', description: '' })
+      setFormData({ subject: 'Science', topic: 'Biology', title: '', description: '' })
       setImageUrl('')
       setLabels([])
     }
@@ -2048,7 +2048,7 @@ function PassageCreateForm({ passage, onCreated, onUpdated, onCancel, showNotifi
 
   const [formData, setFormData] = useState({
     subject: passage?.subject || 'Science',
-    topic: passage?.topic || 'Human Body',
+    topic: passage?.topic || 'Biology',
     title: passage?.title || '',
     content: passage?.content || ''
   })
@@ -2071,7 +2071,7 @@ function PassageCreateForm({ passage, onCreated, onUpdated, onCancel, showNotifi
     if (passage) {
       setFormData({
         subject: passage.subject || 'Science',
-        topic: passage.topic || 'Human Body',
+        topic: passage.topic || 'Biology',
         title: passage.title || '',
         content: passage.content || ''
       })
@@ -2085,7 +2085,7 @@ function PassageCreateForm({ passage, onCreated, onUpdated, onCancel, showNotifi
         })) || [{ question: '', answer: '', type: 'text', options: ['', '', '', ''], hint: '' }]
       )
     } else {
-      setFormData({ subject: 'Science', topic: 'Human Body', title: '', content: '' })
+      setFormData({ subject: 'Science', topic: 'Biology', title: '', content: '' })
       setQuestions([{ question: '', answer: '', type: 'text', options: ['', '', '', ''], hint: '' }])
     }
   }, [passage])

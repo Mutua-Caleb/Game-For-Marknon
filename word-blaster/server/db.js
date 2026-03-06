@@ -301,20 +301,22 @@ export async function initializeDatabase() {
   if (parseInt(prereqResult.rows[0].count) === 0) {
     await seedDefaultPrerequisites(p)
   }
+
+  // Remove Science topic locks (all Science topics freely accessible)
+  await p.query("DELETE FROM topic_prerequisites WHERE subject = 'Science'")
+
+  // Rename 'Human Body' to 'Biology' in existing data
+  await p.query("UPDATE questions SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
+  await p.query("UPDATE topic_mastery SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
+  await p.query("UPDATE diagrams SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
+  await p.query("UPDATE passages SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
 }
 
 async function seedDefaultPrerequisites(p) {
   // Define topic learning paths
-  // Science: Human Body is foundational, then Chemistry, then Physics, then Earth Science
+  // Science: No locks - all topics freely accessible
   // English: Vocabulary is foundational, then Spelling, then Grammar, then Reading
   const prerequisites = [
-    // Science path - Chemistry requires Human Body basics
-    { subject: 'Science', topic: 'Chemistry', prerequisite_topic: 'Human Body', required_mastery: 60 },
-    // Physics requires Chemistry basics
-    { subject: 'Science', topic: 'Physics', prerequisite_topic: 'Chemistry', required_mastery: 60 },
-    // Earth Science requires Physics basics
-    { subject: 'Science', topic: 'Earth Science', prerequisite_topic: 'Physics', required_mastery: 60 },
-
     // English path - Spelling requires Vocabulary
     { subject: 'English', topic: 'Spelling', prerequisite_topic: 'Vocabulary', required_mastery: 60 },
     // Grammar requires Spelling
@@ -451,7 +453,7 @@ function getDefaultDiagrams() {
     {
       id: 'diag_heart_001',
       subject: 'Science',
-      topic: 'Human Body',
+      topic: 'Biology',
       title: 'The Human Heart',
       description: 'Label the parts of the human heart. Identify each structure marked with a letter.',
       image_url: '/diagrams/heart-unlabeled.svg',
@@ -476,7 +478,7 @@ function getDefaultSequences() {
     {
       id: 'seq_hb_001',
       subject: 'Science',
-      topic: 'Human Body',
+      topic: 'Biology',
       title: 'Blood Circulation Through the Heart',
       description: 'Arrange the steps of blood circulation through the heart in the correct order, from deoxygenated blood returning to the heart to oxygenated blood being pumped out to the body.',
       image: null,
@@ -496,14 +498,14 @@ function getDefaultSequences() {
 
 function getDefaultQuestions() {
   return [
-    // SCIENCE - Human Body
-    { id: 'sci_hb_001', subject: 'Science', topic: 'Human Body', question: 'What organ pumps blood throughout your body?', answer: 'heart', type: 'text', options: null, hint: 'It beats about 100,000 times a day', image: null },
-    { id: 'sci_hb_002', subject: 'Science', topic: 'Human Body', question: 'What is the largest organ in the human body?', answer: 'skin', type: 'text', options: null, hint: 'It covers your entire body', image: null },
-    { id: 'sci_hb_003', subject: 'Science', topic: 'Human Body', question: 'How many bones does an adult human have?', answer: '206', type: 'multiple', options: ['106', '206', '306', '406'], hint: 'More than 200 but less than 250', image: null },
-    { id: 'sci_hb_004', subject: 'Science', topic: 'Human Body', question: 'What part of the body helps you breathe?', answer: 'lungs', type: 'text', options: null, hint: 'You have two of them in your chest', image: null },
-    { id: 'sci_hb_005', subject: 'Science', topic: 'Human Body', question: 'What is the control center of the body?', answer: 'brain', type: 'multiple', options: ['Heart', 'Brain', 'Liver', 'Stomach'], hint: "It's inside your skull", image: null },
-    { id: 'sci_hb_006', subject: 'Science', topic: 'Human Body', question: 'What carries blood away from the heart?', answer: 'arteries', type: 'text', options: null, hint: 'Starts with "A"', image: null },
-    { id: 'sci_hb_007', subject: 'Science', topic: 'Human Body', question: 'What type of blood cells fight infection?', answer: 'white', type: 'multiple', options: ['Red', 'White', 'Blue', 'Green'], hint: 'The color of snow', image: null },
+    // SCIENCE - Biology
+    { id: 'sci_hb_001', subject: 'Science', topic: 'Biology', question: 'What organ pumps blood throughout your body?', answer: 'heart', type: 'text', options: null, hint: 'It beats about 100,000 times a day', image: null },
+    { id: 'sci_hb_002', subject: 'Science', topic: 'Biology', question: 'What is the largest organ in the human body?', answer: 'skin', type: 'text', options: null, hint: 'It covers your entire body', image: null },
+    { id: 'sci_hb_003', subject: 'Science', topic: 'Biology', question: 'How many bones does an adult human have?', answer: '206', type: 'multiple', options: ['106', '206', '306', '406'], hint: 'More than 200 but less than 250', image: null },
+    { id: 'sci_hb_004', subject: 'Science', topic: 'Biology', question: 'What part of the body helps you breathe?', answer: 'lungs', type: 'text', options: null, hint: 'You have two of them in your chest', image: null },
+    { id: 'sci_hb_005', subject: 'Science', topic: 'Biology', question: 'What is the control center of the body?', answer: 'brain', type: 'multiple', options: ['Heart', 'Brain', 'Liver', 'Stomach'], hint: "It's inside your skull", image: null },
+    { id: 'sci_hb_006', subject: 'Science', topic: 'Biology', question: 'What carries blood away from the heart?', answer: 'arteries', type: 'text', options: null, hint: 'Starts with "A"', image: null },
+    { id: 'sci_hb_007', subject: 'Science', topic: 'Biology', question: 'What type of blood cells fight infection?', answer: 'white', type: 'multiple', options: ['Red', 'White', 'Blue', 'Green'], hint: 'The color of snow', image: null },
 
     // SCIENCE - Physics
     { id: 'sci_ph_001', subject: 'Science', topic: 'Physics', question: 'What force keeps us on the ground?', answer: 'gravity', type: 'text', options: null, hint: 'Isaac Newton discovered it when an apple fell', image: null },

@@ -148,7 +148,7 @@ function TopicSelectPage() {
   }
 
   const topicIcons = {
-    'Human Body': '🫀',
+    'Biology': '🧬',
     'Physics': '⚡',
     'Chemistry': '🧪',
     'Earth Science': '🌍',

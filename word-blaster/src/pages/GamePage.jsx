@@ -87,7 +87,8 @@ function GamePage() {
   const activeSecondsRef = useRef(0)
   const IDLE_THRESHOLD = 30000 // 30 seconds of no interaction = idle
 
-  const MIN_QUIZ_TIME = 900 // 15 minutes in seconds
+  const MIN_QUIZ_TIME = 3600 // 60 minutes real active time
+  const DISPLAY_DIVISOR = 2 // Timer displays at half speed (60 real min shows as 30 min)
   const learnerId = getLearnerId()
 
   const failedQuestionsRef = useRef(new Set())
@@ -753,9 +754,9 @@ function GamePage() {
         />
         <div className="header-right-info">
           <div className="quiz-timer">
-            {Math.floor(activeSeconds / 60)}:{String(activeSeconds % 60).padStart(2, '0')}
+            {Math.floor(Math.floor(activeSeconds / DISPLAY_DIVISOR) / 60)}:{String(Math.floor(activeSeconds / DISPLAY_DIVISOR) % 60).padStart(2, '0')}
             {!minTimeReached && (
-              <span className="min-time-note"> / 15:00</span>
+              <span className="min-time-note"> / 30:00</span>
             )}
           </div>
           <div className="lives-display">
@@ -907,7 +908,7 @@ function GamePage() {
               </div>
               {!minTimeReached && (
                 <div className="min-time-note" style={{ marginTop: '0.5rem', fontSize: '0.85rem', opacity: 0.7 }}>
-                  Active time remaining: {Math.floor(Math.max(0, MIN_QUIZ_TIME - activeSeconds) / 60)}:{String(Math.max(0, MIN_QUIZ_TIME - activeSeconds) % 60).padStart(2, '0')}
+                  Active time remaining: {Math.floor(Math.floor(Math.max(0, MIN_QUIZ_TIME - activeSeconds) / DISPLAY_DIVISOR) / 60)}:{String(Math.floor(Math.max(0, MIN_QUIZ_TIME - activeSeconds) / DISPLAY_DIVISOR) % 60).padStart(2, '0')}
                 </div>
               )}
             </div>
@@ -939,10 +940,10 @@ function GamePage() {
                 <>
                   <h2>Keep Going!</h2>
                   <div className="min-time-message">
-                    Minimum quiz time: 15 minutes
+                    Minimum quiz time: 30 minutes
                   </div>
                   <div className="time-remaining">
-                    {Math.floor((MIN_QUIZ_TIME - elapsedSeconds) / 60)}:{String((MIN_QUIZ_TIME - elapsedSeconds) % 60).padStart(2, '0')} remaining
+                    {Math.floor(Math.floor(Math.max(0, MIN_QUIZ_TIME - elapsedSeconds) / DISPLAY_DIVISOR) / 60)}:{String(Math.floor(Math.max(0, MIN_QUIZ_TIME - elapsedSeconds) / DISPLAY_DIVISOR) % 60).padStart(2, '0')} remaining
                   </div>
                   <div className="loading-text">Lives restored. Continuing...</div>
                 </>

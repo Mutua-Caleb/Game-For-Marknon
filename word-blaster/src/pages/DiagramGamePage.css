@@ -99,11 +99,11 @@
 /* Diagram image container */
 .diagram-image-container {
   flex: 1;
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 0;
+  max-width: 550px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -111,9 +111,10 @@
 }
 
 .diagram-image {
-  width: 100%;
-  display: block;
+  max-width: 100%;
   max-height: calc(100vh - 180px);
+  display: block;
+  object-fit: contain;
 }
 
 /* Answer panel */

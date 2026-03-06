@@ -6,8 +6,8 @@ import './DiagramChallenge.css'
 
 /**
  * Inline diagram challenge that appears within the Quiz Blaster flow.
- * Shows a diagram image with letter markers (A, B, C...) placed on it.
- * Student types answers in a simple list on the right: A = ___, B = ___, etc.
+ * Shows a pre-labeled diagram image (labels drawn on the image itself).
+ * Student types answers in a list on the right: A = ___, B = ___, etc.
  */
 function DiagramChallenge({ diagram, onComplete, playSound, quizSessionId }) {
   const [answers, setAnswers] = useState({})
@@ -19,13 +19,6 @@ function DiagramChallenge({ diagram, onComplete, playSound, quizSessionId }) {
 
   const handleAnswerChange = useCallback((labelKey, value) => {
     setAnswers(prev => ({ ...prev, [labelKey]: value }))
-  }, [])
-
-  const handleLabelClick = useCallback((labelKey) => {
-    setActiveLabel(labelKey)
-    if (inputRefs.current[labelKey]) {
-      inputRefs.current[labelKey].focus()
-    }
   }, [])
 
   const toggleHint = useCallback((labelKey) => {
@@ -112,37 +105,13 @@ function DiagramChallenge({ diagram, onComplete, playSound, quizSessionId }) {
         </div>
 
         <div className="dc-content">
-          {/* Diagram image with letter markers */}
-          <div className="dc-image-container" style={{ position: 'relative' }}>
+          {/* Diagram image (labels are pre-drawn on the image) */}
+          <div className="dc-image-container">
             <img
               src={diagram.image_url}
               alt={diagram.title}
               className="dc-image"
-              style={{ width: '100%', display: 'block' }}
             />
-
-            {/* Letter markers positioned on the image */}
-            {diagram.labels.map(label => (
-              <motion.div
-                key={`label-${label.label_key}`}
-                className={`dc-label-marker ${
-                  activeLabel === label.label_key ? 'active' : ''
-                } ${
-                  results ? (results[label.label_key] ? 'correct' : 'wrong') : ''
-                }`}
-                style={{
-                  left: `${label.x_percent}%`,
-                  top: `${label.y_percent}%`,
-                  position: 'absolute',
-                  transform: 'translate(-50%, -50%)'
-                }}
-                onClick={() => handleLabelClick(label.label_key)}
-                whileHover={{ scale: 1.2 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                {label.label_key}
-              </motion.div>
-            ))}
           </div>
 
           {/* Answer panel */}

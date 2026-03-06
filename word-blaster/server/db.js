@@ -144,10 +144,6 @@ export async function initializeDatabase() {
       diagram_id TEXT NOT NULL REFERENCES diagram_questions(id) ON DELETE CASCADE,
       label_key TEXT NOT NULL,
       correct_answer TEXT NOT NULL,
-      x_percent REAL NOT NULL,
-      y_percent REAL NOT NULL,
-      pointer_x REAL DEFAULT 0,
-      pointer_y REAL DEFAULT 0,
       hint TEXT
     );
 
@@ -311,11 +307,11 @@ export async function initializeDatabase() {
   await p.query("UPDATE diagram_questions SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
   await p.query("UPDATE passages SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
 
-  // Make pointer_x/pointer_y optional (letter-marker approach doesn't need pointer lines)
-  await p.query("ALTER TABLE diagram_labels ALTER COLUMN pointer_x SET DEFAULT 0")
-  await p.query("ALTER TABLE diagram_labels ALTER COLUMN pointer_y SET DEFAULT 0")
-  await p.query("ALTER TABLE diagram_labels ALTER COLUMN pointer_x DROP NOT NULL").catch(() => {})
-  await p.query("ALTER TABLE diagram_labels ALTER COLUMN pointer_y DROP NOT NULL").catch(() => {})
+  // Drop coordinate columns (labels are now pre-drawn on images)
+  await p.query("ALTER TABLE diagram_labels DROP COLUMN IF EXISTS x_percent").catch(() => {})
+  await p.query("ALTER TABLE diagram_labels DROP COLUMN IF EXISTS y_percent").catch(() => {})
+  await p.query("ALTER TABLE diagram_labels DROP COLUMN IF EXISTS pointer_x").catch(() => {})
+  await p.query("ALTER TABLE diagram_labels DROP COLUMN IF EXISTS pointer_y").catch(() => {})
 }
 
 async function seedDefaultPrerequisites(p) {
@@ -438,9 +434,9 @@ async function seedDefaultDiagrams(p) {
 
       for (const label of diag.labels) {
         await client.query(
-          `INSERT INTO diagram_labels (diagram_id, label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [diag.id, label.label_key, label.correct_answer, label.x_percent, label.y_percent, label.pointer_x, label.pointer_y, label.hint || null]
+          `INSERT INTO diagram_labels (diagram_id, label_key, correct_answer, hint)
+           VALUES ($1, $2, $3, $4)`,
+          [diag.id, label.label_key, label.correct_answer, label.hint || null]
         )
       }
     }
@@ -464,16 +460,16 @@ function getDefaultDiagrams() {
       description: 'Label the parts of the human heart. Identify each structure marked with a letter.',
       image_url: '/diagrams/heart-unlabeled.svg',
       labels: [
-        { label_key: 'P', correct_answer: 'Superior Vena Cava', x_percent: 5, y_percent: 10, pointer_x: 24.5, pointer_y: 14, hint: 'Large vein that carries deoxygenated blood from the upper body to the heart' },
-        { label_key: 'K', correct_answer: 'Right Atrium', x_percent: 3, y_percent: 30, pointer_x: 28, pointer_y: 33, hint: 'Upper right chamber that receives deoxygenated blood' },
-        { label_key: 'T', correct_answer: 'Tricuspid Valve', x_percent: 3, y_percent: 46, pointer_x: 30, pointer_y: 47, hint: 'Valve with three flaps between the right atrium and right ventricle' },
-        { label_key: 'W', correct_answer: 'Right Ventricle', x_percent: 3, y_percent: 62, pointer_x: 28, pointer_y: 60, hint: 'Lower right chamber that pumps blood to the lungs' },
-        { label_key: 'H', correct_answer: 'Aorta', x_percent: 68, y_percent: 5, pointer_x: 61, pointer_y: 10, hint: 'The largest artery that carries oxygenated blood to the body' },
-        { label_key: 'M', correct_answer: 'Pulmonary Artery', x_percent: 32, y_percent: 2, pointer_x: 41, pointer_y: 10, hint: 'Artery that carries deoxygenated blood from the heart to the lungs' },
-        { label_key: 'F', correct_answer: 'Pulmonary Veins', x_percent: 93, y_percent: 30, pointer_x: 82, pointer_y: 31, hint: 'Veins that carry oxygenated blood from the lungs back to the heart' },
-        { label_key: 'Y', correct_answer: 'Left Atrium', x_percent: 93, y_percent: 40, pointer_x: 72, pointer_y: 33, hint: 'Upper left chamber that receives oxygenated blood from the lungs' },
-        { label_key: 'N', correct_answer: 'Bicuspid Valve', x_percent: 93, y_percent: 50, pointer_x: 70, pointer_y: 47, hint: 'Also called the mitral valve, it has two flaps and sits between the left atrium and ventricle' },
-        { label_key: 'R', correct_answer: 'Left Ventricle', x_percent: 93, y_percent: 62, pointer_x: 72, pointer_y: 60, hint: 'Lower left chamber with the thickest wall, pumps blood to the entire body' },
+        { label_key: 'P', correct_answer: 'Superior Vena Cava', hint: 'Large vein that carries deoxygenated blood from the upper body to the heart' },
+        { label_key: 'K', correct_answer: 'Right Atrium', hint: 'Upper right chamber that receives deoxygenated blood' },
+        { label_key: 'T', correct_answer: 'Tricuspid Valve', hint: 'Valve with three flaps between the right atrium and right ventricle' },
+        { label_key: 'W', correct_answer: 'Right Ventricle', hint: 'Lower right chamber that pumps blood to the lungs' },
+        { label_key: 'H', correct_answer: 'Aorta', hint: 'The largest artery that carries oxygenated blood to the body' },
+        { label_key: 'M', correct_answer: 'Pulmonary Artery', hint: 'Artery that carries deoxygenated blood from the heart to the lungs' },
+        { label_key: 'F', correct_answer: 'Pulmonary Veins', hint: 'Veins that carry oxygenated blood from the lungs back to the heart' },
+        { label_key: 'Y', correct_answer: 'Left Atrium', hint: 'Upper left chamber that receives oxygenated blood from the lungs' },
+        { label_key: 'N', correct_answer: 'Bicuspid Valve', hint: 'Also called the mitral valve, it has two flaps and sits between the left atrium and ventricle' },
+        { label_key: 'R', correct_answer: 'Left Ventricle', hint: 'Lower left chamber with the thickest wall, pumps blood to the entire body' },
       ]
     }
   ]

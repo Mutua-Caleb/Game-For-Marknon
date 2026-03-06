@@ -229,13 +229,7 @@ function DiagramGamePage() {
     setAnswers(prev => ({ ...prev, [labelKey]: value }))
   }, [])
 
-  const handleLabelClick = useCallback((labelKey) => {
-    setActiveLabel(labelKey)
-    // Focus the corresponding input
-    if (inputRefs.current[labelKey]) {
-      inputRefs.current[labelKey].focus()
-    }
-  }, [])
+
 
   const toggleHint = useCallback((labelKey) => {
     playSound('click')
@@ -502,36 +496,12 @@ function DiagramGamePage() {
       {/* Main content: diagram + answer panel */}
       <div className="diagram-content">
         {/* Diagram with letter markers */}
-        <div className="diagram-image-container" style={{ position: 'relative' }}>
+        <div className="diagram-image-container">
           <img
             src={currentDiagram.image_url}
             alt={currentDiagram.title}
             className="diagram-image"
-            style={{ width: '100%', display: 'block' }}
           />
-
-          {/* Letter markers positioned on the image */}
-          {currentDiagram.labels.map(label => (
-            <motion.div
-              key={`label-${label.label_key}`}
-              className={`diagram-label-marker ${
-                activeLabel === label.label_key ? 'active' : ''
-              } ${
-                results ? (results[label.label_key] ? 'correct' : 'wrong') : ''
-              }`}
-              style={{
-                left: `${label.x_percent}%`,
-                top: `${label.y_percent}%`,
-                position: 'absolute',
-                transform: 'translate(-50%, -50%)'
-              }}
-              onClick={() => handleLabelClick(label.label_key)}
-              whileHover={{ scale: 1.2 }}
-              whileTap={{ scale: 0.9 }}
-            >
-              {label.label_key}
-            </motion.div>
-          ))}
         </div>
 
         {/* Answer panel */}

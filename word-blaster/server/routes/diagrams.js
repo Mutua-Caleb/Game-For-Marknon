@@ -4,6 +4,8 @@ import { authenticateToken } from '../middleware/auth.js'
 
 const router = Router()
 
+const LABEL_SELECT = 'SELECT label_key, correct_answer, hint FROM diagram_labels WHERE diagram_id = $1 ORDER BY label_key'
+
 // GET /api/diagrams - Get all diagrams (optionally filtered by subject/topic)
 router.get('/', async (req, res) => {
   try {
@@ -34,10 +36,7 @@ router.get('/', async (req, res) => {
     // For each diagram, fetch its labels
     const diagrams = []
     for (const diag of result.rows) {
-      const labelsResult = await pool.query(
-        'SELECT label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint FROM diagram_labels WHERE diagram_id = $1 ORDER BY label_key',
-        [diag.id]
-      )
+      const labelsResult = await pool.query(LABEL_SELECT, [diag.id])
       diagrams.push({
         ...diag,
         labels: labelsResult.rows
@@ -62,10 +61,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Diagram not found' })
     }
 
-    const labelsResult = await pool.query(
-      'SELECT label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint FROM diagram_labels WHERE diagram_id = $1 ORDER BY label_key',
-      [id]
-    )
+    const labelsResult = await pool.query(LABEL_SELECT, [id])
 
     res.json({
       ...diagResult.rows[0],
@@ -99,18 +95,15 @@ router.post('/', authenticateToken, async (req, res) => {
 
       for (const label of labels) {
         await client.query(
-          `INSERT INTO diagram_labels (diagram_id, label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [id, label.label_key, label.correct_answer, label.x_percent, label.y_percent, label.pointer_x || 0, label.pointer_y || 0, label.hint || null]
+          `INSERT INTO diagram_labels (diagram_id, label_key, correct_answer, hint)
+           VALUES ($1, $2, $3, $4)`,
+          [id, label.label_key, label.correct_answer, label.hint || null]
         )
       }
 
       await client.query('COMMIT')
 
-      const labelsResult = await pool.query(
-        'SELECT label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint FROM diagram_labels WHERE diagram_id = $1 ORDER BY label_key',
-        [id]
-      )
+      const labelsResult = await pool.query(LABEL_SELECT, [id])
 
       res.status(201).json({
         id, subject, topic, title, description, image_url,
@@ -170,7 +163,6 @@ router.put('/:id', authenticateToken, async (req, res) => {
     try {
       await client.query('BEGIN')
 
-      // Update the diagram
       await client.query(
         `UPDATE diagram_questions SET subject = $1, topic = $2, title = $3, description = $4, image_url = $5
          WHERE id = $6`,
@@ -182,18 +174,15 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
       for (const label of labels) {
         await client.query(
-          `INSERT INTO diagram_labels (diagram_id, label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [id, label.label_key, label.correct_answer, label.x_percent, label.y_percent, label.pointer_x || 0, label.pointer_y || 0, label.hint || null]
+          `INSERT INTO diagram_labels (diagram_id, label_key, correct_answer, hint)
+           VALUES ($1, $2, $3, $4)`,
+          [id, label.label_key, label.correct_answer, label.hint || null]
         )
       }
 
       await client.query('COMMIT')
 
-      const labelsResult = await pool.query(
-        'SELECT label_key, correct_answer, x_percent, y_percent, pointer_x, pointer_y, hint FROM diagram_labels WHERE diagram_id = $1 ORDER BY label_key',
-        [id]
-      )
+      const labelsResult = await pool.query(LABEL_SELECT, [id])
 
       res.json({
         id, subject, topic, title, description, image_url,

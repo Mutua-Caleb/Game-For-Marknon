@@ -1,0 +1,12 @@
+[Unit]
+Description=YouTube Remote Unlock Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/youtube-blocker/youtube-remote.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,12 +1,13 @@
 [Unit]
-Description=YouTube Remote Unlock Server
-After=network.target
+Description=YouTube Remote Control via ntfy.sh
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /opt/youtube-blocker/youtube-remote.py
-Restart=on-failure
-RestartSec=5
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target

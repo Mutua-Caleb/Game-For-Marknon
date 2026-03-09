@@ -1,24 +1,31 @@
 #!/usr/bin/env python3
 """
-YouTube Remote Unlock Server
-Run as root. Exposes a simple web page on port 7777 to block/unblock YouTube
-from your phone browser. Protected by a PIN.
+YouTube Remote Control via ntfy.sh
+Run as root on the Linux computer. Listens for messages from ntfy.sh
+so you can block/unblock YouTube from your phone, anywhere in the world.
 
-Usage:
-  sudo python3 youtube-remote.py
+Setup:
+  1. Change NTFY_TOPIC below to something secret (only you should know it)
+  2. Install ntfy app on your Android phone (free on Play Store)
+  3. Subscribe to the same topic in the ntfy app
+  4. Run: sudo python3 youtube-remote.py
 
-Then on your phone, go to: http://<computer-ip>:7777
+From your phone (ntfy app):
+  - Send "unlock" to unblock YouTube
+  - Send "lock" to re-block YouTube
+  - Send "status" to check current state (reply comes as notification)
 """
 
 import os
 import sys
 import json
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import parse_qs
+import time
+import logging
+from urllib.request import urlopen, Request
+from urllib.error import URLError
 
 # ── Configuration ──────────────────────────────────────────────
-PORT = 7777
-PIN = "1234"  # Change this to your own PIN
+NTFY_TOPIC = "marknon-yt-control-change-me"  # CHANGE THIS to your own secret topic
 HOSTS_FILE = "/etc/hosts"
 BLOCK_MARKER = "# YOUTUBE-BLOCKER-MANAGED"
 
@@ -38,6 +45,20 @@ YOUTUBE_DOMAINS = [
     "googlevideo.com",
 ]
 
+NTFY_BASE = "https://ntfy.sh"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("/var/log/youtube-remote.log"),
+        logging.StreamHandler(),
+    ],
+)
+log = logging.getLogger("youtube-remote")
+
+
+# ── Hosts file management ─────────────────────────────────────
 
 def is_blocked():
     try:
@@ -49,7 +70,7 @@ def is_blocked():
 
 def block_youtube():
     if is_blocked():
-        return "Already blocked"
+        return "YouTube is already blocked"
     lines = [f"\n{BLOCK_MARKER}"]
     for domain in YOUTUBE_DOMAINS:
         lines.append(f"127.0.0.1 {domain}")
@@ -62,7 +83,7 @@ def block_youtube():
 
 def unblock_youtube():
     if not is_blocked():
-        return "Already unblocked"
+        return "YouTube is already unblocked"
     with open(HOSTS_FILE) as f:
         content = f.read()
     new_lines = []
@@ -79,87 +100,70 @@ def unblock_youtube():
     return "YouTube UNBLOCKED"
 
 
-HTML_PAGE = """<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>YouTube Remote</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, sans-serif; background: #0f172a; color: white;
-         display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .card { background: #1e293b; border-radius: 16px; padding: 2rem; width: 320px;
-          text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
-  h1 { font-size: 1.3rem; margin-bottom: 0.5rem; }
-  .status { font-size: 1.1rem; padding: 0.5rem 1rem; border-radius: 8px; margin: 1rem 0;
-            font-weight: 700; }
-  .status.blocked { background: #dc262620; color: #f87171; }
-  .status.open { background: #16a34a20; color: #4ade80; }
-  .pin-input { width: 100%%; padding: 0.8rem; border-radius: 8px; border: 2px solid #334155;
-               background: #0f172a; color: white; font-size: 1.2rem; text-align: center;
-               letter-spacing: 0.5em; margin-bottom: 1rem; }
-  .pin-input:focus { outline: none; border-color: #f59e0b; }
-  .btn { width: 100%%; padding: 0.8rem; border: none; border-radius: 8px; font-size: 1rem;
-         font-weight: 700; cursor: pointer; margin-bottom: 0.5rem; }
-  .btn-unlock { background: #16a34a; color: white; }
-  .btn-lock { background: #dc2626; color: white; }
-  .msg { font-size: 0.85rem; color: #f59e0b; margin-top: 0.5rem; min-height: 1.2rem; }
-</style>
-</head>
-<body>
-<div class="card">
-  <h1>YouTube Remote</h1>
-  <div class="status {status_class}">{status_text}</div>
-  <form method="POST">
-    <input class="pin-input" type="password" name="pin" placeholder="PIN" maxlength="8" inputmode="numeric" autocomplete="off">
-    <button class="btn btn-unlock" type="submit" name="action" value="unlock">Unlock YouTube</button>
-    <button class="btn btn-lock" type="submit" name="action" value="lock">Lock YouTube</button>
-  </form>
-  <div class="msg">{message}</div>
-</div>
-</body>
-</html>"""
+# ── ntfy.sh communication ─────────────────────────────────────
+
+def send_reply(message):
+    """Send a notification back to your phone via ntfy."""
+    try:
+        data = message.encode()
+        req = Request(f"{NTFY_BASE}/{NTFY_TOPIC}", data=data, method="POST")
+        req.add_header("Title", "YouTube Remote")
+        req.add_header("Tags", "tv")
+        urlopen(req, timeout=10)
+    except Exception as e:
+        log.warning(f"Failed to send reply: {e}")
 
 
-class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self._serve_page("")
+def listen():
+    """
+    Listen for messages on the ntfy topic using server-sent events (SSE).
+    This is a long-lived HTTP connection — ntfy pushes messages to us in real time.
+    """
+    url = f"{NTFY_BASE}/{NTFY_TOPIC}/sse"
+    log.info(f"Listening on ntfy topic: {NTFY_TOPIC}")
+    log.info(f"Send 'unlock', 'lock', or 'status' from the ntfy app on your phone")
 
-    def do_POST(self):
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length).decode()
-        params = parse_qs(body)
+    while True:
+        try:
+            req = Request(url, headers={"User-Agent": "YouTubeRemote/1.0"})
+            with urlopen(req, timeout=None) as resp:
+                for raw_line in resp:
+                    line = raw_line.decode().strip()
+                    if not line.startswith("data: "):
+                        continue
 
-        pin = params.get("pin", [""])[0]
-        action = params.get("action", [""])[0]
+                    try:
+                        data = json.loads(line[6:])
+                    except json.JSONDecodeError:
+                        continue
 
-        if pin != PIN:
-            self._serve_page("Wrong PIN")
-            return
+                    if data.get("event") != "message":
+                        continue
 
-        if action == "unlock":
-            msg = unblock_youtube()
-        elif action == "lock":
-            msg = block_youtube()
-        else:
-            msg = "Unknown action"
+                    msg = data.get("message", "").strip().lower()
+                    log.info(f"Received command: '{msg}'")
 
-        self._serve_page(msg)
+                    if msg == "unlock":
+                        result = unblock_youtube()
+                        log.info(result)
+                        send_reply(result)
+                    elif msg == "lock":
+                        result = block_youtube()
+                        log.info(result)
+                        send_reply(result)
+                    elif msg == "status":
+                        status = "BLOCKED" if is_blocked() else "UNBLOCKED"
+                        log.info(f"Status: {status}")
+                        send_reply(f"YouTube is currently {status}")
+                    else:
+                        send_reply(f"Unknown command: '{msg}'. Use: unlock, lock, status")
 
-    def _serve_page(self, message):
-        blocked = is_blocked()
-        html = HTML_PAGE.format(
-            status_class="blocked" if blocked else "open",
-            status_text="BLOCKED" if blocked else "UNBLOCKED",
-            message=message,
-        )
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html")
-        self.end_headers()
-        self.wfile.write(html.encode())
-
-    def log_message(self, format, *args):
-        print(f"[{self.log_date_time_string()}] {args[0]}")
+        except (URLError, ConnectionError, TimeoutError) as e:
+            log.warning(f"Connection lost: {e}. Reconnecting in 10s...")
+            time.sleep(10)
+        except Exception as e:
+            log.error(f"Unexpected error: {e}. Reconnecting in 10s...")
+            time.sleep(10)
 
 
 if __name__ == "__main__":
@@ -167,6 +171,8 @@ if __name__ == "__main__":
         print("Must run as root: sudo python3 youtube-remote.py")
         sys.exit(1)
 
-    print(f"YouTube Remote running on port {PORT}")
-    print(f"Open http://<your-computer-ip>:{PORT} on your phone")
-    HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
+    if NTFY_TOPIC == "marknon-yt-control-change-me":
+        print("WARNING: Change NTFY_TOPIC to your own secret topic name!")
+        print("Anyone who knows the topic can control YouTube on this computer.")
+
+    listen()

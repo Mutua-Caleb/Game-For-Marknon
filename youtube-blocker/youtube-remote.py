@@ -102,13 +102,15 @@ def unblock_youtube():
 
 # ── ntfy.sh communication ─────────────────────────────────────
 
+REPLY_TAG = "yt-remote-reply"
+
 def send_reply(message):
     """Send a notification back to your phone via ntfy."""
     try:
         data = message.encode()
         req = Request(f"{NTFY_BASE}/{NTFY_TOPIC}", data=data, method="POST")
         req.add_header("Title", "YouTube Remote")
-        req.add_header("Tags", "tv")
+        req.add_header("Tags", f"tv,{REPLY_TAG}")
         urlopen(req, timeout=10)
     except Exception as e:
         log.warning(f"Failed to send reply: {e}")
@@ -138,6 +140,11 @@ def listen():
                         continue
 
                     if data.get("event") != "message":
+                        continue
+
+                    # Ignore our own reply messages
+                    tags = data.get("tags", [])
+                    if REPLY_TAG in tags:
                         continue
 
                     msg = data.get("message", "").strip().lower()

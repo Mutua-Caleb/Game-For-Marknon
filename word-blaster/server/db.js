@@ -239,6 +239,29 @@ export async function initializeDatabase() {
       options TEXT,
       hint TEXT
     );
+
+    -- Writing Prompts: Questions/tasks for handwriting practice
+    CREATE TABLE IF NOT EXISTS writing_prompts (
+      id TEXT PRIMARY KEY,
+      subject TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      title TEXT NOT NULL,
+      prompt_text TEXT NOT NULL,
+      guide_lines BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
+    -- Writing Submissions: Stores stroke data from canvas
+    CREATE TABLE IF NOT EXISTS writing_submissions (
+      id SERIAL PRIMARY KEY,
+      prompt_id TEXT NOT NULL REFERENCES writing_prompts(id) ON DELETE CASCADE,
+      learner_id INTEGER NOT NULL REFERENCES learner_accounts(id) ON DELETE CASCADE,
+      strokes_data JSONB NOT NULL,
+      thumbnail TEXT,
+      admin_rating INTEGER,
+      admin_feedback TEXT,
+      submitted_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `)
 
   // Create indexes if they don't exist
@@ -265,6 +288,9 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_learner_earnings_unpaid ON learner_earnings(learner_id, paid);
     CREATE INDEX IF NOT EXISTS idx_passages_subject ON passages(subject);
     CREATE INDEX IF NOT EXISTS idx_passage_questions_passage ON passage_questions(passage_id);
+    CREATE INDEX IF NOT EXISTS idx_writing_prompts_subject ON writing_prompts(subject);
+    CREATE INDEX IF NOT EXISTS idx_writing_submissions_prompt ON writing_submissions(prompt_id);
+    CREATE INDEX IF NOT EXISTS idx_writing_submissions_learner ON writing_submissions(learner_id);
   `)
 
   // Seed default admin if none exists
@@ -296,6 +322,12 @@ export async function initializeDatabase() {
   const prereqResult = await p.query('SELECT COUNT(*) as count FROM topic_prerequisites')
   if (parseInt(prereqResult.rows[0].count) === 0) {
     await seedDefaultPrerequisites(p)
+  }
+
+  // Seed default writing prompts if none exist
+  const writingResult = await p.query('SELECT COUNT(*) as count FROM writing_prompts')
+  if (parseInt(writingResult.rows[0].count) === 0) {
+    await seedDefaultWritingPrompts(p)
   }
 
   // Remove Science topic locks (all Science topics freely accessible)
@@ -441,6 +473,40 @@ async function seedDefaultDiagrams(p) {
       }
     }
 
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
+}
+
+async function seedDefaultWritingPrompts(p) {
+  const prompts = [
+    { id: 'wp_eng_001', subject: 'English', topic: 'Handwriting', title: 'Write the Alphabet', prompt_text: 'Write all 26 letters of the alphabet in uppercase (A-Z), then write them again in lowercase (a-z). Try to keep your letters neat and on the lines.' },
+    { id: 'wp_eng_002', subject: 'English', topic: 'Handwriting', title: 'My Favorite Animal', prompt_text: 'Write 3-5 sentences about your favorite animal. What does it look like? Where does it live? Why do you like it?' },
+    { id: 'wp_eng_003', subject: 'English', topic: 'Handwriting', title: 'Copy This Sentence', prompt_text: 'Copy the following sentence in your best handwriting: "The quick brown fox jumps over the lazy dog." This sentence uses every letter of the alphabet!' },
+    { id: 'wp_eng_004', subject: 'English', topic: 'Spelling', title: 'Spelling Practice', prompt_text: 'Write each of these words three times: because, beautiful, different, friend, together, through, people, another.' },
+    { id: 'wp_eng_005', subject: 'English', topic: 'Creative Writing', title: 'Story Starter', prompt_text: 'Continue this story: "One morning, I woke up and discovered I could fly. The first thing I did was..." Write at least 5 sentences.' },
+    { id: 'wp_sci_001', subject: 'Science', topic: 'Biology', title: 'Parts of a Plant', prompt_text: 'Write down the 4 main parts of a plant and describe what each part does. Use complete sentences.' },
+    { id: 'wp_sci_002', subject: 'Science', topic: 'Biology', title: 'The Water Cycle', prompt_text: 'Describe the water cycle in your own words. Include the words: evaporation, condensation, precipitation, and collection.' },
+    { id: 'wp_cre_001', subject: 'Christian Religious Education', topic: 'Old Testament', title: 'The Ten Commandments', prompt_text: 'Write down as many of the Ten Commandments as you can remember. Number each one.' },
+    { id: 'wp_cre_002', subject: 'Christian Religious Education', topic: 'New Testament', title: 'The Beatitudes', prompt_text: 'Write the Beatitudes from the Sermon on the Mount (Matthew 5:3-12). If you cannot remember them all, write the ones you know.' },
+    { id: 'wp_ss_001', subject: 'Social Studies', topic: 'Geography', title: 'My Country', prompt_text: 'Write 5 sentences about Kenya. Include facts about its capital, languages, wildlife, and one thing that makes it special.' },
+    { id: 'wp_agr_001', subject: 'Agriculture', topic: 'Crop Farming', title: 'Steps of Planting', prompt_text: 'Write down the steps for planting maize from start to harvest. Number each step and use complete sentences.' },
+  ]
+
+  const client = await p.connect()
+  try {
+    await client.query('BEGIN')
+    for (const wp of prompts) {
+      await client.query(
+        `INSERT INTO writing_prompts (id, subject, topic, title, prompt_text)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [wp.id, wp.subject, wp.topic, wp.title, wp.prompt_text]
+      )
+    }
     await client.query('COMMIT')
   } catch (err) {
     await client.query('ROLLBACK')

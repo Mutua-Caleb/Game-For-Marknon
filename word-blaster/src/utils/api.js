@@ -417,6 +417,96 @@ export const learnerApi = {
   }
 }
 
+// Writing API
+export const writingApi = {
+  async getPrompts(params = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.subject) searchParams.set('subject', params.subject)
+    if (params.topic) searchParams.set('topic', params.topic)
+
+    const res = await fetch(`${API_BASE}/writing/prompts?${searchParams}`)
+    return handleResponse(res)
+  },
+
+  async getTopics() {
+    const res = await fetch(`${API_BASE}/writing/prompts/topics`)
+    return handleResponse(res)
+  },
+
+  async getPromptById(id) {
+    const res = await fetch(`${API_BASE}/writing/prompts/${id}`)
+    return handleResponse(res)
+  },
+
+  async createPrompt(prompt) {
+    const res = await fetch(`${API_BASE}/writing/prompts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(prompt)
+    })
+    return handleResponse(res)
+  },
+
+  async updatePrompt(id, prompt) {
+    const res = await fetch(`${API_BASE}/writing/prompts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(prompt)
+    })
+    return handleResponse(res)
+  },
+
+  async deletePrompt(id) {
+    const res = await fetch(`${API_BASE}/writing/prompts/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  },
+
+  async submit(data) {
+    const res = await fetch(`${API_BASE}/writing/submissions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    return handleResponse(res)
+  },
+
+  async getSubmissions(params = {}) {
+    const searchParams = new URLSearchParams()
+    if (params.learner_id) searchParams.set('learner_id', params.learner_id)
+    if (params.prompt_id) searchParams.set('prompt_id', params.prompt_id)
+    if (params.limit) searchParams.set('limit', params.limit)
+
+    const res = await fetch(`${API_BASE}/writing/submissions?${searchParams}`, {
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  },
+
+  async getSubmission(id) {
+    const res = await fetch(`${API_BASE}/writing/submissions/${id}`, {
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  },
+
+  async reviewSubmission(id, data) {
+    const res = await fetch(`${API_BASE}/writing/submissions/${id}/review`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify(data)
+    })
+    return handleResponse(res)
+  },
+
+  async getLearnerSubmissions(learnerId) {
+    const res = await fetch(`${API_BASE}/writing/learner/${learnerId}`)
+    return handleResponse(res)
+  }
+}
+
 // Stats API
 export const statsApi = {
   async recordAnswer(questionId, isCorrect) {

@@ -14,6 +14,7 @@ import diagramRoutes from './routes/diagrams.js'
 import learningRoutes from './routes/learning.js'
 import learnerRoutes from './routes/learners.js'
 import passageRoutes from './routes/passages.js'
+import writingRoutes from './routes/writing.js'
 
 dotenv.config()
 
@@ -28,7 +29,7 @@ app.use(cors({
   origin: process.env.NODE_ENV === 'production' ? false : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
   credentials: true
 }))
-app.use(express.json({ limit: '10mb' }))
+app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ extended: true }))
 
 // Serve uploaded images
@@ -45,6 +46,7 @@ app.use('/api/diagrams', diagramRoutes)
 app.use('/api/learning', learningRoutes)
 app.use('/api/learners', learnerRoutes)
 app.use('/api/passages', passageRoutes)
+app.use('/api/writing', writingRoutes)
 
 // Serve static frontend in production
 if (process.env.NODE_ENV === 'production') {

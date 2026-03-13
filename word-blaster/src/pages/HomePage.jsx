@@ -37,6 +37,11 @@ function HomePage() {
     navigate('/topics')
   }
 
+  const handleWriting = () => {
+    playSound('click')
+    navigate('/writing')
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('learnerAccount')
     localStorage.removeItem('learnerId')
@@ -137,15 +142,27 @@ function HomePage() {
           </motion.div>
         )}
 
-        <motion.button
-          className="play-button"
-          onClick={handlePlay}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          <span className="button-icon">&#128640;</span>
-          Start Playing!
-        </motion.button>
+        <div className="home-buttons">
+          <motion.button
+            className="play-button"
+            onClick={handlePlay}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <span className="button-icon">&#128640;</span>
+            Start Playing!
+          </motion.button>
+
+          <motion.button
+            className="play-button writing-button"
+            onClick={handleWriting}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <span className="button-icon">&#9997;&#65039;</span>
+            Writing Practice
+          </motion.button>
+        </div>
 
         <div className="home-features">
           <div className="feature">

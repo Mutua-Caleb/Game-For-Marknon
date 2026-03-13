@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
-import { uploadApi, questionsApi, diagramsApi, passagesApi, statsApi, authApi, quizSessionApi, learnerApi } from '../utils/api'
+import { uploadApi, questionsApi, diagramsApi, passagesApi, statsApi, authApi, quizSessionApi, learnerApi, writingApi } from '../utils/api'
+import WritingCanvas from '../components/WritingCanvas'
 import './AdminPage.css'
 
 const SUBJECTS = ['Science', 'English', 'Christian Religious Education', 'Creative Arts', 'Agriculture', 'Social Studies']
@@ -181,6 +182,12 @@ function AdminPage() {
           Earnings
         </button>
         <button
+          className={`tab ${activeTab === 'writing' ? 'active' : ''}`}
+          onClick={() => setActiveTab('writing')}
+        >
+          Writing
+        </button>
+        <button
           className={`tab ${activeTab === 'import' ? 'active' : ''}`}
           onClick={() => setActiveTab('import')}
         >
@@ -283,6 +290,10 @@ function AdminPage() {
 
         {activeTab === 'earnings' && (
           <EarningsSection showNotification={showNotification} />
+        )}
+
+        {activeTab === 'writing' && (
+          <WritingSection showNotification={showNotification} />
         )}
 
         {activeTab === 'import' && (
@@ -2377,6 +2388,330 @@ function ImportExportSection({ questions, onImportComplete, showNotification }) 
           {isImporting ? 'Importing...' : 'Import Questions'}
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── Writing Section ─────────────────────────────────────────
+function WritingSection({ showNotification }) {
+  const [view, setView] = useState('submissions') // submissions | prompts | create | viewSubmission
+  const [submissions, setSubmissions] = useState([])
+  const [prompts, setPrompts] = useState([])
+  const [selectedSubmission, setSelectedSubmission] = useState(null)
+  const [filterLearner, setFilterLearner] = useState('')
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewFeedback, setReviewFeedback] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+
+  // New prompt form
+  const [newPrompt, setNewPrompt] = useState({
+    subject: 'English', topic: 'Handwriting', title: '', prompt_text: '', guide_lines: true
+  })
+
+  useEffect(() => {
+    loadSubmissions()
+    loadPrompts()
+  }, [])
+
+  const loadSubmissions = async () => {
+    try {
+      const params = {}
+      if (filterLearner) params.learner_id = filterLearner
+      const data = await writingApi.getSubmissions(params)
+      setSubmissions(data)
+    } catch (err) {
+      console.error('Failed to load submissions:', err)
+    }
+  }
+
+  const loadPrompts = async () => {
+    try {
+      const data = await writingApi.getPrompts()
+      setPrompts(data)
+    } catch (err) {
+      console.error('Failed to load prompts:', err)
+    }
+  }
+
+  useEffect(() => {
+    loadSubmissions()
+  }, [filterLearner])
+
+  const handleViewSubmission = async (sub) => {
+    try {
+      const full = await writingApi.getSubmission(sub.id)
+      setSelectedSubmission(full)
+      setReviewRating(full.admin_rating || 0)
+      setReviewFeedback(full.admin_feedback || '')
+      setView('viewSubmission')
+    } catch (err) {
+      console.error('Failed to load submission:', err)
+    }
+  }
+
+  const handleReview = async () => {
+    if (!selectedSubmission) return
+    setReviewSubmitting(true)
+    try {
+      await writingApi.reviewSubmission(selectedSubmission.id, {
+        rating: reviewRating || null,
+        feedback: reviewFeedback || null
+      })
+      showNotification('Review saved!')
+      setView('submissions')
+      loadSubmissions()
+    } catch (err) {
+      console.error('Review failed:', err)
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
+
+  const handleCreatePrompt = async () => {
+    if (!newPrompt.title || !newPrompt.prompt_text) return
+    try {
+      await writingApi.createPrompt(newPrompt)
+      showNotification('Writing prompt created!')
+      setNewPrompt({ subject: 'English', topic: 'Handwriting', title: '', prompt_text: '', guide_lines: true })
+      loadPrompts()
+      setView('prompts')
+    } catch (err) {
+      console.error('Create prompt failed:', err)
+    }
+  }
+
+  const handleDeletePrompt = async (id) => {
+    if (!confirm('Delete this writing prompt? All submissions for it will also be deleted.')) return
+    try {
+      await writingApi.deletePrompt(id)
+      showNotification('Prompt deleted')
+      loadPrompts()
+    } catch (err) {
+      console.error('Delete prompt failed:', err)
+    }
+  }
+
+  const learnerNames = [...new Set(submissions.map(s => s.learner_name))].sort()
+
+  if (view === 'viewSubmission' && selectedSubmission) {
+    return (
+      <div className="writing-admin-section">
+        <button className="back-btn-admin" onClick={() => setView('submissions')}>
+          &larr; Back to Submissions
+        </button>
+
+        <div className="submission-detail">
+          <div className="submission-detail-header">
+            <div>
+              <h2>{selectedSubmission.prompt_title}</h2>
+              <p className="submission-meta">
+                By <strong>{selectedSubmission.learner_name}</strong> &middot;{' '}
+                {selectedSubmission.subject} &middot; {selectedSubmission.topic} &middot;{' '}
+                {new Date(selectedSubmission.submitted_at).toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          <div className="submission-prompt-text">
+            <strong>Prompt:</strong> {selectedSubmission.prompt_text}
+          </div>
+
+          <div className="submission-canvas-view">
+            <WritingCanvas
+              readOnly={true}
+              initialStrokes={selectedSubmission.strokes_data}
+              guideLines={true}
+              height={500}
+            />
+          </div>
+
+          <div className="review-form">
+            <h3>Review</h3>
+            <div className="review-stars">
+              <label>Rating:</label>
+              <div className="star-picker">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button
+                    key={n}
+                    className={`star-btn ${n <= reviewRating ? 'active' : ''}`}
+                    onClick={() => setReviewRating(n)}
+                  >
+                    {n <= reviewRating ? '\u2605' : '\u2606'}
+                  </button>
+                ))}
+                {reviewRating > 0 && (
+                  <button className="clear-rating-btn" onClick={() => setReviewRating(0)}>Clear</button>
+                )}
+              </div>
+            </div>
+            <div className="review-feedback-field">
+              <label>Feedback:</label>
+              <textarea
+                value={reviewFeedback}
+                onChange={e => setReviewFeedback(e.target.value)}
+                placeholder="Great handwriting! Try to keep your letters more evenly spaced..."
+                rows={3}
+              />
+            </div>
+            <button
+              className="save-review-btn"
+              onClick={handleReview}
+              disabled={reviewSubmitting}
+            >
+              {reviewSubmitting ? 'Saving...' : 'Save Review'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="writing-admin-section">
+      <div className="writing-admin-tabs">
+        <button
+          className={`writing-tab ${view === 'submissions' ? 'active' : ''}`}
+          onClick={() => setView('submissions')}
+        >
+          Submissions ({submissions.length})
+        </button>
+        <button
+          className={`writing-tab ${view === 'prompts' ? 'active' : ''}`}
+          onClick={() => setView('prompts')}
+        >
+          Prompts ({prompts.length})
+        </button>
+        <button
+          className={`writing-tab ${view === 'create' ? 'active' : ''}`}
+          onClick={() => setView('create')}
+        >
+          + New Prompt
+        </button>
+      </div>
+
+      {view === 'submissions' && (
+        <>
+          <div className="writing-filter-bar">
+            <select value={filterLearner} onChange={e => setFilterLearner(e.target.value)}>
+              <option value="">All Learners</option>
+              {learnerNames.map(name => (
+                <option key={name} value={submissions.find(s => s.learner_name === name)?.learner_id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <button className="refresh-btn-small" onClick={loadSubmissions}>Refresh</button>
+          </div>
+
+          {submissions.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-icon">&#128221;</span>
+              <p>No writing submissions yet</p>
+            </div>
+          ) : (
+            <div className="submissions-grid">
+              {submissions.map(sub => (
+                <div key={sub.id} className="submission-card" onClick={() => handleViewSubmission(sub)}>
+                  {sub.thumbnail && (
+                    <div className="submission-thumbnail">
+                      <img src={sub.thumbnail} alt="Writing preview" />
+                    </div>
+                  )}
+                  <div className="submission-card-body">
+                    <h4>{sub.prompt_title}</h4>
+                    <p className="submission-card-meta">
+                      <strong>{sub.learner_name}</strong> &middot; {sub.subject}
+                    </p>
+                    <p className="submission-card-date">
+                      {new Date(sub.submitted_at).toLocaleDateString()}
+                    </p>
+                    <div className="submission-card-status">
+                      {sub.admin_rating ? (
+                        <span className="reviewed-badge">
+                          Reviewed {'\u2605'.repeat(sub.admin_rating)}
+                        </span>
+                      ) : (
+                        <span className="pending-badge">Needs Review</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {view === 'prompts' && (
+        <div className="prompts-admin-list">
+          {prompts.map(p => (
+            <div key={p.id} className="prompt-admin-card">
+              <div className="prompt-admin-header">
+                <span className="prompt-admin-badge">{p.subject} &middot; {p.topic}</span>
+                <button className="delete-prompt-btn" onClick={() => handleDeletePrompt(p.id)}>Delete</button>
+              </div>
+              <h4>{p.title}</h4>
+              <p>{p.prompt_text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {view === 'create' && (
+        <div className="create-prompt-form">
+          <h3>Create Writing Prompt</h3>
+          <div className="form-row">
+            <label>Subject</label>
+            <select value={newPrompt.subject} onChange={e => setNewPrompt({...newPrompt, subject: e.target.value})}>
+              {SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="form-row">
+            <label>Topic</label>
+            <input
+              type="text"
+              value={newPrompt.topic}
+              onChange={e => setNewPrompt({...newPrompt, topic: e.target.value})}
+              placeholder="e.g. Handwriting, Creative Writing..."
+            />
+          </div>
+          <div className="form-row">
+            <label>Title</label>
+            <input
+              type="text"
+              value={newPrompt.title}
+              onChange={e => setNewPrompt({...newPrompt, title: e.target.value})}
+              placeholder="e.g. Write the Alphabet"
+            />
+          </div>
+          <div className="form-row">
+            <label>Prompt Text (what the student sees)</label>
+            <textarea
+              value={newPrompt.prompt_text}
+              onChange={e => setNewPrompt({...newPrompt, prompt_text: e.target.value})}
+              placeholder="Write detailed instructions for the student..."
+              rows={5}
+            />
+          </div>
+          <div className="form-row checkbox-row">
+            <label>
+              <input
+                type="checkbox"
+                checked={newPrompt.guide_lines}
+                onChange={e => setNewPrompt({...newPrompt, guide_lines: e.target.checked})}
+              />
+              Show guide lines on canvas
+            </label>
+          </div>
+          <button
+            className="create-prompt-submit-btn"
+            onClick={handleCreatePrompt}
+            disabled={!newPrompt.title || !newPrompt.prompt_text}
+          >
+            Create Prompt
+          </button>
+        </div>
+      )}
     </div>
   )
 }

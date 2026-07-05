@@ -1,0 +1,315 @@
+.speed-math-page {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  padding: 1.5rem;
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+.math-particles {
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(2px 2px at 100px 50px, rgba(255,255,255,0.3), transparent),
+    radial-gradient(2px 2px at 220px 150px, rgba(85,239,196,0.25), transparent),
+    radial-gradient(2px 2px at 340px 250px, rgba(253,203,110,0.3), transparent),
+    radial-gradient(2px 2px at 460px 100px, rgba(253,121,168,0.25), transparent);
+  background-size: 520px 420px;
+  animation: twinkle 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.math-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.math-topbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 210px;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.math-back-button,
+.math-focus-card,
+.math-mode-grid,
+.math-problem-card,
+.math-score-card {
+  backdrop-filter: blur(14px);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+}
+
+.math-back-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: 24px;
+}
+
+.math-kicker {
+  margin: 0 0 0.25rem;
+  color: #55efc4;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.math-topbar h1 {
+  margin: 0;
+  color: white;
+  font-size: clamp(1.8rem, 4vw, 3.1rem);
+  line-height: 1;
+  text-shadow: 2px 3px 0 rgba(0, 0, 0, 0.24);
+}
+
+.math-focus-card {
+  padding: 0.85rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.math-focus-card span,
+.math-focus-card small {
+  display: block;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.math-focus-card strong {
+  display: block;
+  margin: 0.15rem 0;
+  color: #55efc4;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.math-focus-bar {
+  height: 8px;
+  margin: 0.55rem 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.34);
+}
+
+.math-focus-bar div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #fdcb6e, #55efc4);
+}
+
+.math-focus-card button {
+  width: 100%;
+  padding: 0.4rem 0.65rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+  color: white;
+}
+
+.math-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.math-mode-card {
+  min-height: 140px;
+  padding: 1rem;
+  border: 3px solid transparent;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.math-mode-card.selected {
+  border-color: #55efc4;
+  background: linear-gradient(135deg, rgba(0, 184, 148, 0.45), rgba(0, 206, 201, 0.3));
+}
+
+.math-mode-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fdcb6e;
+  font-size: 2rem;
+  font-weight: 950;
+}
+
+.math-mode-name {
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.math-mode-card small {
+  color: rgba(255, 255, 255, 0.68);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.math-play-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1rem;
+}
+
+.math-problem-card,
+.math-score-card {
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 1.4rem;
+}
+
+.math-card-badge {
+  display: inline-block;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(108, 92, 231, 0.12);
+  color: #6c5ce7;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.math-problem-card h2 {
+  margin: 1rem 0;
+  color: #2d3436;
+  font-size: clamp(3rem, 11vw, 7rem);
+  line-height: 0.95;
+  text-align: center;
+}
+
+.math-format-note {
+  margin: -0.3rem 0 1rem;
+  color: #636e72;
+  text-align: center;
+  font-weight: 800;
+}
+
+.math-problem-card input {
+  width: 100%;
+  padding: 1rem;
+  border: 3px solid #e9ecef;
+  border-radius: 18px;
+  color: #2d3436;
+  font-size: 1.35rem;
+  font-weight: 950;
+  text-align: center;
+}
+
+.math-problem-card input:focus {
+  border-color: #00cec9;
+  box-shadow: 0 0 0 5px rgba(0, 206, 201, 0.14);
+}
+
+.math-submit-button {
+  width: 100%;
+  margin-top: 1rem;
+  padding: 1rem 1.4rem;
+  border-radius: 999px;
+  background: linear-gradient(45deg, #00b894, #00cec9);
+  color: white;
+  font-size: 1.2rem;
+  box-shadow: 0 10px 28px rgba(0, 184, 148, 0.28);
+}
+
+.math-feedback {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.math-feedback.correct {
+  background: rgba(0, 184, 148, 0.15);
+  color: #00896d;
+}
+
+.math-feedback.wrong {
+  background: rgba(231, 76, 60, 0.12);
+  color: #c0392b;
+}
+
+.math-score-card h2 {
+  margin: 0 0 1rem;
+  color: #2d3436;
+}
+
+.math-stat-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.math-stat-list div {
+  padding: 0.85rem 0.6rem;
+  border-radius: 16px;
+  background: #f1f2f6;
+  text-align: center;
+}
+
+.math-stat-list strong,
+.math-stat-list span {
+  display: block;
+}
+
+.math-stat-list strong {
+  color: #2d3436;
+  font-size: 1.35rem;
+}
+
+.math-stat-list span {
+  color: #636e72;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.math-score-card p {
+  margin: 1rem 0 0;
+  color: #636e72;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+@media (max-width: 940px) {
+  .math-topbar,
+  .math-play-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .math-focus-card {
+    max-width: 280px;
+  }
+}
+
+@media (max-width: 640px) {
+  .speed-math-page {
+    padding: 1rem;
+  }
+
+  .math-mode-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .math-mode-card {
+    min-height: 126px;
+  }
+}

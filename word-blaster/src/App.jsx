@@ -9,6 +9,8 @@ import AdminPage from './pages/AdminPage'
 import AdminLogin from './pages/AdminLogin'
 import LearnerLoginPage from './pages/LearnerLoginPage'
 import WritingPage from './pages/WritingPage'
+import LatinWorldPage from './pages/LatinWorldPage'
+import SpeedMathPage from './pages/SpeedMathPage'
 import './App.css'
 
 // Check if learner is logged in
@@ -31,6 +33,8 @@ function App() {
         <Route path="/play/sequence" element={<RequireLearner><SequenceGamePage /></RequireLearner>} />
         <Route path="/play/diagram" element={<RequireLearner><DiagramGamePage /></RequireLearner>} />
         <Route path="/writing" element={<RequireLearner><WritingPage /></RequireLearner>} />
+        <Route path="/latin" element={<RequireLearner><LatinWorldPage /></RequireLearner>} />
+        <Route path="/math" element={<RequireLearner><SpeedMathPage /></RequireLearner>} />
         <Route path="/results" element={<RequireLearner><ResultsPage /></RequireLearner>} />
         <Route path="/admin-portal-x7k9" element={<AdminLogin />} />
         <Route path="/admin-dashboard" element={<AdminPage />} />

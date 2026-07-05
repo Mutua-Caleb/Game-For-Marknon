@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useSound } from '../context/SoundContext'
 import { motion } from 'framer-motion'
 import { learnerApi } from '../utils/api'
+import learningLabArt from '../assets/learning-lab.png'
 import './HomePage.css'
 
 function HomePage() {
@@ -40,6 +41,16 @@ function HomePage() {
   const handleWriting = () => {
     playSound('click')
     navigate('/writing')
+  }
+
+  const handleLatin = () => {
+    playSound('click')
+    navigate('/latin')
+  }
+
+  const handleMath = () => {
+    playSound('click')
+    navigate('/math')
   }
 
   const handleLogout = () => {
@@ -84,7 +95,7 @@ function HomePage() {
           </div>
         </motion.div>
 
-        <p className="tagline">Learn Science, English, CRE & more while having fun!</p>
+        <p className="tagline">Learn Science, English, Latin, Math & more while having fun!</p>
 
         {/* Daily Progress Card */}
         {dailyStatus && (
@@ -142,6 +153,19 @@ function HomePage() {
           </motion.div>
         )}
 
+        <motion.div
+          className="learning-lab-card"
+          initial={{ opacity: 0, scale: 0.94 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.45 }}
+        >
+          <img src={learningLabArt} alt="" className="learning-lab-art" />
+          <div className="learning-lab-copy">
+            <span className="learning-lab-eyebrow">Choose your mission</span>
+            <strong>One place for quiz practice, Latin memory, speed math, and writing.</strong>
+          </div>
+        </motion.div>
+
         <div className="home-buttons">
           <motion.button
             className="play-button"
@@ -151,6 +175,26 @@ function HomePage() {
           >
             <span className="button-icon">&#128640;</span>
             Start Playing!
+          </motion.button>
+
+          <motion.button
+            className="play-button latin-home-button"
+            onClick={handleLatin}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <span className="button-icon">&#127757;</span>
+            Latin World
+          </motion.button>
+
+          <motion.button
+            className="play-button math-home-button"
+            onClick={handleMath}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <span className="button-icon">&#10133;</span>
+            Speed Math
           </motion.button>
 
           <motion.button

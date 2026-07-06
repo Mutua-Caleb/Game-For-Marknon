@@ -1,0 +1,130 @@
+#activeStudyTimer{
+  position: fixed;
+  right: 18px;
+  top: 110px;
+  z-index: 30;
+  width: 190px;
+  border: solid 1px var(--window_border);
+  background: color-mix(in srgb, var(--window_background) 88%, black);
+  color: var(--text_color);
+  font-family: var(--font_family);
+  padding: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+  opacity: 0.92;
+}
+
+#activeStudyTimer p{
+  margin: 0;
+}
+
+.active-study-label{
+  color: var(--text_select_color);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.active-study-main{
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+#activeStudyTime{
+  font-size: 30px;
+  line-height: 1;
+}
+
+#activeStudyGoal{
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+#activeStudyStatus{
+  margin-top: 8px !important;
+  font-size: 13px;
+  opacity: 0.72;
+}
+
+#activeStudySolved{
+  margin-top: 4px !important;
+  font-size: 12px;
+  opacity: 0.58;
+}
+
+#activeStudyAccuracy{
+  margin-top: 3px !important;
+  font-size: 12px;
+  opacity: 0.58;
+}
+
+.active-study-bar{
+  height: 6px;
+  margin-top: 10px;
+  background: var(--button_background);
+  border: solid 1px var(--button_border);
+  overflow: hidden;
+}
+
+#activeStudyFill{
+  width: 0;
+  height: 100%;
+  background: var(--text_select_color);
+  transition: width 0.2s linear;
+}
+
+#activeStudyReset{
+  all: unset;
+  display: block;
+  margin-top: 10px;
+  width: 100%;
+  border: solid 1px var(--button_border);
+  background: var(--button_background);
+  color: var(--text_color);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 0;
+  text-align: center;
+  opacity: 0.75;
+}
+
+#activeStudyReset:hover,
+#activeStudyReset:focus{
+  opacity: 1;
+}
+
+#activeStudyAdminLink{
+  display: block;
+  margin-top: 8px;
+  color: var(--text_color);
+  font-size: 12px;
+  opacity: 0.55;
+  text-align: center;
+}
+
+#activeStudyAdminLink:hover,
+#activeStudyAdminLink:focus{
+  opacity: 1;
+}
+
+#activeStudyTimer.paused{
+  opacity: 0.58;
+}
+
+#activeStudyTimer.active{
+  opacity: 1;
+}
+
+#activeStudyTimer.complete{
+  border-color: var(--text_select_color);
+}
+
+@media screen and (max-width: 900px){
+  #activeStudyTimer{
+    position: sticky;
+    top: 0;
+    right: auto;
+    width: calc(100% - 32px);
+    margin: 12px 16px 0;
+  }
+}

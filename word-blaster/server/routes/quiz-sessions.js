@@ -93,6 +93,57 @@ router.put('/:id/tab-event', async (req, res) => {
   }
 })
 
+async function updateSessionActivity(req, res) {
+  try {
+    const pool = getPool()
+    const { id } = req.params
+    const {
+      score,
+      bestStreak,
+      durationSeconds,
+      correctAnswers,
+      wrongAnswers,
+      subject,
+      topics,
+      completed
+    } = req.body
+
+    await pool.query(
+      `UPDATE quiz_sessions
+       SET score = GREATEST(score, COALESCE($2, score)),
+           best_streak = GREATEST(best_streak, COALESCE($3, best_streak)),
+           duration_seconds = GREATEST(duration_seconds, COALESCE($4, duration_seconds)),
+           correct_answers = GREATEST(correct_answers, COALESCE($5, correct_answers)),
+           wrong_answers = GREATEST(wrong_answers, COALESCE($6, wrong_answers)),
+           subject = COALESCE($7, subject),
+           topics = COALESCE($8, topics),
+           completed = CASE WHEN $9 = TRUE THEN TRUE ELSE completed END,
+           finished_at = CASE WHEN $9 = TRUE THEN COALESCE(finished_at, NOW()) ELSE finished_at END
+       WHERE id = $1`,
+      [
+        id,
+        score === undefined ? null : score,
+        bestStreak === undefined ? null : bestStreak,
+        durationSeconds === undefined ? null : durationSeconds,
+        correctAnswers === undefined ? null : correctAnswers,
+        wrongAnswers === undefined ? null : wrongAnswers,
+        subject || null,
+        topics === undefined ? null : JSON.stringify(topics),
+        completed === true
+      ]
+    )
+
+    res.json({ success: true })
+  } catch (err) {
+    console.error('Update quiz session activity error:', err)
+    res.status(500).json({ error: 'Failed to update session activity' })
+  }
+}
+
+// PUT/POST /api/quiz-sessions/:id/activity - Update live active time/totals for open-ended activities
+router.put('/:id/activity', updateSessionActivity)
+router.post('/:id/activity', updateSessionActivity)
+
 // PUT /api/quiz-sessions/:id/complete - Mark session as completed
 router.put('/:id/complete', async (req, res) => {
   try {

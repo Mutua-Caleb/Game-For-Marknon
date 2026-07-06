@@ -285,6 +285,31 @@ export const quizSessionApi = {
     return handleResponse(res)
   },
 
+  async updateActivity(sessionId, data) {
+    const res = await fetch(`${API_BASE}/quiz-sessions/${sessionId}/activity`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    return handleResponse(res)
+  },
+
+  sendActivityBeacon(sessionId, data) {
+    const body = JSON.stringify(data)
+    const url = `${API_BASE}/quiz-sessions/${sessionId}/activity`
+    if (navigator.sendBeacon) {
+      return navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))
+    }
+
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true
+    }).catch(console.error)
+    return false
+  },
+
   async complete(sessionId, data) {
     const res = await fetch(`${API_BASE}/quiz-sessions/${sessionId}/complete`, {
       method: 'PUT',

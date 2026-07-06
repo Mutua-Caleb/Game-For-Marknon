@@ -1,6 +1,7 @@
 const activeStudyStorageKey = "soromath-active-study-v2";
 const activeStudyEventKey = "soromath-progress-events-v2";
 const activeStudyStudentKey = "soromath-student-name";
+let activeStudyLastHostPost = 0;
 
 let activeStudy = {
   activeMs: 0,
@@ -37,6 +38,39 @@ function activeStudyInit(){
 
   setInterval(activeStudyTick, 250);
   setInterval(activeStudySave, 5000);
+}
+
+function activeStudyHostMode(){
+  try{
+    return Array.isArray(currentmode) ? currentmode.join(", ") : String(currentmode || "unknown");
+  }
+  catch(error){
+    return "unknown";
+  }
+}
+
+function activeStudyPostHost(eventType="progress", force=false){
+  try{
+    if(window.parent == window) return;
+
+    let now = Date.now();
+    if(!force && now - activeStudyLastHostPost < 2000) return;
+    activeStudyLastHostPost = now;
+
+    window.parent.postMessage({
+      source: "soromath-active-study",
+      eventType: eventType,
+      activeMs: Math.floor(activeStudy.activeMs),
+      solved: activeStudy.solved,
+      correct: activeStudy.correct,
+      wrong: activeStudy.wrong,
+      running: activeStudy.running,
+      mode: activeStudyHostMode()
+    }, window.location.origin);
+  }
+  catch(error){
+    // Host reporting is best-effort; never interrupt practice.
+  }
 }
 
 function activeStudyToday(){
@@ -91,6 +125,7 @@ function activeStudyResetToday(){
   activeStudySave();
   activeStudyLogEvent("manual_reset");
   activeStudyRender();
+  activeStudyPostHost("manual_reset", true);
 }
 
 function activeStudyReset(){
@@ -122,6 +157,7 @@ function activeStudyProblemComplete(correct=false){
     mode: Array.isArray(currentmode) ? currentmode.join(", ") : String(currentmode || "unknown"),
     template: currenttemplate || "unknown"
   });
+  activeStudyPostHost("problem_complete", true);
 }
 
 function activeStudyShouldRun(now){
@@ -235,6 +271,7 @@ function activeStudyRender(){
   else if(idleFor > activeStudy.idleGraceMs) status = "Paused: idle";
 
   document.getElementById("activeStudyStatus").textContent = status;
+  activeStudyPostHost("progress");
 }
 
 window.addEventListener("load", activeStudyInit);

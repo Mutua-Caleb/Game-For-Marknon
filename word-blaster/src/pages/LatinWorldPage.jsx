@@ -5,6 +5,7 @@ import { feature } from 'topojson-client'
 import { latinCategoryCounts, latinCategoryLabels, latinWords } from '../data/latinWords'
 import { useActiveFocusTimer } from '../hooks/useActiveFocusTimer'
 import { useSound } from '../context/SoundContext'
+import { quizSessionApi } from '../utils/api'
 import './LatinWorldPage.css'
 
 const WORLD_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'
@@ -176,6 +177,14 @@ function saveProgress(progress) {
   localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress))
 }
 
+function readLearnerAccount() {
+  try {
+    return JSON.parse(localStorage.getItem('learnerAccount'))
+  } catch {
+    return null
+  }
+}
+
 function weightedPick(items, weightFor) {
   const weighted = items.map(item => ({ item, weight: Math.max(0.1, weightFor(item)) }))
   const total = weighted.reduce((sum, entry) => sum + entry.weight, 0)
@@ -313,6 +322,11 @@ function LatinWorldPage() {
   const activityRef = useRef(null)
   const answerRef = useRef(null)
   const progressRef = useRef(readProgress())
+  const quizSessionIdRef = useRef(null)
+  const cardStartedAtRef = useRef(Date.now())
+  const activeMsRef = useRef(0)
+  const sessionStatsRef = useRef({ correct: 0, wrong: 0, streak: 0 })
+  const latestCategoryRef = useRef('all')
   const [countries, setCountries] = useState([])
   const [category, setCategory] = useState('all')
   const [viewMode, setViewMode] = useState('continent')
@@ -328,6 +342,7 @@ function LatinWorldPage() {
     activityRef
   })
   const {
+    activeMs,
     markActivity,
     recordAttempt,
     resetTimer,
@@ -336,6 +351,15 @@ function LatinWorldPage() {
     focusStatus,
     focusGoalText
   } = focusTimer
+  const sessionStartActiveMsRef = useRef(activeMs)
+
+  useEffect(() => {
+    activeMsRef.current = activeMs
+  }, [activeMs])
+
+  useEffect(() => {
+    latestCategoryRef.current = category
+  }, [category])
 
   const categoryOptions = useMemo(() => Object.entries(latinCategoryLabels).map(([id, label]) => ({
     id,
@@ -372,11 +396,75 @@ function LatinWorldPage() {
     setAnswer('')
     setFeedback('')
     setRevealed(false)
+    cardStartedAtRef.current = Date.now()
     requestAnimationFrame(() => {
       answerRef.current?.focus()
       markActivity()
     })
   }, [chooseCountry, chooseWord, countries.length, filteredWords.length, markActivity])
+
+  const getActivityPayload = useCallback((completed = false, stats = sessionStatsRef.current) => {
+    const baseline = Math.min(sessionStartActiveMsRef.current, activeMsRef.current)
+    const durationSeconds = Math.floor(Math.max(0, activeMsRef.current - baseline) / 1000)
+    const categoryLabel = latinCategoryLabels[latestCategoryRef.current] || 'Latin'
+    return {
+      subject: 'Latin',
+      topics: [categoryLabel],
+      score: stats.correct * 10,
+      correctAnswers: stats.correct,
+      wrongAnswers: stats.wrong,
+      bestStreak: stats.streak,
+      durationSeconds,
+      completed
+    }
+  }, [])
+
+  const syncQuizSession = useCallback((completed = false, stats = sessionStatsRef.current) => {
+    const sessionId = quizSessionIdRef.current
+    if (!sessionId) return
+
+    quizSessionApi.updateActivity(sessionId, getActivityPayload(completed, stats)).catch(console.error)
+  }, [getActivityPayload])
+
+  useEffect(() => {
+    let cancelled = false
+    const learner = readLearnerAccount()
+
+    quizSessionApi.start({
+      playerName: learner?.name || 'Anonymous',
+      subject: 'Latin',
+      topics: [latinCategoryLabels.all],
+      gameMode: 'latin',
+      minTimeRequired: 10 * 60
+    }).then(result => {
+      if (!cancelled) {
+        quizSessionIdRef.current = result.sessionId
+      }
+    }).catch(console.error)
+
+    const finishSession = () => {
+      const sessionId = quizSessionIdRef.current
+      if (sessionId) {
+        quizSessionApi.sendActivityBeacon(sessionId, getActivityPayload(true))
+      }
+    }
+
+    window.addEventListener('beforeunload', finishSession)
+    return () => {
+      cancelled = true
+      window.removeEventListener('beforeunload', finishSession)
+      finishSession()
+    }
+  }, [getActivityPayload])
+
+  useEffect(() => {
+    const timer = setInterval(() => syncQuizSession(false), 5000)
+    return () => clearInterval(timer)
+  }, [syncQuizSession])
+
+  useEffect(() => {
+    syncQuizSession(false)
+  }, [category, syncQuizSession])
 
   useEffect(() => {
     async function loadCountries() {
@@ -444,9 +532,26 @@ function LatinWorldPage() {
         correct: stats.correct + 1,
         streak: stats.streak + 1
       }
-      setSession(prev => ({ correct: prev.correct + 1, wrong: prev.wrong, streak: prev.streak + 1 }))
+      const nextStats = {
+        correct: sessionStatsRef.current.correct + 1,
+        wrong: sessionStatsRef.current.wrong,
+        streak: sessionStatsRef.current.streak + 1
+      }
+      sessionStatsRef.current = nextStats
+      setSession(nextStats)
       setFeedback(`Correct: ${currentWord.latin}`)
       saveProgress(progressRef.current)
+      if (quizSessionIdRef.current) {
+        quizSessionApi.recordAnswer(quizSessionIdRef.current, {
+          questionId: currentWord.id,
+          questionText: `Latin for "${currentWord.english}"`,
+          correctAnswer: currentWord.latin,
+          givenAnswer: answer,
+          isCorrect: true,
+          timeTakenMs: Date.now() - cardStartedAtRef.current
+        }).catch(console.error)
+      }
+      syncQuizSession(false, nextStats)
       setTimeout(nextCard, 900)
       return
     }
@@ -457,10 +562,27 @@ function LatinWorldPage() {
       wrong: stats.wrong + 1,
       streak: 0
     }
-    setSession(prev => ({ correct: prev.correct, wrong: prev.wrong + 1, streak: 0 }))
+    const nextStats = {
+      correct: sessionStatsRef.current.correct,
+      wrong: sessionStatsRef.current.wrong + 1,
+      streak: 0
+    }
+    sessionStatsRef.current = nextStats
+    setSession(nextStats)
     setFeedback(`Answer: ${currentWord.latin}`)
     setRevealed(true)
     saveProgress(progressRef.current)
+    if (quizSessionIdRef.current) {
+      quizSessionApi.recordAnswer(quizSessionIdRef.current, {
+        questionId: currentWord.id,
+        questionText: `Latin for "${currentWord.english}"`,
+        correctAnswer: currentWord.latin,
+        givenAnswer: answer,
+        isCorrect: false,
+        timeTakenMs: Date.now() - cardStartedAtRef.current
+      }).catch(console.error)
+    }
+    syncQuizSession(false, nextStats)
   }
 
   const attempts = session.correct + session.wrong

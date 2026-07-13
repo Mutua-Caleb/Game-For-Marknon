@@ -224,7 +224,7 @@ router.delete('/image/:filename', authenticateToken, (req, res) => {
 // GET /api/upload/template - Download Excel template
 router.get('/template', (req, res) => {
   const templateData = [
-    { Subject: 'Science', Topic: 'Physics', Question: 'What force keeps us on the ground?', Answer: 'gravity', Type: 'text', Option1: '', Option2: '', Option3: '', Option4: '', Hint: 'Newton discovered it', Image: '' },
+    { Subject: 'English', Topic: 'Vocabulary', Question: 'What is the opposite of ancient?', Answer: 'modern', Type: 'text', Option1: '', Option2: '', Option3: '', Option4: '', Hint: 'Think of something new', Image: '' },
     { Subject: 'English', Topic: 'Vocabulary', Question: 'What word means "very big"?', Answer: 'huge', Type: 'multiple', Option1: 'Tiny', Option2: 'Huge', Option3: 'Small', Option4: 'Little', Hint: 'Like an elephant', Image: '' }
   ]
 

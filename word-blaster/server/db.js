@@ -204,10 +204,53 @@ export async function initializeDatabase() {
       earning_date DATE NOT NULL DEFAULT CURRENT_DATE,
       amount_ksh REAL DEFAULT 0,
       correct_answers INTEGER DEFAULT 0,
+      quiz_correct_answers INTEGER DEFAULT 0,
+      chemistry_correct_answers INTEGER DEFAULT 0,
       paid BOOLEAN DEFAULT FALSE,
       paid_at TIMESTAMPTZ,
       last_updated TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(learner_id, earning_date)
+    );
+
+    CREATE TABLE IF NOT EXISTS chemistry_progress (
+      id SERIAL PRIMARY KEY,
+      learner_id INTEGER NOT NULL REFERENCES learner_accounts(id) ON DELETE CASCADE,
+      lesson_id TEXT NOT NULL,
+      best_score REAL DEFAULT 0,
+      passed BOOLEAN DEFAULT FALSE,
+      attempts_count INTEGER DEFAULT 0,
+      last_attempted TIMESTAMPTZ,
+      UNIQUE(learner_id, lesson_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS chemistry_attempts (
+      id UUID PRIMARY KEY,
+      learner_id INTEGER NOT NULL REFERENCES learner_accounts(id) ON DELETE CASCADE,
+      lesson_id TEXT NOT NULL,
+      questions_json JSONB NOT NULL,
+      quiz_session_id INTEGER REFERENCES quiz_sessions(id) ON DELETE SET NULL,
+      score_percent REAL DEFAULT 0,
+      passed BOOLEAN DEFAULT FALSE,
+      started_at TIMESTAMPTZ DEFAULT NOW(),
+      completed_at TIMESTAMPTZ
+    );
+
+    CREATE TABLE IF NOT EXISTS chemistry_attempt_answers (
+      id SERIAL PRIMARY KEY,
+      attempt_id UUID NOT NULL REFERENCES chemistry_attempts(id) ON DELETE CASCADE,
+      question_index INTEGER NOT NULL,
+      question_text TEXT NOT NULL,
+      learner_answer TEXT NOT NULL,
+      expected_answer TEXT NOT NULL,
+      is_correct BOOLEAN NOT NULL,
+      mark_score REAL DEFAULT 0,
+      feedback TEXT,
+      missing_points JSONB DEFAULT '[]'::jsonb,
+      mark_source TEXT DEFAULT 'rubric',
+      time_taken_ms INTEGER DEFAULT 0,
+      reward_ksh REAL DEFAULT 0,
+      answered_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(attempt_id, question_index)
     );
 
     -- Topic Prerequisites: Define which topics must be mastered before others
@@ -286,12 +329,32 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_learner_earnings_learner ON learner_earnings(learner_id);
     CREATE INDEX IF NOT EXISTS idx_learner_earnings_date ON learner_earnings(earning_date);
     CREATE INDEX IF NOT EXISTS idx_learner_earnings_unpaid ON learner_earnings(learner_id, paid);
+    CREATE INDEX IF NOT EXISTS idx_chemistry_progress_learner ON chemistry_progress(learner_id);
+    CREATE INDEX IF NOT EXISTS idx_chemistry_attempts_learner ON chemistry_attempts(learner_id, started_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_chemistry_answers_attempt ON chemistry_attempt_answers(attempt_id);
     CREATE INDEX IF NOT EXISTS idx_passages_subject ON passages(subject);
     CREATE INDEX IF NOT EXISTS idx_passage_questions_passage ON passage_questions(passage_id);
     CREATE INDEX IF NOT EXISTS idx_writing_prompts_subject ON writing_prompts(subject);
     CREATE INDEX IF NOT EXISTS idx_writing_submissions_prompt ON writing_submissions(prompt_id);
     CREATE INDEX IF NOT EXISTS idx_writing_submissions_learner ON writing_submissions(learner_id);
   `)
+
+  await p.query('ALTER TABLE learner_earnings ADD COLUMN IF NOT EXISTS quiz_correct_answers INTEGER DEFAULT 0')
+  await p.query('ALTER TABLE learner_earnings ADD COLUMN IF NOT EXISTS chemistry_correct_answers INTEGER DEFAULT 0')
+  await p.query(`
+    UPDATE learner_earnings
+    SET quiz_correct_answers = correct_answers
+    WHERE quiz_correct_answers = 0 AND chemistry_correct_answers = 0 AND correct_answers > 0
+  `)
+
+  // The Chemistry Academy replaces every legacy general-Science activity.
+  await p.query("DELETE FROM writing_prompts WHERE subject = 'Science'")
+  await p.query("DELETE FROM passages WHERE subject = 'Science'")
+  await p.query("DELETE FROM diagram_questions WHERE subject = 'Science'")
+  await p.query("DELETE FROM sequence_questions WHERE subject = 'Science'")
+  await p.query("DELETE FROM topic_mastery WHERE subject = 'Science'")
+  await p.query("DELETE FROM topic_prerequisites WHERE subject = 'Science'")
+  await p.query("DELETE FROM questions WHERE subject = 'Science'")
 
   // Seed default admin if none exists
   const adminResult = await p.query('SELECT COUNT(*) as count FROM admin_users')
@@ -330,15 +393,6 @@ export async function initializeDatabase() {
     await seedDefaultWritingPrompts(p)
   }
 
-  // Remove Science topic locks (all Science topics freely accessible)
-  await p.query("DELETE FROM topic_prerequisites WHERE subject = 'Science'")
-
-  // Rename 'Human Body' to 'Biology' in existing data
-  await p.query("UPDATE questions SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
-  await p.query("UPDATE topic_mastery SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
-  await p.query("UPDATE diagram_questions SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
-  await p.query("UPDATE passages SET topic = 'Biology' WHERE subject = 'Science' AND topic = 'Human Body'")
-
   // Drop coordinate columns (labels are now pre-drawn on images)
   await p.query("ALTER TABLE diagram_labels DROP COLUMN IF EXISTS x_percent").catch(() => {})
   await p.query("ALTER TABLE diagram_labels DROP COLUMN IF EXISTS y_percent").catch(() => {})
@@ -348,7 +402,6 @@ export async function initializeDatabase() {
 
 async function seedDefaultPrerequisites(p) {
   // Define topic learning paths
-  // Science: No locks - all topics freely accessible
   // English: Vocabulary is foundational, then Spelling, then Grammar, then Reading
   const prerequisites = [
     // English path - Spelling requires Vocabulary
@@ -489,8 +542,6 @@ async function seedDefaultWritingPrompts(p) {
     { id: 'wp_eng_003', subject: 'English', topic: 'Handwriting', title: 'Copy This Sentence', prompt_text: 'Copy the following sentence in your best handwriting: "The quick brown fox jumps over the lazy dog." This sentence uses every letter of the alphabet!' },
     { id: 'wp_eng_004', subject: 'English', topic: 'Spelling', title: 'Spelling Practice', prompt_text: 'Write each of these words three times: because, beautiful, different, friend, together, through, people, another.' },
     { id: 'wp_eng_005', subject: 'English', topic: 'Creative Writing', title: 'Story Starter', prompt_text: 'Continue this story: "One morning, I woke up and discovered I could fly. The first thing I did was..." Write at least 5 sentences.' },
-    { id: 'wp_sci_001', subject: 'Science', topic: 'Biology', title: 'Parts of a Plant', prompt_text: 'Write down the 4 main parts of a plant and describe what each part does. Use complete sentences.' },
-    { id: 'wp_sci_002', subject: 'Science', topic: 'Biology', title: 'The Water Cycle', prompt_text: 'Describe the water cycle in your own words. Include the words: evaporation, condensation, precipitation, and collection.' },
     { id: 'wp_cre_001', subject: 'Christian Religious Education', topic: 'Old Testament', title: 'The Ten Commandments', prompt_text: 'Write down as many of the Ten Commandments as you can remember. Number each one.' },
     { id: 'wp_cre_002', subject: 'Christian Religious Education', topic: 'New Testament', title: 'The Beatitudes', prompt_text: 'Write the Beatitudes from the Sermon on the Mount (Matthew 5:3-12). If you cannot remember them all, write the ones you know.' },
     { id: 'wp_ss_001', subject: 'Social Studies', topic: 'Geography', title: 'My Country', prompt_text: 'Write 5 sentences about Kenya. Include facts about its capital, languages, wildlife, and one thing that makes it special.' },
@@ -517,86 +568,15 @@ async function seedDefaultWritingPrompts(p) {
 }
 
 function getDefaultDiagrams() {
-  return [
-    {
-      id: 'diag_heart_001',
-      subject: 'Science',
-      topic: 'Biology',
-      title: 'The Human Heart',
-      description: 'Label the parts of the human heart. Identify each structure marked with a letter.',
-      image_url: '/diagrams/heart-unlabeled.svg',
-      labels: [
-        { label_key: 'P', correct_answer: 'Superior Vena Cava', hint: 'Large vein that carries deoxygenated blood from the upper body to the heart' },
-        { label_key: 'K', correct_answer: 'Right Atrium', hint: 'Upper right chamber that receives deoxygenated blood' },
-        { label_key: 'T', correct_answer: 'Tricuspid Valve', hint: 'Valve with three flaps between the right atrium and right ventricle' },
-        { label_key: 'W', correct_answer: 'Right Ventricle', hint: 'Lower right chamber that pumps blood to the lungs' },
-        { label_key: 'H', correct_answer: 'Aorta', hint: 'The largest artery that carries oxygenated blood to the body' },
-        { label_key: 'M', correct_answer: 'Pulmonary Artery', hint: 'Artery that carries deoxygenated blood from the heart to the lungs' },
-        { label_key: 'F', correct_answer: 'Pulmonary Veins', hint: 'Veins that carry oxygenated blood from the lungs back to the heart' },
-        { label_key: 'Y', correct_answer: 'Left Atrium', hint: 'Upper left chamber that receives oxygenated blood from the lungs' },
-        { label_key: 'N', correct_answer: 'Bicuspid Valve', hint: 'Also called the mitral valve, it has two flaps and sits between the left atrium and ventricle' },
-        { label_key: 'R', correct_answer: 'Left Ventricle', hint: 'Lower left chamber with the thickest wall, pumps blood to the entire body' },
-      ]
-    }
-  ]
+  return []
 }
 
 function getDefaultSequences() {
-  return [
-    {
-      id: 'seq_hb_001',
-      subject: 'Science',
-      topic: 'Biology',
-      title: 'Blood Circulation Through the Heart',
-      description: 'Arrange the steps of blood circulation through the heart in the correct order, from deoxygenated blood returning to the heart to oxygenated blood being pumped out to the body.',
-      image: null,
-      steps: [
-        { step_number: 1, step_text: 'Deoxygenated blood from the body enters the RIGHT ATRIUM through the superior and inferior vena cava' },
-        { step_number: 2, step_text: 'Blood flows from the right atrium through the TRICUSPID VALVE into the RIGHT VENTRICLE' },
-        { step_number: 3, step_text: 'The right ventricle pumps blood through the PULMONARY VALVE into the PULMONARY ARTERIES' },
-        { step_number: 4, step_text: 'Blood travels to the LUNGS where it picks up oxygen and releases carbon dioxide (gas exchange)' },
-        { step_number: 5, step_text: 'Oxygenated blood returns to the LEFT ATRIUM through the PULMONARY VEINS' },
-        { step_number: 6, step_text: 'Blood flows from the left atrium through the MITRAL (BICUSPID) VALVE into the LEFT VENTRICLE' },
-        { step_number: 7, step_text: 'The left ventricle pumps blood through the AORTIC VALVE into the AORTA' },
-        { step_number: 8, step_text: 'Oxygenated blood is distributed to the entire body through the aorta and its branches' },
-      ]
-    }
-  ]
+  return []
 }
 
 function getDefaultQuestions() {
   return [
-    // SCIENCE - Biology
-    { id: 'sci_hb_001', subject: 'Science', topic: 'Biology', question: 'What organ pumps blood throughout your body?', answer: 'heart', type: 'text', options: null, hint: 'It beats about 100,000 times a day', image: null },
-    { id: 'sci_hb_002', subject: 'Science', topic: 'Biology', question: 'What is the largest organ in the human body?', answer: 'skin', type: 'text', options: null, hint: 'It covers your entire body', image: null },
-    { id: 'sci_hb_003', subject: 'Science', topic: 'Biology', question: 'How many bones does an adult human have?', answer: '206', type: 'multiple', options: ['106', '206', '306', '406'], hint: 'More than 200 but less than 250', image: null },
-    { id: 'sci_hb_004', subject: 'Science', topic: 'Biology', question: 'What part of the body helps you breathe?', answer: 'lungs', type: 'text', options: null, hint: 'You have two of them in your chest', image: null },
-    { id: 'sci_hb_005', subject: 'Science', topic: 'Biology', question: 'What is the control center of the body?', answer: 'brain', type: 'multiple', options: ['Heart', 'Brain', 'Liver', 'Stomach'], hint: "It's inside your skull", image: null },
-    { id: 'sci_hb_006', subject: 'Science', topic: 'Biology', question: 'What carries blood away from the heart?', answer: 'arteries', type: 'text', options: null, hint: 'Starts with "A"', image: null },
-    { id: 'sci_hb_007', subject: 'Science', topic: 'Biology', question: 'What type of blood cells fight infection?', answer: 'white', type: 'multiple', options: ['Red', 'White', 'Blue', 'Green'], hint: 'The color of snow', image: null },
-
-    // SCIENCE - Physics
-    { id: 'sci_ph_001', subject: 'Science', topic: 'Physics', question: 'What force keeps us on the ground?', answer: 'gravity', type: 'text', options: null, hint: 'Isaac Newton discovered it when an apple fell', image: null },
-    { id: 'sci_ph_002', subject: 'Science', topic: 'Physics', question: 'What is the speed of light approximately?', answer: '300000', type: 'multiple', options: ['300,000 km/s', '150,000 km/s', '500,000 km/s', '100,000 km/s'], hint: 'About 300 thousand kilometers per second', image: null },
-    { id: 'sci_ph_003', subject: 'Science', topic: 'Physics', question: 'What type of energy is stored in a battery?', answer: 'chemical', type: 'text', options: null, hint: 'Related to chemistry', image: null },
-    { id: 'sci_ph_004', subject: 'Science', topic: 'Physics', question: 'What do we call the bending of light?', answer: 'refraction', type: 'text', options: null, hint: 'It makes a straw look bent in water', image: null },
-    { id: 'sci_ph_005', subject: 'Science', topic: 'Physics', question: 'What force opposes motion between surfaces?', answer: 'friction', type: 'multiple', options: ['Gravity', 'Friction', 'Magnetism', 'Tension'], hint: 'It makes things slow down', image: null },
-    { id: 'sci_ph_006', subject: 'Science', topic: 'Physics', question: 'Look at the circuit diagram. What component controls whether the bulb lights up?', answer: 'switch', type: 'multiple', options: ['Battery', 'Switch', 'Resistor', 'Wire'], hint: 'It can open or close the circuit', image: '/images/circuit-diagram.svg' },
-
-    // SCIENCE - Chemistry
-    { id: 'sci_ch_001', subject: 'Science', topic: 'Chemistry', question: 'What is the chemical symbol for water?', answer: 'H2O', type: 'text', options: null, hint: 'Two hydrogen and one oxygen', image: null },
-    { id: 'sci_ch_002', subject: 'Science', topic: 'Chemistry', question: 'What gas do we breathe in?', answer: 'oxygen', type: 'text', options: null, hint: 'Plants produce this gas', image: null },
-    { id: 'sci_ch_003', subject: 'Science', topic: 'Chemistry', question: 'What is the chemical symbol for gold?', answer: 'Au', type: 'multiple', options: ['Au', 'Ag', 'Go', 'Gd'], hint: 'From the Latin word "Aurum"', image: null },
-    { id: 'sci_ch_004', subject: 'Science', topic: 'Chemistry', question: "What gas makes up most of Earth's atmosphere?", answer: 'nitrogen', type: 'text', options: null, hint: 'About 78% of the air', image: null },
-    { id: 'sci_ch_005', subject: 'Science', topic: 'Chemistry', question: 'What is the pH of pure water?', answer: '7', type: 'multiple', options: ['5', '7', '9', '14'], hint: "It's neutral - not acidic or basic", image: null },
-
-    // SCIENCE - Earth Science
-    { id: 'sci_es_001', subject: 'Science', topic: 'Earth Science', question: 'What is the hottest layer of the Earth?', answer: 'core', type: 'text', options: null, hint: "It's at the center", image: null },
-    { id: 'sci_es_002', subject: 'Science', topic: 'Earth Science', question: 'What causes the seasons on Earth?', answer: 'tilt', type: 'multiple', options: ['Distance from Sun', "Earth's Tilt", "Moon's gravity", 'Solar flares'], hint: "Earth's axis is at an angle", image: null },
-    { id: 'sci_es_003', subject: 'Science', topic: 'Earth Science', question: 'What type of rock is formed from cooled lava?', answer: 'igneous', type: 'text', options: null, hint: 'From the Latin word for fire', image: null },
-    { id: 'sci_es_004', subject: 'Science', topic: 'Earth Science', question: 'What is the largest ocean on Earth?', answer: 'pacific', type: 'text', options: null, hint: 'It touches Asia and America', image: null },
-    { id: 'sci_es_005', subject: 'Science', topic: 'Earth Science', question: 'What layer of atmosphere protects us from UV rays?', answer: 'ozone', type: 'multiple', options: ['Troposphere', 'Ozone', 'Mesosphere', 'Exosphere'], hint: 'It has three oxygen atoms', image: null },
-
     // ENGLISH - Vocabulary
     { id: 'eng_voc_001', subject: 'English', topic: 'Vocabulary', question: 'What is the opposite of "happy"?', answer: 'sad', type: 'text', options: null, hint: 'How you feel when something bad happens', image: null },
     { id: 'eng_voc_002', subject: 'English', topic: 'Vocabulary', question: 'What word means "very big"?', answer: 'huge', type: 'multiple', options: ['Tiny', 'Huge', 'Small', 'Little'], hint: 'Like an elephant', image: null },

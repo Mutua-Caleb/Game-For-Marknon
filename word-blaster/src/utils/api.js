@@ -442,6 +442,45 @@ export const learnerApi = {
   }
 }
 
+// Chemistry Academy API
+export const chemistryApi = {
+  async getLessons() {
+    const res = await fetch(`${API_BASE}/chemistry/lessons`)
+    return handleResponse(res)
+  },
+
+  async getProgress(learnerId) {
+    const res = await fetch(`${API_BASE}/chemistry/progress/${learnerId}`)
+    return handleResponse(res)
+  },
+
+  async startAttempt(learnerId, lessonId) {
+    const res = await fetch(`${API_BASE}/chemistry/attempts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ learnerId, lessonId })
+    })
+    return handleResponse(res)
+  },
+
+  async submitAnswer(attemptId, data) {
+    const res = await fetch(`${API_BASE}/chemistry/attempts/${attemptId}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    return handleResponse(res)
+  },
+
+  async completeAttempt(attemptId) {
+    const res = await fetch(`${API_BASE}/chemistry/attempts/${attemptId}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    return handleResponse(res)
+  }
+}
+
 // Writing API
 export const writingApi = {
   async getPrompts(params = {}) {

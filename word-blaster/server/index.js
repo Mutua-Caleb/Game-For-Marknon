@@ -15,6 +15,7 @@ import learningRoutes from './routes/learning.js'
 import learnerRoutes from './routes/learners.js'
 import passageRoutes from './routes/passages.js'
 import writingRoutes from './routes/writing.js'
+import chemistryRoutes from './routes/chemistry.js'
 
 dotenv.config()
 
@@ -47,6 +48,7 @@ app.use('/api/learning', learningRoutes)
 app.use('/api/learners', learnerRoutes)
 app.use('/api/passages', passageRoutes)
 app.use('/api/writing', writingRoutes)
+app.use('/api/chemistry', chemistryRoutes)
 
 // Serve static frontend in production
 if (process.env.NODE_ENV === 'production') {

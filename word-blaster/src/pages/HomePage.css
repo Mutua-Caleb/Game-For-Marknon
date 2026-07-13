@@ -166,6 +166,11 @@
   background: linear-gradient(45deg, #667eea, #764ba2);
 }
 
+.chemistry-home-button {
+  background: #17313d;
+  border-color: #f7cf4a;
+}
+
 .latin-home-button {
   background: linear-gradient(45deg, #fd79a8, #f64f59);
 }

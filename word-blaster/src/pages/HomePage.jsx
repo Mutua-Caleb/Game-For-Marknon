@@ -53,6 +53,11 @@ function HomePage() {
     navigate('/math')
   }
 
+  const handleChemistry = () => {
+    playSound('click')
+    navigate('/chemistry')
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('learnerAccount')
     localStorage.removeItem('learnerId')
@@ -95,7 +100,7 @@ function HomePage() {
           </div>
         </motion.div>
 
-        <p className="tagline">Learn Science, English, Latin, Math & more while having fun!</p>
+        <p className="tagline">Learn Chemistry, English, Latin, Math & more while having fun!</p>
 
         {/* Daily Progress Card */}
         {dailyStatus && (
@@ -148,7 +153,7 @@ function HomePage() {
               </div>
             </div>
             <div className="earnings-card-rate">
-              KSh 0.25 per correct answer
+              KSh 1 for Chemistry answers &middot; KSh 0.25 for classic quizzes
             </div>
           </motion.div>
         )}
@@ -162,11 +167,21 @@ function HomePage() {
           <img src={learningLabArt} alt="" className="learning-lab-art" />
           <div className="learning-lab-copy">
             <span className="learning-lab-eyebrow">Choose your mission</span>
-            <strong>One place for quiz practice, Latin memory, speed math, and writing.</strong>
+            <strong>One place for Chemistry Academy, Latin memory, speed math, quizzes, and writing.</strong>
           </div>
         </motion.div>
 
         <div className="home-buttons">
+          <motion.button
+            className="play-button chemistry-home-button"
+            onClick={handleChemistry}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <span className="button-icon">&#9879;</span>
+            Chemistry Academy
+          </motion.button>
+
           <motion.button
             className="play-button"
             onClick={handlePlay}
@@ -210,8 +225,8 @@ function HomePage() {
 
         <div className="home-features">
           <div className="feature">
-            <span className="feature-icon">&#128300;</span>
-            <span className="feature-text">Science</span>
+            <span className="feature-icon">&#9879;</span>
+            <span className="feature-text">Chemistry</span>
           </div>
           <div className="feature">
             <span className="feature-icon">&#128218;</span>

@@ -139,7 +139,6 @@ function TopicSelectPage() {
   }
 
   const subjectIcons = {
-    Science: '🔬',
     English: '📚',
     'Christian Religious Education': '✝️',
     'Creative Arts': '🎨',
@@ -148,10 +147,6 @@ function TopicSelectPage() {
   }
 
   const topicIcons = {
-    'Biology': '🧬',
-    'Physics': '⚡',
-    'Chemistry': '🧪',
-    'Earth Science': '🌍',
     'Vocabulary': '📖',
     'Grammar': '✏️',
     'Spelling': '🔤',

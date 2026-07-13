@@ -534,6 +534,11 @@
   color: #00896d;
 }
 
+.mode-tag.chemistry {
+  background: #ffe1dc;
+  color: #9d2f20;
+}
+
 .session-subject {
   color: #636e72;
   font-size: 0.85rem;

@@ -6,9 +6,8 @@ import { uploadApi, questionsApi, diagramsApi, passagesApi, statsApi, authApi, q
 import WritingCanvas from '../components/WritingCanvas'
 import './AdminPage.css'
 
-const SUBJECTS = ['Science', 'English', 'Christian Religious Education', 'Creative Arts', 'Agriculture', 'Social Studies']
+const SUBJECTS = ['English', 'Christian Religious Education', 'Creative Arts', 'Agriculture', 'Social Studies']
 const TOPICS = {
-  Science: ['Biology', 'Physics', 'Chemistry', 'Earth Science'],
   English: ['Vocabulary', 'Grammar', 'Spelling', 'Reading'],
   'Christian Religious Education': ['Old Testament', 'New Testament', 'Christian Living', 'The Church'],
   'Creative Arts': ['Drawing & Painting', 'Music', 'Drama', 'Crafts'],
@@ -419,8 +418,8 @@ function QuestionCard({ question, stats, onEdit, onDelete }) {
 // Question Modal Component with Image Upload
 function QuestionModal({ question, onClose, onSave, showNotification }) {
   const [formData, setFormData] = useState({
-    subject: question?.subject || 'Science',
-    topic: question?.topic || 'Biology',
+    subject: question?.subject || 'English',
+    topic: question?.topic || 'Vocabulary',
     question: question?.question || '',
     answer: question?.answer || '',
     type: question?.type || 'text',
@@ -747,8 +746,8 @@ function AnalyticsSection({ overview, failedQuestions, onResetStats }) {
         </div>
         <div className="stat-card">
           <span className="stat-icon">&#128300;</span>
-          <span className="stat-value">{overview?.scienceCount || 0}</span>
-          <span className="stat-label">Science</span>
+          <span className="stat-value">{overview?.chemistryAttemptCount || 0}</span>
+          <span className="stat-label">Chemistry Checks</span>
         </div>
         <div className="stat-card">
           <span className="stat-icon">&#128218;</span>
@@ -1291,8 +1290,8 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
   const isEditing = !!diagram
 
   const [formData, setFormData] = useState({
-    subject: diagram?.subject || 'Science',
-    topic: diagram?.topic || 'Biology',
+    subject: diagram?.subject || 'English',
+    topic: diagram?.topic || 'Vocabulary',
     title: diagram?.title || '',
     description: diagram?.description || ''
   })
@@ -1320,15 +1319,15 @@ function DiagramCreateForm({ diagram, onCreated, onUpdated, onCancel, showNotifi
   useEffect(() => {
     if (diagram) {
       setFormData({
-        subject: diagram.subject || 'Science',
-        topic: diagram.topic || 'Biology',
+        subject: diagram.subject || 'English',
+        topic: diagram.topic || 'Vocabulary',
         title: diagram.title || '',
         description: diagram.description || ''
       })
       setImageUrl(diagram.image_url || '')
       setLabels(diagram.labels || [])
     } else {
-      setFormData({ subject: 'Science', topic: 'Biology', title: '', description: '' })
+      setFormData({ subject: 'English', topic: 'Vocabulary', title: '', description: '' })
       setImageUrl('')
       setLabels([])
     }
@@ -1835,8 +1834,8 @@ function PassageCreateForm({ passage, onCreated, onUpdated, onCancel, showNotifi
   const isEditing = !!passage
 
   const [formData, setFormData] = useState({
-    subject: passage?.subject || 'Science',
-    topic: passage?.topic || 'Biology',
+    subject: passage?.subject || 'English',
+    topic: passage?.topic || 'Reading',
     title: passage?.title || '',
     content: passage?.content || ''
   })
@@ -1858,8 +1857,8 @@ function PassageCreateForm({ passage, onCreated, onUpdated, onCancel, showNotifi
   useEffect(() => {
     if (passage) {
       setFormData({
-        subject: passage.subject || 'Science',
-        topic: passage.topic || 'Biology',
+        subject: passage.subject || 'English',
+        topic: passage.topic || 'Reading',
         title: passage.title || '',
         content: passage.content || ''
       })
@@ -1873,7 +1872,7 @@ function PassageCreateForm({ passage, onCreated, onUpdated, onCancel, showNotifi
         })) || [{ question: '', answer: '', type: 'text', options: ['', '', '', ''], hint: '' }]
       )
     } else {
-      setFormData({ subject: 'Science', topic: 'Biology', title: '', content: '' })
+      setFormData({ subject: 'English', topic: 'Reading', title: '', content: '' })
       setQuestions([{ question: '', answer: '', type: 'text', options: ['', '', '', ''], hint: '' }])
     }
   }, [passage])
@@ -2180,8 +2179,8 @@ function EarningsSection({ showNotification }) {
           <span className="stat-label">Learners</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">KSh 0.25</span>
-          <span className="stat-label">Per Correct Answer</span>
+          <span className="stat-value">KSh 1.00</span>
+          <span className="stat-label">Per Chemistry Answer</span>
         </div>
       </div>
 
@@ -2208,11 +2207,15 @@ function EarningsSection({ showNotification }) {
               <div className="earnings-learner-stats">
                 <div className="earnings-learner-stat">
                   <span className="earnings-learner-stat-value unpaid">KSh {learner.unpaidTotal.toFixed(2)}</span>
-                  <span className="earnings-learner-stat-label">Unpaid ({learner.unpaidCorrect} answers)</span>
+                  <span className="earnings-learner-stat-label">
+                    Unpaid ({learner.unpaidCorrect} answers, {learner.unpaidChemistryCorrect || 0} Chemistry)
+                  </span>
                 </div>
                 <div className="earnings-learner-stat">
                   <span className="earnings-learner-stat-value">KSh {learner.allTimeTotal.toFixed(2)}</span>
-                  <span className="earnings-learner-stat-label">All time ({learner.allTimeCorrect} answers)</span>
+                  <span className="earnings-learner-stat-label">
+                    All time ({learner.allTimeCorrect} answers, {learner.allTimeChemistryCorrect || 0} Chemistry)
+                  </span>
                 </div>
               </div>
 
@@ -2364,11 +2367,11 @@ function ImportExportSection({ questions, onImportComplete, showNotification }) 
           <div className="column-list">
             <div className="column-item required">
               <span className="column-name">Subject</span>
-              <span className="column-desc">e.g. Science, English, Agriculture, etc.</span>
+              <span className="column-desc">e.g. English, Agriculture, Social Studies, etc.</span>
             </div>
             <div className="column-item required">
               <span className="column-name">Topic</span>
-              <span className="column-desc">e.g., Physics, Grammar</span>
+              <span className="column-desc">e.g., Vocabulary, Grammar</span>
             </div>
             <div className="column-item required">
               <span className="column-name">Question</span>
@@ -2435,7 +2438,7 @@ function ImportExportSection({ questions, onImportComplete, showNotification }) 
         <textarea
           value={importText}
           onChange={(e) => setImportText(e.target.value)}
-          placeholder='[{"question": "...", "answer": "...", "subject": "Science", "topic": "Physics", "type": "text"}]'
+          placeholder='[{"question": "...", "answer": "...", "subject": "English", "topic": "Vocabulary", "type": "text"}]'
           rows={8}
         />
         {importError && <div className="import-error">{importError}</div>}

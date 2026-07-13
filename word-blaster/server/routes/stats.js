@@ -100,9 +100,9 @@ router.get('/overview', authenticateToken, async (req, res) => {
   try {
     const pool = getPool()
 
-    const [totalQ, scienceQ, englishQ, imagesQ, attempts, correct, wrong, sessions, avgScoreResult, topicResult] = await Promise.all([
+    const [totalQ, chemistryAttempts, englishQ, imagesQ, attempts, correct, wrong, sessions, avgScoreResult, topicResult] = await Promise.all([
       pool.query('SELECT COUNT(*) as count FROM questions'),
-      pool.query("SELECT COUNT(*) as count FROM questions WHERE subject = 'Science'"),
+      pool.query('SELECT COUNT(*) as count FROM chemistry_attempts'),
       pool.query("SELECT COUNT(*) as count FROM questions WHERE subject = 'English'"),
       pool.query("SELECT COUNT(*) as count FROM questions WHERE image IS NOT NULL AND image != ''"),
       pool.query('SELECT COALESCE(SUM(correct + wrong), 0) as total FROM question_stats'),
@@ -119,7 +119,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
     ])
 
     const totalQuestions = parseInt(totalQ.rows[0].count)
-    const scienceCount = parseInt(scienceQ.rows[0].count)
+    const chemistryAttemptCount = parseInt(chemistryAttempts.rows[0].count)
     const englishCount = parseInt(englishQ.rows[0].count)
     const withImages = parseInt(imagesQ.rows[0].count)
     const totalAttempts = parseInt(attempts.rows[0].total)
@@ -130,7 +130,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
 
     res.json({
       totalQuestions,
-      scienceCount,
+      chemistryAttemptCount,
       englishCount,
       withImages,
       totalAttempts,

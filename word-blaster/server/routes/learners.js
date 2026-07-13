@@ -169,12 +169,14 @@ router.post('/record-earning', async (req, res) => {
     const pool = getPool()
 
     const result = await pool.query(
-      `INSERT INTO learner_earnings (learner_id, earning_date, amount_ksh, correct_answers, last_updated)
-       VALUES ($1, CURRENT_DATE, $2, $3, NOW())
+      `INSERT INTO learner_earnings
+        (learner_id, earning_date, amount_ksh, correct_answers, quiz_correct_answers, last_updated)
+       VALUES ($1, CURRENT_DATE, $2, $3, $3, NOW())
        ON CONFLICT (learner_id, earning_date)
        DO UPDATE SET
          amount_ksh = learner_earnings.amount_ksh + $2,
          correct_answers = learner_earnings.correct_answers + $3,
+         quiz_correct_answers = learner_earnings.quiz_correct_answers + $3,
          last_updated = NOW()
        RETURNING amount_ksh, correct_answers`,
       [learnerId, amountKsh, correctAnswers]
@@ -199,16 +201,22 @@ router.get('/earnings/:learnerId', async (req, res) => {
 
     // Today's earnings
     const todayResult = await pool.query(
-      'SELECT amount_ksh, correct_answers FROM learner_earnings WHERE learner_id = $1 AND earning_date = CURRENT_DATE',
+      `SELECT amount_ksh, correct_answers, quiz_correct_answers, chemistry_correct_answers
+       FROM learner_earnings WHERE learner_id = $1 AND earning_date = CURRENT_DATE`,
       [learnerId]
     )
 
     const todayEarnings = todayResult.rows.length > 0 ? parseFloat(todayResult.rows[0].amount_ksh) : 0
     const todayCorrect = todayResult.rows.length > 0 ? parseInt(todayResult.rows[0].correct_answers) : 0
+    const todayQuizCorrect = todayResult.rows.length > 0 ? parseInt(todayResult.rows[0].quiz_correct_answers) : 0
+    const todayChemistryCorrect = todayResult.rows.length > 0 ? parseInt(todayResult.rows[0].chemistry_correct_answers) : 0
 
     // This week's earnings (Monday to Sunday)
     const weekResult = await pool.query(
-      `SELECT COALESCE(SUM(amount_ksh), 0) as week_total, COALESCE(SUM(correct_answers), 0) as week_correct
+      `SELECT COALESCE(SUM(amount_ksh), 0) as week_total,
+              COALESCE(SUM(correct_answers), 0) as week_correct,
+              COALESCE(SUM(quiz_correct_answers), 0) as week_quiz_correct,
+              COALESCE(SUM(chemistry_correct_answers), 0) as week_chemistry_correct
        FROM learner_earnings
        WHERE learner_id = $1 AND earning_date >= date_trunc('week', CURRENT_DATE)`,
       [learnerId]
@@ -216,6 +224,8 @@ router.get('/earnings/:learnerId', async (req, res) => {
 
     const weekEarnings = parseFloat(weekResult.rows[0].week_total)
     const weekCorrect = parseInt(weekResult.rows[0].week_correct)
+    const weekQuizCorrect = parseInt(weekResult.rows[0].week_quiz_correct)
+    const weekChemistryCorrect = parseInt(weekResult.rows[0].week_chemistry_correct)
 
     // Total unpaid balance
     const unpaidResult = await pool.query(
@@ -231,8 +241,12 @@ router.get('/earnings/:learnerId', async (req, res) => {
     res.json({
       todayEarnings: Math.round(todayEarnings * 100) / 100,
       todayCorrect,
+      todayQuizCorrect,
+      todayChemistryCorrect,
       weekEarnings: Math.round(weekEarnings * 100) / 100,
       weekCorrect,
+      weekQuizCorrect,
+      weekChemistryCorrect,
       unpaidTotal: Math.round(unpaidTotal * 100) / 100,
       unpaidCorrect
     })
@@ -252,8 +266,10 @@ router.get('/earnings-summary', async (req, res) => {
          la.id, la.name,
          COALESCE(SUM(CASE WHEN le.paid = FALSE THEN le.amount_ksh ELSE 0 END), 0) as unpaid_total,
          COALESCE(SUM(CASE WHEN le.paid = FALSE THEN le.correct_answers ELSE 0 END), 0) as unpaid_correct,
+         COALESCE(SUM(CASE WHEN le.paid = FALSE THEN le.chemistry_correct_answers ELSE 0 END), 0) as unpaid_chemistry_correct,
          COALESCE(SUM(le.amount_ksh), 0) as all_time_total,
          COALESCE(SUM(le.correct_answers), 0) as all_time_correct,
+         COALESCE(SUM(le.chemistry_correct_answers), 0) as all_time_chemistry_correct,
          MAX(le.last_updated) as last_active
        FROM learner_accounts la
        LEFT JOIN learner_earnings le ON la.id = le.learner_id
@@ -266,8 +282,10 @@ router.get('/earnings-summary', async (req, res) => {
       name: row.name,
       unpaidTotal: Math.round(parseFloat(row.unpaid_total) * 100) / 100,
       unpaidCorrect: parseInt(row.unpaid_correct),
+      unpaidChemistryCorrect: parseInt(row.unpaid_chemistry_correct),
       allTimeTotal: Math.round(parseFloat(row.all_time_total) * 100) / 100,
       allTimeCorrect: parseInt(row.all_time_correct),
+      allTimeChemistryCorrect: parseInt(row.all_time_chemistry_correct),
       lastActive: row.last_active
     })))
   } catch (err) {

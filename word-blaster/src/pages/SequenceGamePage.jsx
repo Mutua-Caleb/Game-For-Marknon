@@ -5,7 +5,6 @@ import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
 import { quizSessionApi, learnerApi } from '../utils/api'
 import { speakSequenceOrder, cancelSpeech } from '../utils/voiceover'
-import EarningsBar from '../components/EarningsBar'
 import './SequenceGamePage.css'
 
 function SequenceGamePage() {
@@ -34,30 +33,12 @@ function SequenceGamePage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const gameStartTimeRef = useRef(null)
 
-  // Earnings tracking
-  const [serverEarnings, setServerEarnings] = useState(0)
-  const sessionCorrectRef = useRef(0)
-  const flushedCorrectRef = useRef(0) // Track what's already been sent to server
-  const [sessionCorrectCount, setSessionCorrectCount] = useState(0)
-
   // Anti-slacking: only count active time
-  const lastInteractionRef = useRef(Date.now())
+  const lastInteractionRef = useRef(0)
   const activeSecondsRef = useRef(0)
   const IDLE_THRESHOLD = 30000 // 30 seconds of no interaction = idle
 
   const containerRef = useRef(null)
-
-  // Fetch today's earnings on mount
-  useEffect(() => {
-    try {
-      const account = JSON.parse(localStorage.getItem('learnerAccount'))
-      if (account?.id) {
-        learnerApi.getEarnings(account.id)
-          .then(data => setServerEarnings(data.todayEarnings))
-          .catch(console.error)
-      }
-    } catch { /* no account */ }
-  }, [])
 
   // Track user interactions for anti-slacking
   useEffect(() => {
@@ -89,38 +70,6 @@ function SequenceGamePage() {
     return () => cancelSpeech()
   }, [])
 
-  // Flush pending earnings to server
-  const flushEarnings = useCallback((useSendBeacon = false) => {
-    try {
-      const account = JSON.parse(localStorage.getItem('learnerAccount'))
-      const pending = sessionCorrectRef.current - flushedCorrectRef.current
-      if (!account?.id || pending <= 0) return
-
-      if (useSendBeacon) {
-        const apiBase = import.meta.env.VITE_API_URL || '/api'
-        const earningsData = JSON.stringify({ learnerId: account.id, correctAnswers: pending })
-        navigator.sendBeacon(apiBase + '/learners/record-earning', new Blob([earningsData], { type: 'application/json' }))
-      } else {
-        learnerApi.recordEarning(account.id, pending).catch(console.error)
-      }
-      flushedCorrectRef.current = sessionCorrectRef.current
-    } catch { /* no account */ }
-  }, [])
-
-  // Periodic earnings flush every 15 seconds + flush on unmount (React Router navigation)
-  useEffect(() => {
-    if (!gameStarted) return
-
-    const interval = setInterval(() => {
-      flushEarnings(false)
-    }, 15000)
-
-    return () => {
-      clearInterval(interval)
-      flushEarnings(false)
-    }
-  }, [gameStarted, flushEarnings])
-
   // Save progress on page unload (so reload doesn't lose time)
   useEffect(() => {
     if (!gameStarted) return
@@ -135,14 +84,12 @@ function SequenceGamePage() {
           navigator.sendBeacon(apiBase + '/learners/record-time', new Blob([data], { type: 'application/json' }))
           activeSecondsRef.current = 0
         }
-        // Flush any remaining earnings via sendBeacon
-        flushEarnings(true)
       } catch { /* no account */ }
     }
 
     window.addEventListener('beforeunload', saveProgress)
     return () => window.removeEventListener('beforeunload', saveProgress)
-  }, [gameStarted, flushEarnings])
+  }, [gameStarted])
 
   // Load sequences
   useEffect(() => {
@@ -269,10 +216,6 @@ function SequenceGamePage() {
       // Score: more points for fewer attempts
       const attemptScore = Math.max(10, 50 - (attempts * 10))
       setScore(prev => prev + attemptScore)
-
-      // Track earnings (each correct sequence = 1 correct answer)
-      sessionCorrectRef.current += 1
-      setSessionCorrectCount(sessionCorrectRef.current)
 
       setSequenceResults(prev => [...prev, {
         title: currentSequence.title,
@@ -409,9 +352,7 @@ function SequenceGamePage() {
       }
     } catch { /* no account */ }
 
-    // Record any remaining unflushed earnings
-    flushEarnings(false)
-  }, [completed, quizSessionId, score, flushEarnings])
+  }, [completed, quizSessionId, score])
 
   // Countdown screen
   if (countdown > 0) {
@@ -509,9 +450,6 @@ function SequenceGamePage() {
 
   return (
     <div className="sequence-page" ref={containerRef}>
-      {/* Earnings Bar */}
-      <EarningsBar sessionCorrect={sessionCorrectCount} serverEarnings={serverEarnings} />
-
       {/* Tab Switch Warning */}
       <AnimatePresence>
         {showTabWarning && (

@@ -197,7 +197,7 @@ export async function initializeDatabase() {
       UNIQUE(learner_id, subject, topic)
     );
 
-    -- Learner Earnings: Track money earned per day (KSh 0.25 per correct answer)
+    -- Learner Earnings: Track money earned from verified focus blocks
     CREATE TABLE IF NOT EXISTS learner_earnings (
       id SERIAL PRIMARY KEY,
       learner_id INTEGER NOT NULL REFERENCES learner_accounts(id) ON DELETE CASCADE,
@@ -206,10 +206,25 @@ export async function initializeDatabase() {
       correct_answers INTEGER DEFAULT 0,
       quiz_correct_answers INTEGER DEFAULT 0,
       chemistry_correct_answers INTEGER DEFAULT 0,
+      focus_minutes REAL DEFAULT 0,
+      focus_blocks INTEGER DEFAULT 0,
       paid BOOLEAN DEFAULT FALSE,
       paid_at TIMESTAMPTZ,
       last_updated TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(learner_id, earning_date)
+    );
+
+    CREATE TABLE IF NOT EXISTS learner_focus_daily (
+      id SERIAL PRIMARY KEY,
+      learner_id INTEGER NOT NULL REFERENCES learner_accounts(id) ON DELETE CASCADE,
+      focus_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      subject TEXT NOT NULL,
+      client_active_ms BIGINT DEFAULT 0,
+      verified_active_ms BIGINT DEFAULT 0,
+      rewarded_blocks INTEGER DEFAULT 0,
+      last_heartbeat_at TIMESTAMPTZ DEFAULT NOW(),
+      last_updated TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(learner_id, focus_date, subject)
     );
 
     CREATE TABLE IF NOT EXISTS chemistry_progress (
@@ -251,6 +266,20 @@ export async function initializeDatabase() {
       reward_ksh REAL DEFAULT 0,
       answered_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(attempt_id, question_index)
+    );
+
+    CREATE TABLE IF NOT EXISTS chemistry_card_progress (
+      id SERIAL PRIMARY KEY,
+      learner_id INTEGER NOT NULL REFERENCES learner_accounts(id) ON DELETE CASCADE,
+      lesson_id TEXT NOT NULL,
+      fact_id TEXT NOT NULL,
+      repetitions INTEGER DEFAULT 0,
+      interval_days INTEGER DEFAULT 0,
+      total_correct INTEGER DEFAULT 0,
+      total_wrong INTEGER DEFAULT 0,
+      next_review TIMESTAMPTZ DEFAULT NOW(),
+      last_reviewed TIMESTAMPTZ,
+      UNIQUE(learner_id, lesson_id, fact_id)
     );
 
     -- Topic Prerequisites: Define which topics must be mastered before others
@@ -329,9 +358,11 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_learner_earnings_learner ON learner_earnings(learner_id);
     CREATE INDEX IF NOT EXISTS idx_learner_earnings_date ON learner_earnings(earning_date);
     CREATE INDEX IF NOT EXISTS idx_learner_earnings_unpaid ON learner_earnings(learner_id, paid);
+    CREATE INDEX IF NOT EXISTS idx_learner_focus_daily_learner ON learner_focus_daily(learner_id, focus_date);
     CREATE INDEX IF NOT EXISTS idx_chemistry_progress_learner ON chemistry_progress(learner_id);
     CREATE INDEX IF NOT EXISTS idx_chemistry_attempts_learner ON chemistry_attempts(learner_id, started_at DESC);
     CREATE INDEX IF NOT EXISTS idx_chemistry_answers_attempt ON chemistry_attempt_answers(attempt_id);
+    CREATE INDEX IF NOT EXISTS idx_chemistry_card_due ON chemistry_card_progress(learner_id, next_review);
     CREATE INDEX IF NOT EXISTS idx_passages_subject ON passages(subject);
     CREATE INDEX IF NOT EXISTS idx_passage_questions_passage ON passage_questions(passage_id);
     CREATE INDEX IF NOT EXISTS idx_writing_prompts_subject ON writing_prompts(subject);
@@ -341,6 +372,8 @@ export async function initializeDatabase() {
 
   await p.query('ALTER TABLE learner_earnings ADD COLUMN IF NOT EXISTS quiz_correct_answers INTEGER DEFAULT 0')
   await p.query('ALTER TABLE learner_earnings ADD COLUMN IF NOT EXISTS chemistry_correct_answers INTEGER DEFAULT 0')
+  await p.query('ALTER TABLE learner_earnings ADD COLUMN IF NOT EXISTS focus_minutes REAL DEFAULT 0')
+  await p.query('ALTER TABLE learner_earnings ADD COLUMN IF NOT EXISTS focus_blocks INTEGER DEFAULT 0')
   await p.query(`
     UPDATE learner_earnings
     SET quiz_correct_answers = correct_answers

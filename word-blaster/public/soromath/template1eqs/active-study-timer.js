@@ -1,4 +1,4 @@
-const activeStudyStorageKey = "soromath-active-study-v2";
+const activeStudyStorageKey = "soromath-active-study-v3";
 const activeStudyEventKey = "soromath-progress-events-v2";
 const activeStudyStudentKey = "soromath-student-name";
 let activeStudyLastHostPost = 0;
@@ -7,7 +7,7 @@ let activeStudy = {
   activeMs: 0,
   lastTick: Date.now(),
   lastActivity: 0,
-  targetMs: 10 * 60 * 1000,
+  targetMs: 20 * 60 * 1000,
   idleGraceMs: 6000,
   running: false,
   solved: 0,
@@ -249,26 +249,31 @@ function activeStudyRender(){
 
   let now = Date.now();
   let idleFor = activeStudy.lastActivity == 0 ? Infinity : now - activeStudy.lastActivity;
-  let percent = Math.min(100, activeStudy.activeMs / activeStudy.targetMs * 100);
-  let isGoalMet = activeStudy.activeMs >= activeStudy.targetMs;
+  let creditedMs = Math.floor(activeStudy.activeMs / 2);
+  let creditedTargetMs = activeStudy.targetMs / 2;
+  let completedBlocks = Math.floor(activeStudy.activeMs / activeStudy.targetMs);
+  let blockProgressMs = creditedMs % creditedTargetMs;
+  let percent = Math.min(100, blockProgressMs / creditedTargetMs * 100);
+  let isGoalMet = completedBlocks > 0;
 
   root.classList.toggle("active", activeStudy.running);
   root.classList.toggle("paused", !activeStudy.running);
   root.classList.toggle("complete", isGoalMet);
 
-  document.getElementById("activeStudyTime").textContent = activeStudyFormat(activeStudy.activeMs);
-  document.getElementById("activeStudyGoal").textContent = `/ ${activeStudyFormat(activeStudy.targetMs)}`;
+  document.getElementById("activeStudyTime").textContent = activeStudyFormat(blockProgressMs);
+  document.getElementById("activeStudyGoal").textContent = `/ ${activeStudyFormat(creditedTargetMs)}`;
   document.getElementById("activeStudySolved").textContent = `${activeStudy.solved} solved`;
   document.getElementById("activeStudyAccuracy").textContent = `${activeStudy.correct} right / ${activeStudy.wrong} wrong`;
   document.getElementById("activeStudyFill").style.width = `${percent}%`;
 
   let status = "Paused";
-  if(isGoalMet) status = "Goal met";
-  else if(activeStudy.running) status = "Counting";
+  if(activeStudy.running) status = "Counting";
   else if(document.hidden) status = "Paused: page hidden";
   else if(currenttab != "flashproblems") status = "Paused: off task";
   else if(document.activeElement != document.getElementById("template1input") && document.activeElement != document.getElementById("flashinput")) status = "Paused: answer box not focused";
   else if(idleFor > activeStudy.idleGraceMs) status = "Paused: idle";
+
+  if(completedBlocks > 0) status += ` | ${completedBlocks} reward${completedBlocks == 1 ? "" : "s"} earned`;
 
   document.getElementById("activeStudyStatus").textContent = status;
   activeStudyPostHost("progress");

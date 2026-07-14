@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSound } from '../context/SoundContext'
-import { motion } from 'framer-motion'
+import { motion as Motion } from 'framer-motion'
 import { learnerApi } from '../utils/api'
 import learningLabArt from '../assets/learning-lab.png'
 import './HomePage.css'
@@ -78,13 +78,13 @@ function HomePage() {
         <button className="logout-button" onClick={handleLogout}>Log out</button>
       </div>
 
-      <motion.div
+      <Motion.div
         className="home-content"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <motion.div
+        <Motion.div
           className="logo-container"
           animate={{ y: [0, -10, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -98,13 +98,13 @@ function HomePage() {
             <span className="star">&#11088;</span>
             <span className="star">&#11088;</span>
           </div>
-        </motion.div>
+        </Motion.div>
 
         <p className="tagline">Learn Chemistry, English, Latin, Math & more while having fun!</p>
 
         {/* Daily Progress Card */}
         {dailyStatus && (
-          <motion.div
+          <Motion.div
             className="daily-progress-card"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -121,12 +121,12 @@ function HomePage() {
               {dailyStatus.minutesCompleted} / {dailyStatus.minutesRequired} minutes
               {dailyStatus.quotaMet && <span className="quota-met"> - Done!</span>}
             </div>
-          </motion.div>
+          </Motion.div>
         )}
 
         {/* Earnings Card */}
         {earnings && (
-          <motion.div
+          <Motion.div
             className="earnings-card"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -139,7 +139,7 @@ function HomePage() {
             <div className="earnings-card-amounts">
               <div className="earnings-stat">
                 <span className="earnings-stat-value">KSh {earnings.todayEarnings.toFixed(2)}</span>
-                <span className="earnings-stat-label">Today ({earnings.todayCorrect} correct)</span>
+                <span className="earnings-stat-label">Today ({earnings.todayFocusBlocks || 0} focus blocks)</span>
               </div>
               <div className="earnings-divider"></div>
               <div className="earnings-stat">
@@ -153,12 +153,12 @@ function HomePage() {
               </div>
             </div>
             <div className="earnings-card-rate">
-              KSh 1 for Chemistry answers &middot; KSh 0.25 for classic quizzes
+              KSh 20 for every completed focus block
             </div>
-          </motion.div>
+          </Motion.div>
         )}
 
-        <motion.div
+        <Motion.div
           className="learning-lab-card"
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -169,10 +169,10 @@ function HomePage() {
             <span className="learning-lab-eyebrow">Choose your mission</span>
             <strong>One place for Chemistry Academy, Latin memory, speed math, quizzes, and writing.</strong>
           </div>
-        </motion.div>
+        </Motion.div>
 
         <div className="home-buttons">
-          <motion.button
+          <Motion.button
             className="play-button chemistry-home-button"
             onClick={handleChemistry}
             whileHover={{ scale: 1.05 }}
@@ -180,9 +180,9 @@ function HomePage() {
           >
             <span className="button-icon">&#9879;</span>
             Chemistry Academy
-          </motion.button>
+          </Motion.button>
 
-          <motion.button
+          <Motion.button
             className="play-button"
             onClick={handlePlay}
             whileHover={{ scale: 1.05 }}
@@ -190,9 +190,9 @@ function HomePage() {
           >
             <span className="button-icon">&#128640;</span>
             Start Playing!
-          </motion.button>
+          </Motion.button>
 
-          <motion.button
+          <Motion.button
             className="play-button latin-home-button"
             onClick={handleLatin}
             whileHover={{ scale: 1.05 }}
@@ -200,9 +200,9 @@ function HomePage() {
           >
             <span className="button-icon">&#127757;</span>
             Latin World
-          </motion.button>
+          </Motion.button>
 
-          <motion.button
+          <Motion.button
             className="play-button math-home-button"
             onClick={handleMath}
             whileHover={{ scale: 1.05 }}
@@ -210,9 +210,9 @@ function HomePage() {
           >
             <span className="button-icon">&#10133;</span>
             Speed Math
-          </motion.button>
+          </Motion.button>
 
-          <motion.button
+          <Motion.button
             className="play-button writing-button"
             onClick={handleWriting}
             whileHover={{ scale: 1.05 }}
@@ -220,7 +220,7 @@ function HomePage() {
           >
             <span className="button-icon">&#9997;&#65039;</span>
             Writing Practice
-          </motion.button>
+          </Motion.button>
         </div>
 
         <div className="home-features">
@@ -255,35 +255,35 @@ function HomePage() {
           onClick={toggleMute}
           title={isMuted ? "Unmute" : "Mute"}
         >
-          {isMuted ? '🔇' : '🔊'}
+          {isMuted ? 'ðŸ”‡' : 'ðŸ”Š'}
         </button>
-      </motion.div>
+      </Motion.div>
 
       <div className="floating-elements">
-        <motion.span
+        <Motion.span
           className="floating-emoji"
           animate={{ y: [0, -20, 0], rotate: [0, 10, -10, 0] }}
           transition={{ duration: 4, repeat: Infinity }}
           style={{ left: '10%', top: '20%' }}
-        >&#128214;</motion.span>
-        <motion.span
+        >&#128214;</Motion.span>
+        <Motion.span
           className="floating-emoji"
           animate={{ y: [0, -15, 0], rotate: [0, -10, 10, 0] }}
           transition={{ duration: 3.5, repeat: Infinity, delay: 0.5 }}
           style={{ right: '15%', top: '30%' }}
-        >&#128300;</motion.span>
-        <motion.span
+        >&#128300;</Motion.span>
+        <Motion.span
           className="floating-emoji"
           animate={{ y: [0, -25, 0], rotate: [0, 15, -15, 0] }}
           transition={{ duration: 5, repeat: Infinity, delay: 1 }}
           style={{ left: '20%', bottom: '25%' }}
-        >&#127775;</motion.span>
-        <motion.span
+        >&#127775;</Motion.span>
+        <Motion.span
           className="floating-emoji"
           animate={{ y: [0, -18, 0], rotate: [0, -15, 15, 0] }}
           transition={{ duration: 4.5, repeat: Infinity, delay: 0.8 }}
           style={{ right: '10%', bottom: '20%' }}
-        >&#127919;</motion.span>
+        >&#127919;</Motion.span>
       </div>
     </div>
   )

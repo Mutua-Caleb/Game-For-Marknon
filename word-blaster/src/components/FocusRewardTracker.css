@@ -1,0 +1,94 @@
+.focus-reward-tracker {
+  position: fixed;
+  z-index: 1100;
+  top: 80px;
+  right: 12px;
+  width: min(244px, calc(100vw - 24px));
+  padding: 11px 13px;
+  color: #fff;
+  background: #17313d;
+  border: 2px solid #f7cf4a;
+  border-radius: 7px;
+  box-shadow: 0 7px 20px rgb(16 37 46 / 24%);
+  font-family: inherit;
+}
+
+.focus-reward-heading,
+.focus-reward-time {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.focus-reward-heading span {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.focus-reward-heading strong { color: #f7cf4a; font-size: 13px; white-space: nowrap; }
+.focus-reward-time { margin-top: 4px; justify-content: flex-start; }
+.focus-reward-time strong { font-size: 24px; line-height: 1; }
+.focus-reward-time span { color: #b8c8cd; font-size: 11px; font-weight: 800; }
+.focus-reward-track { height: 5px; margin: 8px 0 6px; overflow: hidden; background: #49616a; border-radius: 3px; }
+.focus-reward-track div { height: 100%; background: #f7cf4a; transition: width 0.4s linear; }
+.focus-reward-tracker small { display: block; color: #cbd8dc; font-size: 9px; font-weight: 800; }
+.focus-reward-tracker.paused { border-color: #8da0a7; }
+.focus-reward-tracker.paused .focus-reward-track div { background: #8da0a7; }
+
+.focus-reward-award {
+  position: absolute;
+  right: 8px;
+  bottom: -31px;
+  padding: 6px 9px;
+  color: #17313d;
+  background: #f7cf4a;
+  border: 2px solid #17313d;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 900;
+  animation: focus-award-pop 2.4s ease forwards;
+}
+
+@keyframes focus-award-pop {
+  0% { opacity: 0; transform: translateY(-8px) scale(0.9); }
+  15%, 75% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-12px) scale(0.96); }
+}
+
+@media (min-width: 1200px) {
+  .app > .chemistry-page,
+  .app > .latin-world-page,
+  .app > .speed-math-page,
+  .app > .game-page,
+  .app > .diagram-page,
+  .app > .sequence-page,
+  .app > .writing-page {
+    padding-right: 268px !important;
+  }
+}
+
+@media (max-width: 1199px) {
+  .app > .chemistry-page,
+  .app > .latin-world-page,
+  .app > .speed-math-page,
+  .app > .game-page,
+  .app > .diagram-page,
+  .app > .sequence-page,
+  .app > .writing-page {
+    padding-bottom: 120px !important;
+  }
+
+  .focus-reward-tracker {
+    top: auto;
+    right: 8px;
+    bottom: 8px;
+    width: 188px;
+    padding: 9px 11px;
+  }
+  .focus-reward-time strong { font-size: 20px; }
+}

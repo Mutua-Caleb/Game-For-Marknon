@@ -12,6 +12,7 @@ import WritingPage from './pages/WritingPage'
 import LatinWorldPage from './pages/LatinWorldPage'
 import SpeedMathPage from './pages/SpeedMathPage'
 import ChemistryPage from './pages/ChemistryPage'
+import FocusRewardTracker from './components/FocusRewardTracker'
 import './App.css'
 
 // Check if learner is logged in
@@ -26,6 +27,7 @@ function RequireLearner({ children }) {
 function App() {
   return (
     <div className="app">
+      <FocusRewardTracker />
       <Routes>
         <Route path="/login" element={<LearnerLoginPage />} />
         <Route path="/" element={<RequireLearner><HomePage /></RequireLearner>} />

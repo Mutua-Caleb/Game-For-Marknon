@@ -31,14 +31,13 @@
 
 .latin-topbar {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) 210px;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 1rem;
   align-items: center;
   margin-bottom: 1rem;
 }
 
 .latin-back-button,
-.latin-focus-card,
 .latin-category-panel,
 .latin-map-card,
 .latin-answer-card {
@@ -68,51 +67,6 @@
   font-size: clamp(1.8rem, 4vw, 3.1rem);
   line-height: 1;
   text-shadow: 2px 3px 0 rgba(0, 0, 0, 0.18);
-}
-
-.latin-focus-card {
-  padding: 0.85rem;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.16);
-  color: white;
-}
-
-.latin-focus-card span,
-.latin-focus-card small {
-  display: block;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.75rem;
-  font-weight: 800;
-}
-
-.latin-focus-card strong {
-  display: block;
-  margin: 0.15rem 0;
-  color: #55efc4;
-  font-size: 1.8rem;
-  line-height: 1;
-}
-
-.latin-focus-bar {
-  height: 8px;
-  margin: 0.55rem 0;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.28);
-}
-
-.latin-focus-bar div {
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #fdcb6e, #55efc4);
-}
-
-.latin-focus-card button {
-  width: 100%;
-  padding: 0.4rem 0.65rem;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.18);
-  color: white;
 }
 
 .latin-category-panel {
@@ -323,9 +277,6 @@
     grid-template-columns: 1fr;
   }
 
-  .latin-focus-card {
-    max-width: 280px;
-  }
 }
 
 @media (max-width: 640px) {

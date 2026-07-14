@@ -7,80 +7,63 @@ let optiontimenames = [15000, 60000, 120000];
 let problemmode = "timed";
 
 function setdifficulty(difficulty){
-
-  let keys = Object.keys(modes);
-
-  for(var i = 0; i < keys.length; i++){
-
-
-    if(modes[keys[i]].settingsgui != undefined && modes[keys[i]].settings.presets != undefined){
-
-      console.log(keys[i])
-
-      if(modes[keys[i]].settingsgui.doneinit == false){
-        modes[keys[i]].settingsgui.init(modes[keys[i]], false);
+  if(difficulty == "custom"){
+    let keys = Object.keys(modes);
+    for(let i = 0; i < keys.length; i++){
+      if(modes[keys[i]].settingsgui != undefined && modes[keys[i]].settings.presets != undefined){
+        if(modes[keys[i]].settingsgui.doneinit == false){
+          modes[keys[i]].settingsgui.init(modes[keys[i]], false);
+        }
+        modes[keys[i]].settingsgui.setpreset(modes[keys[i]], "custom");
       }
-
-      modes[keys[i]].settingsgui.setpreset(modes[keys[i]], difficulty)
-
     }
-
+    selecteddifficulties = ["custom"];
+    matchdifficulty();
+    savedifficulty();
+    init();
+    return;
   }
 
+  if(["easy", "medium", "hard"].indexOf(difficulty) == -1) return;
+  if(selecteddifficulties.indexOf("custom") != -1) selecteddifficulties = [];
+
+  let selectedIndex = selecteddifficulties.indexOf(difficulty);
+  if(selectedIndex == -1){
+    selecteddifficulties.push(difficulty);
+  }
+  else if(selecteddifficulties.length > 1){
+    selecteddifficulties.splice(selectedIndex, 1);
+  }
 
   matchdifficulty();
+  savedifficulty();
   init();
-
-
-
 }
 
 function matchdifficulty(){
-
-  let prev = null;
-
-  let keys = currentmode;
-  let newdifficulty = null;
-
-  L: for(var i =0 ; i < keys.length; i++){
-
-    if(modes[keys[i]].settingsgui == undefined || modes[keys[i]].settings.preset == undefined) continue;
-
-    if(prev != null){
-
-      if(modes[keys[i]].settings.preset != prev){
-        newdifficulty = "custom";
-        break L;
-      }
-
-    }
-
-    prev = modes[keys[i]].settings.preset
-    newdifficulty = prev
-
+  let additionOnly = currentmode.length == 1 && currentmode[0] == "addition";
+  if(additionOnly){
+    selecteddifficulties = selecteddifficulties.filter(difficulty => difficulty != "easy");
+    if(selecteddifficulties.length == 0) selecteddifficulties = ["medium"];
   }
 
-  if(newdifficulty == undefined) return;
-
-  let current = document.getElementById(difficultybuttons[difficultynames.indexOf(currentdifficulty)]);
-  let pressed = document.getElementById(difficultybuttons[difficultynames.indexOf(newdifficulty)]);
-
-  current.classList.remove("textselected");
-  pressed.classList.add("textselected");
-
-  currentdifficulty = newdifficulty;
-
-  /*
-  if(currentdifficulty != "custom"){
-    document.getElementById("custombutton").disabled = true;
+  for(let i = 0; i < 3; i++){
+    let button = document.getElementById(difficultybuttons[i]);
+    if(button == null) continue;
+    let selected = selecteddifficulties.indexOf(difficultynames[i]) != -1;
+    button.classList.toggle("textselected", selected);
+    button.setAttribute("aria-pressed", selected ? "true" : "false");
+    button.disabled = additionOnly && difficultynames[i] == "easy";
   }
-  else{
-    document.getElementById("custombutton").disabled = false;
+
+  let customButton = document.getElementById("custombutton");
+  if(customButton != null){
+    let customSelected = selecteddifficulties.indexOf("custom") != -1;
+    customButton.classList.toggle("textselected", customSelected);
+    customButton.setAttribute("aria-pressed", customSelected ? "true" : "false");
   }
-  */
 
-  console.log("SAVING!");
-
+  currentdifficulty = selecteddifficulties.join(" + ");
 }
 
 

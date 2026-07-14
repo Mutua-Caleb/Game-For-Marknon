@@ -344,12 +344,7 @@ function LatinWorldPage() {
   const {
     activeMs,
     markActivity,
-    recordAttempt,
-    resetTimer,
-    focusText,
-    focusPercent,
-    focusStatus,
-    focusGoalText
+    recordAttempt
   } = focusTimer
   const sessionStartActiveMsRef = useRef(activeMs)
 
@@ -435,7 +430,7 @@ function LatinWorldPage() {
       subject: 'Latin',
       topics: [latinCategoryLabels.all],
       gameMode: 'latin',
-      minTimeRequired: 10 * 60
+      minTimeRequired: 20 * 60
     }).then(result => {
       if (!cancelled) {
         quizSessionIdRef.current = result.sessionId
@@ -596,13 +591,6 @@ function LatinWorldPage() {
           <div>
             <p className="latin-kicker">Latin World Blaster</p>
             <h1>Choose a category, then type the Latin.</h1>
-          </div>
-          <div className="latin-focus-card">
-            <span>Active Focus</span>
-            <strong>{focusText}</strong>
-            <small>{focusStatus} / {focusGoalText}</small>
-            <div className="latin-focus-bar"><div style={{ width: `${focusPercent}%` }} /></div>
-            <button type="button" onClick={resetTimer}>Reset</button>
           </div>
         </div>
 

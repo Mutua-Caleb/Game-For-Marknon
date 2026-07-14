@@ -73,7 +73,7 @@ function SpeedMathPage() {
       subject: 'Math',
       topics: ['SoroMath'],
       gameMode: 'math',
-      minTimeRequired: 10 * 60
+      minTimeRequired: 20 * 60
     }).then(result => {
       if (!cancelled) {
         quizSessionIdRef.current = result.sessionId
@@ -152,6 +152,7 @@ function SpeedMathPage() {
         <div className="soromath-mode-strip" aria-label="SoroMath practice areas">
           <span>Arithmetic</span>
           <span>Fractions</span>
+          <span>Decimals</span>
           <span>Algebra</span>
           <span>Calendars</span>
           <span>Conversions</span>

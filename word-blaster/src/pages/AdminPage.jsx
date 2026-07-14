@@ -2179,15 +2179,15 @@ function EarningsSection({ showNotification }) {
           <span className="stat-label">Learners</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">KSh 1.00</span>
-          <span className="stat-label">Per Chemistry Answer</span>
+          <span className="stat-value">KSh 20.00</span>
+          <span className="stat-label">Per Focus Block</span>
         </div>
       </div>
 
       {learners.length === 0 ? (
         <div className="empty-state">
           <span className="empty-icon">&#128176;</span>
-          <p>No learner earnings yet. Earnings are tracked when learners answer questions correctly.</p>
+          <p>No learner earnings yet. Earnings are tracked after verified focus blocks are completed.</p>
         </div>
       ) : (
         <div className="earnings-learner-list">
@@ -2208,13 +2208,13 @@ function EarningsSection({ showNotification }) {
                 <div className="earnings-learner-stat">
                   <span className="earnings-learner-stat-value unpaid">KSh {learner.unpaidTotal.toFixed(2)}</span>
                   <span className="earnings-learner-stat-label">
-                    Unpaid ({learner.unpaidCorrect} answers, {learner.unpaidChemistryCorrect || 0} Chemistry)
+                    Unpaid ({learner.unpaidFocusBlocks || 0} blocks, {Math.round(learner.unpaidFocusMinutes || 0)} verified minutes)
                   </span>
                 </div>
                 <div className="earnings-learner-stat">
                   <span className="earnings-learner-stat-value">KSh {learner.allTimeTotal.toFixed(2)}</span>
                   <span className="earnings-learner-stat-label">
-                    All time ({learner.allTimeCorrect} answers, {learner.allTimeChemistryCorrect || 0} Chemistry)
+                    All time ({learner.allTimeFocusBlocks || 0} blocks, {Math.round(learner.allTimeFocusMinutes || 0)} verified minutes)
                   </span>
                 </div>
               </div>

@@ -107,11 +107,10 @@ export function useActiveFocusTimer({
       const activeElement = document.activeElement
       const hasActiveFocus = root ? root.contains(activeElement) : document.hasFocus()
       const recent = now - lastActivityRef.current < idleMs
-      const complete = activeMsRef.current >= goalMs
-      const running = document.visibilityState === 'visible' && document.hasFocus() && hasActiveFocus && recent && !complete
+      const running = document.visibilityState === 'visible' && document.hasFocus() && hasActiveFocus && recent
 
       if (running) {
-        activeMsRef.current = Math.min(goalMs, activeMsRef.current + delta)
+        activeMsRef.current += delta
         setTimer(prev => ({
           ...prev,
           activeMs: activeMsRef.current,
@@ -119,8 +118,6 @@ export function useActiveFocusTimer({
         }))
         saveTimer(activeMsRef.current, attemptsRef.current)
         setStatus('Counting')
-      } else if (complete) {
-        setStatus('Daily focus met')
       } else if (lastActivityRef.current && !recent) {
         setStatus('Paused: idle')
       } else {
@@ -134,8 +131,8 @@ export function useActiveFocusTimer({
   return {
     activeMs: timer.activeMs,
     attempts: timer.attempts,
-    focusText: formatFocusTime(timer.activeMs),
-    focusPercent: Math.min(100, (timer.activeMs / goalMs) * 100),
+    focusText: formatFocusTime((timer.activeMs * 0.5) % goalMs),
+    focusPercent: (((timer.activeMs * 0.5) % goalMs) / goalMs) * 100,
     focusStatus: status,
     focusGoalText: formatFocusTime(goalMs),
     markActivity,

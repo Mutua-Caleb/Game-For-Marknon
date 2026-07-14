@@ -9,10 +9,12 @@ import FallingQuestion from '../components/FallingQuestion'
 import AnswerInput from '../components/AnswerInput'
 import ScoreDisplay from '../components/ScoreDisplay'
 import ExplosionEffect from '../components/ExplosionEffect'
-import EarningsBar from '../components/EarningsBar'
 import DiagramChallenge from '../components/DiagramChallenge'
 import PassageChallenge from '../components/PassageChallenge'
 import './GamePage.css'
+
+const MIN_QUIZ_TIME = 20 * 60
+const DISPLAY_DIVISOR = 2
 
 // Get learner ID from account or fallback to random
 function getLearnerId() {
@@ -43,7 +45,6 @@ function GamePage() {
     getFilteredPassages,
     gameSettings,
     recordAnswer,
-    playerStats,
     setCurrentSession,
     selectedSubject,
     selectedTopics
@@ -76,19 +77,11 @@ function GamePage() {
   const [minTimeReached, setMinTimeReached] = useState(false)
   const gameStartTimeRef = useRef(null)
 
-  // Earnings tracking
-  const [serverEarnings, setServerEarnings] = useState(0)
-  const sessionCorrectRef = useRef(0)
-  const flushedCorrectRef = useRef(0) // Track what's already been sent to server
-  const [sessionCorrectCount, setSessionCorrectCount] = useState(0)
-
   // Anti-slacking: only count active time
-  const lastInteractionRef = useRef(Date.now())
+  const lastInteractionRef = useRef(0)
   const activeSecondsRef = useRef(0)
   const IDLE_THRESHOLD = 30000 // 30 seconds of no interaction = idle
 
-  const MIN_QUIZ_TIME = 3600 // 60 minutes real active time
-  const DISPLAY_DIVISOR = 2 // Timer displays at half speed (60 real min shows as 30 min)
   const learnerId = getLearnerId()
 
   const failedQuestionsRef = useRef(new Set())
@@ -107,7 +100,6 @@ function GamePage() {
 
   const gameAreaRef = useRef(null)
   const inputRef = useRef(null)
-  const questionTimerRef = useRef(null)
 
   // Initialize question pool
   useEffect(() => {
@@ -189,16 +181,6 @@ function GamePage() {
     })
   }, [gameStarted, quizSessionId, selectedSubject, selectedTopics])
 
-  // Fetch today's earnings on mount
-  useEffect(() => {
-    const accountId = getLearnerAccountId()
-    if (accountId) {
-      learnerApi.getEarnings(accountId)
-        .then(data => setServerEarnings(data.todayEarnings))
-        .catch(console.error)
-    }
-  }, [])
-
   // Track user interactions for anti-slacking
   useEffect(() => {
     if (!gameStarted) return
@@ -220,37 +202,6 @@ function GamePage() {
   useEffect(() => {
     return () => cancelSpeech()
   }, [])
-
-  // Flush pending earnings to server (used by periodic flush, unmount, and beforeunload)
-  const flushEarnings = useCallback((useSendBeacon = false) => {
-    const accountId = getLearnerAccountId()
-    const pending = sessionCorrectRef.current - flushedCorrectRef.current
-    if (!accountId || pending <= 0) return
-
-    if (useSendBeacon) {
-      const apiBase = import.meta.env.VITE_API_URL || '/api'
-      const earningsData = JSON.stringify({ learnerId: accountId, correctAnswers: pending })
-      navigator.sendBeacon(apiBase + '/learners/record-earning', new Blob([earningsData], { type: 'application/json' }))
-    } else {
-      learnerApi.recordEarning(accountId, pending).catch(console.error)
-    }
-    flushedCorrectRef.current = sessionCorrectRef.current
-  }, [])
-
-  // Periodic earnings flush every 15 seconds + flush on unmount (React Router navigation)
-  useEffect(() => {
-    if (!gameStarted) return
-
-    const interval = setInterval(() => {
-      flushEarnings(false)
-    }, 15000)
-
-    return () => {
-      clearInterval(interval)
-      // Flush remaining earnings when component unmounts (e.g. navigating away)
-      flushEarnings(false)
-    }
-  }, [gameStarted, flushEarnings])
 
   // Elapsed time counter - counts only active time (anti-slacking)
   useEffect(() => {
@@ -290,13 +241,11 @@ function GamePage() {
         navigator.sendBeacon(apiBase + '/learners/record-time', new Blob([data], { type: 'application/json' }))
         activeSecondsRef.current = 0 // Reset so endGame doesn't double-count
       }
-      // Also save earnings on page unload (only unsent delta)
-      flushEarnings(true)
     }
 
     window.addEventListener('beforeunload', saveProgress)
     return () => window.removeEventListener('beforeunload', saveProgress)
-  }, [gameStarted, flushEarnings])
+  }, [gameStarted])
 
   // Tab visibility detection
   useEffect(() => {
@@ -502,10 +451,6 @@ function GamePage() {
         }
       })
 
-      // Track earnings (KSh 0.25 per correct answer)
-      sessionCorrectRef.current += 1
-      setSessionCorrectCount(sessionCorrectRef.current)
-
       recordAnswer(matchedQuestion.id, true)
 
       // Record detailed answer for quiz session
@@ -592,12 +537,6 @@ function GamePage() {
 
   // Handle diagram challenge completion
   const handleDiagramComplete = useCallback(({ correctCount, totalLabels }) => {
-    // Award earnings for correct diagram labels
-    if (correctCount > 0) {
-      sessionCorrectRef.current += correctCount
-      setSessionCorrectCount(sessionCorrectRef.current)
-    }
-
     // Award score points
     const points = Math.round((correctCount / totalLabels) * 100)
     setSessionStats(prev => ({
@@ -613,12 +552,6 @@ function GamePage() {
 
   // Handle passage challenge completion
   const handlePassageComplete = useCallback(({ correctCount, totalQuestions }) => {
-    // Award earnings for correct passage answers
-    if (correctCount > 0) {
-      sessionCorrectRef.current += correctCount
-      setSessionCorrectCount(sessionCorrectRef.current)
-    }
-
     // Award score points
     const points = Math.round((correctCount / totalQuestions) * 100)
     setSessionStats(prev => ({
@@ -660,9 +593,6 @@ function GamePage() {
       learnerApi.recordTime(accountId, activeMinutes).catch(console.error)
     }
 
-    // Record any remaining unflushed earnings
-    flushEarnings(false)
-
     setCurrentSession({
       ...sessionStats,
       tabSwitches: tabSwitchCount,
@@ -670,7 +600,7 @@ function GamePage() {
       timestamp: Date.now()
     })
     navigate('/results', { state: { ...sessionStats, tabSwitches: tabSwitchCount, durationSeconds } })
-  }, [sessionStats, setCurrentSession, navigate, quizSessionId, tabSwitchCount, flushEarnings])
+  }, [sessionStats, setCurrentSession, navigate, quizSessionId, tabSwitchCount])
 
   // Handle game over - enforce minimum time
   useEffect(() => {
@@ -694,11 +624,6 @@ function GamePage() {
 
   return (
     <div className="game-page" ref={gameAreaRef}>
-      {/* Earnings Bar */}
-      {gameStarted && (
-        <EarningsBar sessionCorrect={sessionCorrectCount} serverEarnings={serverEarnings} />
-      )}
-
       {/* Background particles */}
       <div className="game-particles"></div>
 

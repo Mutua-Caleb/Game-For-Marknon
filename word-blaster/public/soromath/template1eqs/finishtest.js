@@ -164,7 +164,7 @@ function finishtest(){
        cpm: cpm,
        acc: [stats[0],stats[1]],
        time: (totaltime / 1000)+"s",
-       difficulty: difficultynames.indexOf(currentdifficulty),
+       difficulty: difficultynames.indexOf(selecteddifficulties[0]),
        mode: currentmode,
        date: new Date().getTime()
     })

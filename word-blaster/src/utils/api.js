@@ -412,11 +412,11 @@ export const learnerApi = {
     return handleResponse(res)
   },
 
-  async recordEarning(learnerId, correctAnswers) {
-    const res = await fetch(`${API_BASE}/learners/record-earning`, {
+  async recordFocus(learnerId, subject, activeMs) {
+    const res = await fetch(`${API_BASE}/learners/record-focus`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ learnerId, correctAnswers })
+      body: JSON.stringify({ learnerId, subject, activeMs })
     })
     return handleResponse(res)
   },

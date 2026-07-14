@@ -7,6 +7,7 @@ let currenttab = "flashproblems";
 let currentmode = ["addition"];
 let currenttemplate = "template1equation";
 let currentdifficulty = "easy";
+let selecteddifficulties = ["easy"];
 
 let templates = {
 
@@ -31,6 +32,8 @@ let modes = {
   "multiplication": multpreset,
   "subtraction": subtractionpreset,
   "division": divisionpreset,
+  "decimal x multiples of 10": decimalTimesTenPreset,
+  "decimal / multiples of 10": decimalDivideTenPreset,
   "percentages":percentagepreset,
   "fraction addition": fractionpreset,
   "prime factorisation": primefactorpreset,
@@ -67,7 +70,7 @@ let modes = {
 
 }
 
-let currentversion = "1";
+let currentversion = "2";
 let showlivecorrections = true;
 let calendarappsettings = {
   dateOrder: "DMY",
@@ -209,6 +212,10 @@ function loaddifficulty(){
   problemmode = difficultysettings.problemmode;
   totaltime = difficultysettings.totaltime;
   totalproblems = difficultysettings.totalproblems;
+  selecteddifficulties = Array.isArray(difficultysettings.selecteddifficulties)
+    ? difficultysettings.selecteddifficulties.filter(e => ["easy", "medium", "hard", "custom"].indexOf(e) != -1)
+    : ["easy"];
+  if(selecteddifficulties.length == 0) selecteddifficulties = ["easy"];
 
 }
 
@@ -242,6 +249,7 @@ function savedifficulty(){
   difficultysettings.problemmode = problemmode;
   difficultysettings.totaltime = totaltime;
   difficultysettings.totalproblems = totalproblems;
+  difficultysettings.selecteddifficulties = selecteddifficulties;
 
   localStorage["currentversion"] = currentversion;
   localStorage["difficultysettings"] = JSON.stringify(difficultysettings);

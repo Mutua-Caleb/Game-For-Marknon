@@ -70,6 +70,7 @@
   <script src="template1eqs/multfuncs.js"></script>
   <script src="template1eqs/subtractionfuncs.js"></script>
   <script src="template1eqs/division.js"></script>
+  <script src="template1eqs/decimal10funcs.js"></script>
   <script src="template1eqs/fractionfuncs.js"></script>
   <script src="template1eqs/quadraticeqs.js"></script>
   <script src="template1eqs/trigfuncs.js"></script>
@@ -351,10 +352,10 @@
           <p class="optiontext">Difficulty</p>
           <div class="difficultyrow">
             <div class="buttonrow">
-              <button class="zulubutton optionbutton textselected" id="easybutton" onclick="setdifficulty('easy')">easy</button>
-              <button class="zulubutton optionbutton" id="mediumbutton" onclick="setdifficulty('medium')">medium</button>
-              <button class="zulubutton optionbutton" id="hardbutton" onclick="setdifficulty('hard')">hard</button>
-              <button class="zulubutton optionbutton" id="custombutton" onclick="showmodeselect()">custom</button>
+              <button class="zulubutton optionbutton textselected" id="easybutton" aria-pressed="true" onclick="setdifficulty('easy')">easy</button>
+              <button class="zulubutton optionbutton" id="mediumbutton" aria-pressed="false" onclick="setdifficulty('medium')">medium</button>
+              <button class="zulubutton optionbutton" id="hardbutton" aria-pressed="false" onclick="setdifficulty('hard')">hard</button>
+              <button class="zulubutton optionbutton" id="custombutton" aria-pressed="false" onclick="setdifficulty('custom'); showmodeselect()">custom</button>
             </div>
             <div class="voicemoderow">
 

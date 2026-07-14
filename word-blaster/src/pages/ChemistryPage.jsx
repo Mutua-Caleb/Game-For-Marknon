@@ -83,13 +83,9 @@ function ChemistryPage() {
   const [isStarting, setIsStarting] = useState(false)
   const [isMarking, setIsMarking] = useState(false)
   const [error, setError] = useState('')
-  const [copyNotice, setCopyNotice] = useState(false)
-  const [sessionCorrect, setSessionCorrect] = useState(0)
-  const [sessionEarned, setSessionEarned] = useState(0)
   const [results, setResults] = useState(null)
   const markingRef = useRef(false)
   const questionStartedAtRef = useRef(Date.now())
-  const advanceTimerRef = useRef(null)
 
   const loadProgress = async () => {
     if (!learner?.id) return
@@ -125,7 +121,6 @@ function ChemistryPage() {
     else setIsLoading(false)
     return () => {
       cancelled = true
-      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current)
     }
   }, [learner?.id])
 
@@ -141,7 +136,6 @@ function ChemistryPage() {
 
   const openLesson = lesson => {
     if (!unlockedIds.has(lesson.id)) return
-    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current)
     setSelectedLesson(lesson)
     setResults(null)
     setError('')
@@ -149,21 +143,12 @@ function ChemistryPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const showCopyWarning = event => {
-    event.preventDefault()
-    setCopyNotice(true)
-    window.setTimeout(() => setCopyNotice(false), 2200)
-  }
-
   const returnToNotes = () => {
-    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current)
-    advanceTimerRef.current = null
     setView('study')
   }
 
   const startCheck = async () => {
     if (!selectedLesson || isStarting) return
-    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current)
     setIsStarting(true)
     setError('')
     try {
@@ -172,8 +157,6 @@ function ChemistryPage() {
       setQuestionIndex(0)
       setAnswer('')
       setFeedback(null)
-      setSessionCorrect(0)
-      setSessionEarned(0)
       setResults(null)
       questionStartedAtRef.current = Date.now()
       setView('quiz')
@@ -220,11 +203,6 @@ function ChemistryPage() {
         timeTakenMs: Date.now() - questionStartedAtRef.current
       })
       setFeedback(marked)
-      if (marked.correct) {
-        setSessionCorrect(value => value + 1)
-        setSessionEarned(value => value + Number(marked.awardKsh || 0))
-        advanceTimerRef.current = window.setTimeout(moveNext, 1400)
-      }
     } catch (markError) {
       setError(markError.message || 'Your answer could not be marked. Please try again.')
     } finally {
@@ -268,19 +246,17 @@ function ChemistryPage() {
         </div>
       </header>
 
-      {copyNotice && <div className="copy-notice" role="status">Use the notes to think, then answer in your own words.</div>}
-
       {view === 'chapters' && (
         <main className="chemistry-shell">
           <section className="chemistry-hero">
             <div className="chemistry-hero-copy">
               <span className="chemistry-eyebrow">Workbook journey</span>
               <h1>Master chemistry, one chapter at a time.</h1>
-              <p>Study the notes, face a fresh written check, and score at least {catalog.passPercent}% to unlock what comes next.</p>
+              <p>Study the notes, strengthen each idea with spaced review, and score at least {catalog.passPercent}% to unlock what comes next.</p>
               <div className="chemistry-hero-badges">
                 <span>{catalog.lessons.length} chapters</span>
-                <span>KSh {catalog.rewardPerCorrect} per correct answer</span>
-                <span>{catalog.aiEnabled ? 'AI marking ready' : 'Smart rubric marking ready'}</span>
+                <span>KSh 20 per focus block</span>
+                <span>{progressData?.reviewDueCount || 0} cards due now</span>
               </div>
             </div>
             <ChemistryVisual type="particles" />
@@ -345,16 +321,10 @@ function ChemistryPage() {
             <ChemistryVisual type={selectedLesson.visual} />
           </section>
 
-          <section
-            className="chemistry-notes"
-            onCopy={showCopyWarning}
-            onCut={showCopyWarning}
-            onContextMenu={showCopyWarning}
-            onDragStart={showCopyWarning}
-          >
+          <section className="chemistry-notes">
             <div className="notes-header">
               <div><span>Study notes</span><h2>Build the picture first</h2></div>
-              <span className="no-copy-label">Own words mode</span>
+              <span className="no-copy-label">Spaced review</span>
             </div>
             <div className="notes-list">
               {selectedLesson.notes.map((note, index) => (
@@ -376,8 +346,8 @@ function ChemistryPage() {
           {error && <div className="chemistry-inline-error">{error}</div>}
 
           <section className="ready-band">
-            <div><span>Ready?</span><strong>Five written questions. Four correct answers will pass this chapter.</strong></div>
-            <button onClick={startCheck} disabled={isStarting}>{isStarting ? 'Building a fresh check...' : 'Start chapter check'}</button>
+            <div><span>Ready?</span><strong>Review 5-7 cards and reach {catalog.passPercent}% to pass this chapter.</strong></div>
+            <button onClick={startCheck} disabled={isStarting}>{isStarting ? 'Building a fresh review...' : 'Start spaced review'}</button>
           </section>
         </main>
       )}
@@ -391,28 +361,35 @@ function ChemistryPage() {
                 <i key={index} className={index < questionIndex ? 'done' : index === questionIndex ? 'current' : ''} />
               ))}
             </div>
-            <div className="quiz-earnings"><span>This check</span><strong>KSh {sessionEarned.toFixed(2)}</strong></div>
+            <div className="quiz-earnings"><span>Review</span><strong>{questionIndex + 1} / {attempt.questions.length}</strong></div>
           </section>
 
           <section className="chemistry-question-panel">
             <div className="question-kicker">
               <span>Question {questionIndex + 1} / {attempt.questions.length}</span>
-              <span>{attempt.marker === 'ai' ? 'AI marker' : 'Workbook marker'}</span>
+              <span>Spaced review</span>
             </div>
             <h1>{currentQuestion.question}</h1>
-            <p className="answer-instruction">Write a complete explanation. Scientific meaning matters more than exact wording.</p>
-            <textarea
-              value={answer}
-              onChange={event => setAnswer(event.target.value)}
-              placeholder="Explain your answer here..."
-              rows={7}
-              disabled={isMarking || Boolean(feedback)}
-              autoFocus
-            />
+            <p className="answer-instruction">Recall the idea first, then choose the best statement.</p>
+            <div className="chemistry-answer-options">
+              {currentQuestion.choices.map((choice, index) => (
+                <button
+                  type="button"
+                  key={choice}
+                  className={answer === choice ? 'selected' : ''}
+                  onClick={() => setAnswer(choice)}
+                  disabled={isMarking || Boolean(feedback)}
+                  aria-pressed={answer === choice}
+                >
+                  <span>{String.fromCharCode(65 + index)}</span>
+                  <strong>{choice}</strong>
+                </button>
+              ))}
+            </div>
             <div className="answer-footer">
-              <span>{answer.trim().split(/\s+/).filter(Boolean).length} words</span>
+              <span>{answer ? 'Answer selected' : 'Choose one answer'}</span>
               <button onClick={submitAnswer} disabled={!answer.trim() || isMarking || Boolean(feedback)}>
-                {isMarking ? 'Marking your science...' : 'Submit answer'}
+                {isMarking ? 'Checking recall...' : 'Check answer'}
               </button>
             </div>
           </section>
@@ -425,12 +402,12 @@ function ChemistryPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
             >
-              <div className="feedback-mark">{feedback.correct ? '+ KSh 1' : 'Review'}</div>
+              <div className="feedback-mark">{feedback.correct ? 'Remembered' : 'Review'}</div>
               <div>
-                <strong>{feedback.correct ? 'Correct - moving on.' : 'Not quite yet.'}</strong>
+                <strong>{feedback.correct ? 'Correct.' : 'Not quite yet.'}</strong>
                 <p>{feedback.feedback}</p>
               </div>
-              {!feedback.correct && <button onClick={moveNext}>Next question &rarr;</button>}
+              <button onClick={moveNext}>Next question &rarr;</button>
             </Motion.section>
           )}
         </main>
@@ -451,8 +428,8 @@ function ChemistryPage() {
               : `You need at least ${results.passPercent}% to advance. Return to the notes, rebuild the idea, and try a fresh check.`}</p>
             <div className="result-stats">
               <div><strong>{results.correct}/{results.total}</strong><span>correct</span></div>
-              <div><strong>KSh {Number(results.earnedKsh).toFixed(2)}</strong><span>earned</span></div>
-              <div><strong>{sessionCorrect}</strong><span>AI-approved</span></div>
+              <div><strong>{progressData?.reviewDueCount || 0}</strong><span>cards due now</span></div>
+              <div><strong>KSh 20</strong><span>per focus block</span></div>
             </div>
             <div className="result-actions">
               {!results.passed && <button className="primary" onClick={returnToNotes}>Review the notes</button>}

@@ -346,7 +346,12 @@ function addrandproblem(){
       nextproblem = "addition";
     }
 
+    let problemDifficulty = prepareModeDifficulty(nextproblem);
     problem = modes[nextproblem].addproblem(problemlist.length == 0, modes[nextproblem], name=nextproblem);
+
+    if(problemlist.length > 0){
+      problemlist[problemlist.length - 1][2] = problemDifficulty;
+    }
 
 
     if(recentduplicate()){
@@ -363,6 +368,30 @@ function addrandproblem(){
 
   return problem;
 
+}
+
+function cloneDifficultyValue(value){
+  return Array.isArray(value) ? [...value] : value;
+}
+
+function prepareModeDifficulty(modeName){
+  let mode = modes[modeName];
+  if(mode == undefined || mode.settings == undefined || mode.settings.presets == undefined) return "standard";
+  if(selecteddifficulties.indexOf("custom") != -1) return "custom";
+
+  let available = selecteddifficulties.filter(difficulty => mode.settings.presets[difficulty] != undefined);
+  if(modeName == "addition") available = available.filter(difficulty => difficulty != "easy");
+  if(available.length == 0) available = modeName == "addition" ? ["medium"] : ["easy"];
+
+  let chosen = available[Math.floor(Math.random() * available.length)];
+  let preset = mode.settings.presets[chosen];
+  let keys = Object.keys(preset);
+  for(let i = 0; i < keys.length; i++){
+    if(keys[i] == "button") continue;
+    mode.settings[keys[i]] = cloneDifficultyValue(preset[keys[i]]);
+  }
+  mode.settings.preset = chosen;
+  return chosen;
 }
 
 

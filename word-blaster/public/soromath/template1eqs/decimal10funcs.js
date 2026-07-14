@@ -7,17 +7,17 @@ let decimalTimesTenPreset = {
   getanswer: decimalTimesTenAnswer,
   validate: decimalTenValidate,
   speechText: decimalTimesTenSpeech,
-  name: "decimal x multiples of 10",
+  name: "decimal x 10, 100, 1000",
   settings: {
     preset: "easy",
     presets: {
-      easy: { range1: [0.1, 9.9], range2: [10, 10] },
-      medium: { range1: [0.1, 99.99], range2: [10, 50] },
-      hard: { range1: [0.01, 999.999], range2: [10, 100] },
+      easy: { range1: [0.1, 9.9], powersOfTen: [10] },
+      medium: { range1: [0.1, 99.99], powersOfTen: [10, 100] },
+      hard: { range1: [0.01, 999.999], powersOfTen: [10, 100, 1000] },
       custom: {}
     },
     range1: [0.1, 9.9],
-    range2: [10, 10]
+    powersOfTen: [10]
   }
 };
 
@@ -30,17 +30,17 @@ let decimalDivideTenPreset = {
   getanswer: decimalDivideTenAnswer,
   validate: decimalTenValidate,
   speechText: decimalDivideTenSpeech,
-  name: "decimal / multiples of 10",
+  name: "decimal / 10, 100, 1000",
   settings: {
     preset: "easy",
     presets: {
-      easy: { range1: [0.1, 9.9], range2: [10, 10] },
-      medium: { range1: [0.1, 99.99], range2: [10, 50] },
-      hard: { range1: [0.01, 999.999], range2: [10, 100] },
+      easy: { range1: [0.1, 9.9], powersOfTen: [10] },
+      medium: { range1: [0.1, 99.99], powersOfTen: [10, 100] },
+      hard: { range1: [0.01, 999.999], powersOfTen: [10, 100, 1000] },
       custom: {}
     },
     range1: [0.1, 9.9],
-    range2: [10, 10]
+    powersOfTen: [10]
   }
 };
 
@@ -58,10 +58,9 @@ function randomDecimalForPreset(self){
   return Math.floor(Math.random() * (max - min + 1) + min) / scale;
 }
 
-function randomMultipleOfTen(self){
-  let min = Math.max(10, Math.ceil(self.settings.range2[0] / 10) * 10);
-  let max = Math.max(min, Math.floor(self.settings.range2[1] / 10) * 10);
-  return Math.floor(Math.random() * ((max - min) / 10 + 1)) * 10 + min;
+function randomPowerOfTen(self){
+  let choices = self.settings.powersOfTen || [10];
+  return choices[Math.floor(Math.random() * choices.length)];
 }
 
 function cleanDecimal(value){
@@ -70,7 +69,7 @@ function cleanDecimal(value){
 
 function addDecimalTimesTen(main=false, self=decimalTimesTenPreset, name=null){
   let decimal = main ? 0 : randomDecimalForPreset(self);
-  let multiplier = main ? 10 : randomMultipleOfTen(self);
+  let multiplier = main ? 10 : randomPowerOfTen(self);
   problemlist.push([name, [decimal, multiplier]]);
   if(recentduplicate()) return;
 
@@ -84,7 +83,7 @@ function addDecimalTimesTen(main=false, self=decimalTimesTenPreset, name=null){
 
 function addDecimalDivideTen(main=false, self=decimalDivideTenPreset, name=null){
   let answer = main ? 0 : randomDecimalForPreset(self);
-  let divisor = main ? 10 : randomMultipleOfTen(self);
+  let divisor = main ? 10 : randomPowerOfTen(self);
   let dividend = cleanDecimal(answer * divisor);
   problemlist.push([name, [dividend, divisor]]);
   if(recentduplicate()) return;

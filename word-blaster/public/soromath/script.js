@@ -32,8 +32,8 @@ let modes = {
   "multiplication": multpreset,
   "subtraction": subtractionpreset,
   "division": divisionpreset,
-  "decimal x multiples of 10": decimalTimesTenPreset,
-  "decimal / multiples of 10": decimalDivideTenPreset,
+  "decimal x 10, 100, 1000": decimalTimesTenPreset,
+  "decimal / 10, 100, 1000": decimalDivideTenPreset,
   "percentages":percentagepreset,
   "fraction addition": fractionpreset,
   "prime factorisation": primefactorpreset,
@@ -70,7 +70,7 @@ let modes = {
 
 }
 
-let currentversion = "2";
+let currentversion = "3";
 let showlivecorrections = true;
 let calendarappsettings = {
   dateOrder: "DMY",

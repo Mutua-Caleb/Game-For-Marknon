@@ -46,6 +46,51 @@
   opacity: 1 !important;
 }
 
+#mathreferences{
+  width: min(920px, calc(100% - 28px));
+  margin: 0 auto;
+}
+
+.mathreference{
+  padding: 0;
+  overflow: hidden;
+}
+
+.mathreference summary{
+  cursor: pointer;
+  color: var(--text_color);
+  font-family: var(--font_family);
+  font-size: 18px;
+  padding: 12px 16px;
+  user-select: none;
+}
+
+.mathreferencegrid,
+.formula-grid{
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(210px, 2fr);
+  gap: 8px 18px;
+  padding: 4px 16px 14px;
+  color: var(--text_color);
+  font-family: var(--font_family);
+  font-size: 15px;
+}
+
+.mathreferencegrid strong,
+.formula-grid strong{
+  color: var(--text_select_color);
+}
+
+.formula-note{
+  color: var(--text_color);
+  font-family: var(--font_family);
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0;
+  padding: 0 16px 16px;
+  opacity: 0.8;
+}
+
 
 #customtimecontainer{
   position: fixed;
@@ -116,5 +161,16 @@
 @media screen and (max-width: 1100px) {
   #optionsinner{
     display: block;
+  }
+
+  .mathreferencegrid,
+  .formula-grid{
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .mathreferencegrid strong,
+  .formula-grid strong{
+    margin-bottom: 8px;
   }
 }

@@ -34,6 +34,8 @@ let modes = {
   "division": divisionpreset,
   "decimal x 10, 100, 1000": decimalTimesTenPreset,
   "decimal / 10, 100, 1000": decimalDivideTenPreset,
+  "positive & negative integers": signedIntegerPreset,
+  "area & perimeter": areaPerimeterPreset,
   "percentages":percentagepreset,
   "fraction addition": fractionpreset,
   "prime factorisation": primefactorpreset,

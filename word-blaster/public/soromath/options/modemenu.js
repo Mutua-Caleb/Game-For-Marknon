@@ -20,8 +20,22 @@ function setmodename(){
   }
 
   document.getElementById("modeselectbutton").innerHTML = modelist;
+  updateModeReferences();
 
 
+}
+
+function updateModeReferences(){
+  let references = {
+    "signedintegerreference": "positive & negative integers",
+    "areaperimeterreference": "area & perimeter"
+  };
+
+  for(let id of Object.keys(references)){
+    let element = document.getElementById(id);
+    if(element == null) continue;
+    element.style.display = currentmode.indexOf(references[id]) == -1 ? "none" : "block";
+  }
 }
 
 

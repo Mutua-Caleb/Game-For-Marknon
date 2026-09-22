@@ -110,6 +110,12 @@
   height: 55px;
 }
 
+.geometryproblem{
+  font-size: 28px;
+  height: auto;
+  min-height: 55px;
+}
+
 .clockproblem{
   margin-right:0px;
   height: var(--clock_size);
@@ -204,6 +210,15 @@
 
   .linearproblem{
     font-size: 22px !important;
+  }
+
+  .geometryproblem{
+    font-size: 19px !important;
+    white-space: normal;
+    max-width: 48vw;
+    text-align: right;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
   }
 
 }

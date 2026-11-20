@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
+  <title>Word Blaster — Parent Setup</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: #f4f7ff;
+      background: radial-gradient(circle at top, #3b2d99 0%, #1a1a2e 60%, #111122 100%);
+    }
+    .card {
+      width: 100%;
+      max-width: 520px;
+      padding: 36px 34px;
+      border-radius: 22px;
+      background: rgba(24, 28, 54, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(108, 92, 231, 0.24);
+      border: 1px solid rgba(162, 155, 254, 0.45);
+      color: #dcd6ff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 14px 0 8px;
+      font-size: 28px;
+      line-height: 1.2;
+      color: #ffffff;
+    }
+    .subtitle {
+      margin: 0 0 24px;
+      color: #b8c2e0;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffeaa7;
+    }
+    input[type="url"],
+    input[type="text"] {
+      width: 100%;
+      padding: 13px 15px;
+      border-radius: 12px;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      background: rgba(12, 14, 30, 0.85);
+      color: #ffffff;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    input:focus {
+      border-color: #6c5ce7;
+      box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.3);
+    }
+    .hint {
+      margin: 8px 0 20px;
+      font-size: 12px;
+      color: #96a2c7;
+      line-height: 1.45;
+    }
+    .status {
+      display: none;
+      margin-bottom: 18px;
+      padding: 11px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .status.show { display: block; }
+    .status.error {
+      background: rgba(231, 76, 60, 0.16);
+      border: 1px solid rgba(231, 76, 60, 0.45);
+      color: #ffb8b1;
+    }
+    .status.ok {
+      background: rgba(0, 184, 148, 0.16);
+      border: 1px solid rgba(85, 239, 196, 0.45);
+      color: #aef7e0;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button {
+      flex: 1;
+      min-width: 140px;
+      padding: 13px 18px;
+      border-radius: 12px;
+      border: none;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease, opacity 0.12s ease;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #6c5ce7, #8c7ae6);
+      color: #ffffff;
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e6ecff;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    button:not(:disabled):hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+    .footnote {
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+      color: #8f9bc0;
+      line-height: 1.5;
+    }
+    code {
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffeaa7;
+      font-family: Consolas, monospace;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <span class="badge">Windows Desktop Setup</span>
+    <h1>Connect Word Blaster</h1>
+    <p class="subtitle">
+      Enter your hosted Word Blaster web address once. After connecting online, the app caches all lessons and games so your child can study even when offline or when Microsoft Edge is blocked.
+    </p>
+
+    <form id="setupForm">
+      <label for="serverUrl">Hosted Word Blaster URL</label>
+      <input
+        id="serverUrl"
+        type="text"
+        placeholder="https://your-word-blaster.onrender.com"
+        autocomplete="off"
+        spellcheck="false"
+        required
+      />
+      <p class="hint">
+        This is saved on this PC. All future UI updates and new questions you add online will sync automatically.
+      </p>
+
+      <div id="statusBox" class="status" role="alert"></div>
+
+      <div class="actions">
+        <button type="submit" id="connectBtn" class="btn-primary">Test &amp; Connect</button>
+        <button type="button" id="saveDirectBtn" class="btn-secondary">Save Anyway</button>
+      </div>
+    </form>
+
+    <div class="footnote">
+      Parent tip: You can reopen this screen anytime later by pressing <code>Ctrl + Shift + Alt + P</code>.
+    </div>
+  </main>
+
+  <script>
+    const input = document.getElementById('serverUrl')
+    const statusBox = document.getElementById('statusBox')
+    const connectBtn = document.getElementById('connectBtn')
+    const saveDirectBtn = document.getElementById('saveDirectBtn')
+    const form = document.getElementById('setupForm')
+
+    function showStatus(message, type) {
+      statusBox.textContent = message
+      statusBox.className = `status show ${type}`
+    }
+
+    function setBusy(busy) {
+      connectBtn.disabled = busy
+      saveDirectBtn.disabled = busy
+      connectBtn.textContent = busy ? 'Checking server…' : 'Test & Connect'
+    }
+
+    window.wordBlasterDesktop.getConfig().then((cfg) => {
+      if (cfg && cfg.serverUrl) {
+        input.value = cfg.serverUrl
+      }
+      input.focus()
+    })
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const raw = input.value.trim()
+      if (!raw) {
+        showStatus('Please enter your Word Blaster server URL.', 'error')
+        return
+      }
+
+      setBusy(true)
+      showStatus('Connecting to your Word Blaster server…', 'ok')
+      const result = await window.wordBlasterDesktop.testServerUrl(raw)
+      if (result.ok) {
+        showStatus('Connected! Opening Word Blaster…', 'ok')
+        await window.wordBlasterDesktop.saveServerUrl(result.url)
+      } else {
+        setBusy(false)
+        showStatus(result.error || 'Could not verify the server.', 'error')
+      }
+    })
+
+    saveDirectBtn.addEventListener('click', async () => {
+      const raw = input.value.trim()
+      if (!raw) {
+        showStatus('Please enter a URL first.', 'error')
+        return
+      }
+      const res = await window.wordBlasterDesktop.saveServerUrl(raw)
+      if (!res.ok) {
+        showStatus(res.error || 'Please enter a valid URL starting with https://', 'error')
+      }
+    })
+  </script>
+</body>
+</html>

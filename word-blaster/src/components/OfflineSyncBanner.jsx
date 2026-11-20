@@ -23,6 +23,7 @@ function readLearner() {
 function isStandaloneDesktop() {
   if (typeof window === 'undefined') return false
   return (
+    window.wordBlasterDesktop?.isDesktopApp === true ||
     window.matchMedia('(display-mode: standalone)').matches ||
     window.matchMedia('(display-mode: window-controls-overlay)').matches ||
     window.navigator.standalone === true

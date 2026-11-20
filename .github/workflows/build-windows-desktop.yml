@@ -1,0 +1,74 @@
+name: Build Windows Desktop App
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: 'Optional hosted Word Blaster URL to pre-configure (e.g. https://your-app.onrender.com)'
+        required: false
+        default: ''
+  push:
+    branches:
+      - main
+      - master
+      - claude/word-game-react-08Zzk
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/build-windows-desktop.yml'
+    tags:
+      - 'desktop-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install desktop app dependencies
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+
+      - name: Configure default hosted server URL (if provided)
+        working-directory: desktop
+        env:
+          INPUT_SERVER_URL: ${{ github.event.inputs.server_url }}
+          VAR_SERVER_URL: ${{ vars.WORDBLASTER_URL }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const url = (process.env.INPUT_SERVER_URL || process.env.VAR_SERVER_URL || '').trim();
+            fs.writeFileSync('default-config.json', JSON.stringify({ serverUrl: url }, null, 2) + '\n');
+            console.log('Configured default serverUrl:', url ? url : '(prompt on first launch)');
+          "
+
+      - name: Build Windows 11 installer (.exe) and portable (.exe)
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npm run build:win
+
+      - name: Upload Windows .exe installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: word-blaster-windows-installer
+          path: |
+            desktop/dist-desktop/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach installers to GitHub Release (on desktop-v* tags)
+        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: desktop/dist-desktop/*.exe
+          generate_release_notes: true

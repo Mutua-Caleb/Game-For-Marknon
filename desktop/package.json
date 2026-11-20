@@ -1,0 +1,69 @@
+{
+  "name": "word-blaster-desktop",
+  "version": "1.0.0",
+  "description": "Word Blaster standalone desktop app for Windows 11 (independent of Microsoft Edge for Family Safety compatibility)",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "WORDBLASTER_DEV=1 electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:win:installer": "electron-builder --win nsis --x64",
+    "build:win:portable": "electron-builder --win portable --x64"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.wordblaster.desktop",
+    "productName": "Word Blaster",
+    "copyright": "Copyright © Word Blaster",
+    "directories": {
+      "output": "dist-desktop"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "setup.html",
+      "offline.html",
+      "default-config.json",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "executableName": "Word Blaster"
+    },
+    "nsis": {
+      "artifactName": "Word-Blaster-Setup-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Word Blaster",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "runAfterFinish": true
+    },
+    "portable": {
+      "artifactName": "Word-Blaster-Portable-${version}.${ext}"
+    }
+  }
+}

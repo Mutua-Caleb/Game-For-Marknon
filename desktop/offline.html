@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
+  <title>Word Blaster — Waiting for Connection</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: #f4f7ff;
+      background: radial-gradient(circle at top, #3b2d99 0%, #1a1a2e 60%, #111122 100%);
+    }
+    .card {
+      width: 100%;
+      max-width: 500px;
+      padding: 36px 34px;
+      border-radius: 22px;
+      background: rgba(24, 28, 54, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+      text-align: center;
+    }
+    .pill {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(243, 156, 18, 0.2);
+      border: 1px solid rgba(253, 203, 110, 0.45);
+      color: #ffeaa7;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 16px 0 10px;
+      font-size: 26px;
+      color: #ffffff;
+    }
+    p {
+      margin: 0 0 18px;
+      color: #c2cbe6;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .detail {
+      margin: 0 0 24px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.28);
+      color: #9ba8cc;
+      font-size: 12px;
+      word-break: break-word;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 12px 22px;
+      border-radius: 12px;
+      border: none;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #00b894, #00cec9);
+      color: #0e2622;
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e6ecff;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <span class="pill">Unable to Connect</span>
+    <h1>Word Blaster needs a first sync</h1>
+    <p>
+      We couldn't reach your Word Blaster server yet. Connect to the internet once so Word Blaster can download all lessons for offline study (or wait a few seconds if your server is waking up).
+    </p>
+    <div id="detailBox" class="detail">Checking connection…</div>
+    <div class="actions">
+      <button type="button" id="retryBtn" class="btn-primary">Try Again</button>
+      <button type="button" id="setupBtn" class="btn-secondary">Change Server URL</button>
+    </div>
+  </main>
+
+  <script>
+    const detailBox = document.getElementById('detailBox')
+    const retryBtn = document.getElementById('retryBtn')
+    const setupBtn = document.getElementById('setupBtn')
+
+    Promise.all([
+      window.wordBlasterDesktop.getConfig(),
+      window.wordBlasterDesktop.getLastError()
+    ]).then(([cfg, err]) => {
+      const urlText = cfg?.serverUrl ? `Server: ${cfg.serverUrl}` : 'No server configured'
+      const errText = err ? ` — ${err}` : ''
+      detailBox.textContent = `${urlText}${errText}`
+    })
+
+    retryBtn.addEventListener('click', () => {
+      retryBtn.textContent = 'Connecting…'
+      window.wordBlasterDesktop.retryConnection()
+    })
+
+    setupBtn.addEventListener('click', () => {
+      window.wordBlasterDesktop.openSetup()
+    })
+
+    window.addEventListener('online', () => {
+      window.wordBlasterDesktop.retryConnection()
+    })
+  </script>
+</body>
+</html>

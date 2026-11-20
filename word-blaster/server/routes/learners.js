@@ -187,6 +187,9 @@ router.post('/record-focus', async (req, res) => {
       return res.status(404).json({ error: 'Learner not found' })
     }
 
+    const isOfflineSync = req.body.offlineSync === true
+    const maxDeltaCap = isOfflineSync ? 2 * 60 * 60 * 1000 : MAX_HEARTBEAT_DELTA_MS
+
     const inserted = await client.query(
       `INSERT INTO learner_focus_daily
         (learner_id, focus_date, subject, client_active_ms, verified_active_ms,
@@ -200,7 +203,16 @@ router.post('/record-focus', async (req, res) => {
     let focusRow = inserted.rows[0]
     let acceptedDeltaMs = 0
 
-    if (!focusRow) {
+    if (focusRow) {
+      if (isOfflineSync && req.body.offlineStartedAt) {
+        const offlineElapsedMs = Math.max(0, Date.now() - Number(req.body.offlineStartedAt))
+        acceptedDeltaMs = Math.floor(Math.min(
+          reportedActiveMs,
+          offlineElapsedMs + HEARTBEAT_GRACE_MS,
+          maxDeltaCap
+        ))
+      }
+    } else {
       const current = await client.query(
         `SELECT *,
                 GREATEST(0, EXTRACT(EPOCH FROM (NOW() - last_heartbeat_at)) * 1000) AS elapsed_ms
@@ -219,7 +231,7 @@ router.post('/record-focus', async (req, res) => {
       acceptedDeltaMs = Math.floor(Math.min(
         reportedDeltaMs,
         elapsedMs + HEARTBEAT_GRACE_MS,
-        MAX_HEARTBEAT_DELTA_MS
+        maxDeltaCap
       ))
     }
 

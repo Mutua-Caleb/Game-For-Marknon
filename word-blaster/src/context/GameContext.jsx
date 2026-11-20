@@ -26,60 +26,71 @@ export function GameProvider({ children }) {
   const [currentSession, setCurrentSession] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Load questions from API on mount
-  useEffect(() => {
-    async function loadData() {
+  const loadAllContent = useCallback(async (isInitial = false) => {
+    try {
+      const fetchedQuestions = await questionsApi.getAll()
+      setQuestions(fetchedQuestions)
+
+      // Build local stats map from fetched data
+      const statsMap = {}
+      for (const q of fetchedQuestions) {
+        statsMap[q.id] = {
+          correct: q.correctCount || 0,
+          wrong: q.wrongCount || 0
+        }
+      }
+      setQuestionStats(statsMap)
+
+      // Load sequences
       try {
-        const fetchedQuestions = await questionsApi.getAll()
-        setQuestions(fetchedQuestions)
+        const fetchedSequences = await sequencesApi.getAll()
+        setSequences(fetchedSequences)
+      } catch (seqError) {
+        console.error('Error loading sequences:', seqError)
+      }
 
-        // Build local stats map from fetched data
-        const statsMap = {}
-        for (const q of fetchedQuestions) {
-          statsMap[q.id] = {
-            correct: q.correctCount || 0,
-            wrong: q.wrongCount || 0
-          }
-        }
-        setQuestionStats(statsMap)
+      // Load diagrams
+      try {
+        const fetchedDiagrams = await diagramsApi.getAll()
+        setDiagrams(fetchedDiagrams)
+      } catch (diagError) {
+        console.error('Error loading diagrams:', diagError)
+      }
 
-        // Load sequences
-        try {
-          const fetchedSequences = await sequencesApi.getAll()
-          setSequences(fetchedSequences)
-        } catch (seqError) {
-          console.error('Error loading sequences:', seqError)
-        }
+      // Load passages
+      try {
+        const fetchedPassages = await passagesApi.getAll()
+        setPassages(fetchedPassages)
+      } catch (passError) {
+        console.error('Error loading passages:', passError)
+      }
 
-        // Load diagrams
-        try {
-          const fetchedDiagrams = await diagramsApi.getAll()
-          setDiagrams(fetchedDiagrams)
-        } catch (diagError) {
-          console.error('Error loading diagrams:', diagError)
-        }
-
-        // Load passages
-        try {
-          const fetchedPassages = await passagesApi.getAll()
-          setPassages(fetchedPassages)
-        } catch (passError) {
-          console.error('Error loading passages:', passError)
-        }
-
+      if (isInitial) {
         // Load settings from localStorage
         const savedSettings = localStorage.getItem('gameSettings')
         if (savedSettings) {
           setGameSettings(JSON.parse(savedSettings))
         }
-      } catch (error) {
-        console.error('Error loading data:', error)
-      } finally {
+      }
+    } catch (error) {
+      console.error('Error loading data:', error)
+    } finally {
+      if (isInitial) {
         setIsLoading(false)
       }
     }
-    loadData()
   }, [])
+
+  // Load questions from API (or offline cache) on mount and refresh after sync
+  useEffect(() => {
+    loadAllContent(true)
+
+    const handleSynced = () => {
+      loadAllContent(false)
+    }
+    window.addEventListener('wordblaster:synced', handleSynced)
+    return () => window.removeEventListener('wordblaster:synced', handleSynced)
+  }, [loadAllContent])
 
   // Save settings locally
   useEffect(() => {

@@ -1,0 +1,109 @@
+.offline-sync-dock {
+  position: fixed;
+  z-index: 1090;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  font-family: inherit;
+}
+
+.offline-sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(23, 33, 56, 0.92);
+  color: #f4f7ff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 6px 18px rgba(10, 16, 34, 0.28);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.offline-sync-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #2ecc71;
+  box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.22);
+}
+
+.offline-sync-pill.is-offline {
+  background: rgba(58, 35, 18, 0.94);
+  border-color: rgba(253, 203, 110, 0.5);
+  color: #fff3d1;
+}
+
+.offline-sync-pill.is-offline .offline-sync-dot {
+  background: #f39c12;
+  box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.26);
+}
+
+.offline-sync-pill.is-syncing .offline-sync-dot,
+.offline-sync-pill.is-pending .offline-sync-dot {
+  background: #74b9ff;
+  box-shadow: 0 0 0 3px rgba(116, 185, 255, 0.28);
+  animation: offline-dot-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes offline-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+.offline-sync-label {
+  white-space: nowrap;
+}
+
+.offline-sync-action {
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.offline-sync-action:hover {
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
+}
+
+.offline-update-btn,
+.offline-install-btn {
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: none;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(10, 16, 34, 0.28);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.offline-update-btn {
+  background: linear-gradient(135deg, #00b894, #00cec9);
+  color: #0f2622;
+}
+
+.offline-install-btn {
+  background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+  color: #ffffff;
+}
+
+.offline-update-btn:hover,
+.offline-install-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}

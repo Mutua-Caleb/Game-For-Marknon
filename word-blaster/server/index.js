@@ -53,7 +53,17 @@ app.use('/api/chemistry', chemistryRoutes)
 // Serve static frontend in production
 if (process.env.NODE_ENV === 'production') {
   const distPath = path.join(__dirname, '..', 'dist')
-  app.use(express.static(distPath))
+  app.use(express.static(distPath, {
+    setHeaders: (res, filePath) => {
+      const baseName = path.basename(filePath)
+      if (baseName === 'sw.js' || baseName === 'registerSW.js' || baseName === 'manifest.webmanifest') {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+      }
+      if (baseName === 'manifest.webmanifest') {
+        res.setHeader('Content-Type', 'application/manifest+json')
+      }
+    }
+  }))
 
   // SPA fallback - serve index.html for all non-API routes
   app.get('{*path}', (req, res) => {

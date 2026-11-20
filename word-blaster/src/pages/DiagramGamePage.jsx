@@ -76,11 +76,9 @@ function DiagramGamePage() {
     const saveProgress = () => {
       try {
         const account = JSON.parse(localStorage.getItem('learnerAccount'))
-        const apiBase = import.meta.env.VITE_API_URL || '/api'
         if (account?.id && activeSecondsRef.current > 0) {
           const activeMinutes = activeSecondsRef.current / 60
-          const data = JSON.stringify({ learnerId: account.id, minutes: activeMinutes })
-          navigator.sendBeacon(apiBase + '/learners/record-time', new Blob([data], { type: 'application/json' }))
+          learnerApi.recordTimeBeacon(account.id, activeMinutes)
           activeSecondsRef.current = 0
         }
       } catch { /* no account */ }

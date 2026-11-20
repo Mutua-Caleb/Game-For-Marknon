@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6c5ce7" />
+      <stop offset="55%" stop-color="#4834d4" />
+      <stop offset="100%" stop-color="#1a1a2e" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff3b0" />
+      <stop offset="55%" stop-color="#fdcb6e" />
+      <stop offset="100%" stop-color="#f39c12" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#55efc4" />
+      <stop offset="100%" stop-color="#00b894" />
+    </linearGradient>
+  </defs>
+
+  <!-- Full-bleed background for maskable safe zone -->
+  <rect x="0" y="0" width="512" height="512" fill="url(#bg)" />
+
+  <!-- Centered 80% safe-zone emblem -->
+  <g transform="translate(51.2, 51.2) scale(0.8)">
+    <circle cx="116" cy="118" r="8" fill="#ffeaa7" opacity="0.95" />
+    <circle cx="404" cy="126" r="7" fill="#55efc4" opacity="0.9" />
+    <circle cx="388" cy="390" r="9" fill="#ffeaa7" opacity="0.85" />
+    <circle cx="118" cy="378" r="6" fill="#74b9ff" opacity="0.9" />
+
+    <ellipse cx="256" cy="272" rx="172" ry="60" transform="rotate(-18 256 272)" fill="none" stroke="url(#accent)" stroke-width="11" stroke-linecap="round" opacity="0.7" />
+
+    <path d="M256 76 L278 134 L340 138 L292 178 L308 238 L256 204 L204 238 L220 178 L172 138 L234 134 Z"
+          fill="#0d0d1f" opacity="0.32" transform="translate(0, 12)" />
+    <path d="M256 76 L278 134 L340 138 L292 178 L308 238 L256 204 L204 238 L220 178 L172 138 L234 134 Z"
+          fill="url(#gold)" />
+
+    <g transform="translate(0, 8)" opacity="0.32">
+      <path d="M98 258 L128 386 L160 386 L184 304 L208 386 L240 386 L270 258 L238 258 L222 338 L198 258 L170 258 L146 338 L130 258 Z" fill="#0d0d1f" />
+      <path d="M294 258 L294 386 L362 386 C394 386 414 370 414 346 C414 328 403 317 386 314 C399 309 408 299 408 284 C408 266 390 258 358 258 Z M326 282 L356 282 C370 282 377 286 377 294 C377 303 370 307 356 307 L326 307 Z M326 329 L360 329 C375 329 382 334 382 344 C382 355 375 361 360 361 L326 361 Z" fill="#0d0d1f" />
+    </g>
+    <path d="M98 258 L128 386 L160 386 L184 304 L208 386 L240 386 L270 258 L238 258 L222 338 L198 258 L170 258 L146 338 L130 258 Z" fill="#ffffff" />
+    <path d="M294 258 L294 386 L362 386 C394 386 414 370 414 346 C414 328 403 317 386 314 C399 309 408 299 408 284 C408 266 390 258 358 258 Z M326 282 L356 282 C370 282 377 286 377 294 C377 303 370 307 356 307 L326 307 Z M326 329 L360 329 C375 329 382 334 382 344 C382 355 375 361 360 361 L326 361 Z" fill="#ffeaa7" />
+
+    <rect x="166" y="416" width="180" height="16" rx="8" fill="url(#accent)" />
+  </g>
+</svg>

@@ -13,6 +13,7 @@ import LatinWorldPage from './pages/LatinWorldPage'
 import SpeedMathPage from './pages/SpeedMathPage'
 import ChemistryPage from './pages/ChemistryPage'
 import FocusRewardTracker from './components/FocusRewardTracker'
+import OfflineSyncBanner from './components/OfflineSyncBanner'
 import './App.css'
 
 // Check if learner is logged in
@@ -28,6 +29,7 @@ function App() {
   return (
     <div className="app">
       <FocusRewardTracker />
+      <OfflineSyncBanner />
       <Routes>
         <Route path="/login" element={<LearnerLoginPage />} />
         <Route path="/" element={<RequireLearner><HomePage /></RequireLearner>} />

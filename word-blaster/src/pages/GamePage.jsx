@@ -233,12 +233,10 @@ function GamePage() {
 
     const saveProgress = () => {
       const accountId = getLearnerAccountId()
-      const apiBase = import.meta.env.VITE_API_URL || '/api'
       if (accountId && activeSecondsRef.current > 0) {
         const activeMinutes = activeSecondsRef.current / 60
-        // Use sendBeacon for reliable delivery during page unload
-        const data = JSON.stringify({ learnerId: accountId, minutes: activeMinutes })
-        navigator.sendBeacon(apiBase + '/learners/record-time', new Blob([data], { type: 'application/json' }))
+        // Uses sendBeacon online, or queues locally in IndexedDB when offline
+        learnerApi.recordTimeBeacon(accountId, activeMinutes)
         activeSecondsRef.current = 0 // Reset so endGame doesn't double-count
       }
     }

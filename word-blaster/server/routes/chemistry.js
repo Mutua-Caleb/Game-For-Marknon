@@ -453,4 +453,158 @@ router.post('/attempts/:attemptId/complete', async (req, res) => {
   }
 })
 
+// POST /api/chemistry/attempts/sync-offline - Sync a completed offline Chemistry Academy review
+router.post('/attempts/sync-offline', async (req, res) => {
+  try {
+    const learnerId = Number(req.body.learnerId)
+    const lessonId = String(req.body.lessonId || '').trim()
+    const answers = Array.isArray(req.body.answers) ? req.body.answers : []
+    const durationSeconds = Math.max(1, Math.min(4 * 60 * 60, Math.floor(Number(req.body.durationSeconds) || 1)))
+
+    if (!Number.isInteger(learnerId) || !lessonId || answers.length === 0) {
+      return res.status(400).json({ error: 'Valid learnerId, lessonId, and answers are required' })
+    }
+
+    const lessonItem = getChemistryLesson(lessonId)
+    if (!lessonItem) return res.status(404).json({ error: 'Lesson not found' })
+
+    const pool = getPool()
+    const learnerResult = await pool.query('SELECT id, name FROM learner_accounts WHERE id = $1', [learnerId])
+    if (learnerResult.rows.length === 0) return res.status(404).json({ error: 'Learner not found' })
+
+    const attemptId = randomUUID()
+    const sanitizedAnswers = answers.map((entry, index) => {
+      const learnerAnswer = String(entry.learnerAnswer || '').trim().slice(0, 5000)
+      const expectedAnswer = String(entry.expectedAnswer || '').trim().slice(0, 5000)
+      const isCorrect = normalize(learnerAnswer) === normalize(expectedAnswer)
+      return {
+        index,
+        factId: String(entry.factId || `${lessonItem.id}-${index}`),
+        question: String(entry.question || '').slice(0, 1000),
+        choices: Array.isArray(entry.choices) ? entry.choices : [],
+        learnerAnswer,
+        expectedAnswer,
+        isCorrect,
+        timeTakenMs: Math.max(0, Math.min(30 * 60 * 1000, Number(entry.timeTakenMs) || 0))
+      }
+    })
+
+    const total = sanitizedAnswers.length
+    const correctCount = sanitizedAnswers.filter(a => a.isCorrect).length
+    const wrongCount = total - correctCount
+    const scorePercent = Math.round((correctCount / total) * 100)
+    const passed = scorePercent >= PASS_PERCENT
+
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+      const sessionResult = await client.query(
+        `INSERT INTO quiz_sessions
+          (player_name, subject, topics, game_mode, score, correct_answers, wrong_answers,
+           min_time_required, duration_seconds, started_at, finished_at, completed)
+         VALUES ($1, 'Chemistry', $2, 'chemistry-spaced-repetition', $3, $4, $5, 0, $6,
+                 NOW() - ($6 * INTERVAL '1 second'), NOW(), TRUE)
+         RETURNING id`,
+        [
+          learnerResult.rows[0].name,
+          JSON.stringify([lessonItem.section, lessonItem.title]),
+          scorePercent,
+          correctCount,
+          wrongCount,
+          durationSeconds
+        ]
+      )
+      const quizSessionId = sessionResult.rows[0].id
+
+      await client.query(
+        `INSERT INTO chemistry_attempts
+          (id, learner_id, lesson_id, questions_json, quiz_session_id, score_percent, passed, started_at, completed_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW() - ($8 * INTERVAL '1 second'), NOW())`,
+        [
+          attemptId,
+          learnerId,
+          lessonItem.id,
+          JSON.stringify(sanitizedAnswers),
+          quizSessionId,
+          scorePercent,
+          passed,
+          durationSeconds
+        ]
+      )
+
+      for (const ans of sanitizedAnswers) {
+        const card = await updateCardProgress(client, learnerId, lessonItem.id, ans.factId, ans.isCorrect)
+        const feedback = ans.isCorrect
+          ? `Remembered. This card will return in ${card.intervalDays} day${card.intervalDays === 1 ? '' : 's'}.`
+          : `Review this idea: ${ans.expectedAnswer}`
+
+        await client.query(
+          `INSERT INTO chemistry_attempt_answers
+            (attempt_id, question_index, question_text, learner_answer, expected_answer,
+             is_correct, mark_score, feedback, missing_points, mark_source, time_taken_ms, reward_ksh)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, '[]'::jsonb, 'offline-sync', $9, 0)`,
+          [
+            attemptId,
+            ans.index,
+            ans.question,
+            ans.learnerAnswer,
+            ans.expectedAnswer,
+            ans.isCorrect,
+            ans.isCorrect ? 100 : 0,
+            feedback,
+            ans.timeTakenMs
+          ]
+        )
+
+        await client.query(
+          `INSERT INTO quiz_session_answers
+            (session_id, question_id, question_text, correct_answer, given_answer, is_correct, time_taken_ms)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            quizSessionId,
+            ans.factId,
+            ans.question,
+            ans.expectedAnswer,
+            ans.learnerAnswer,
+            ans.isCorrect,
+            ans.timeTakenMs
+          ]
+        )
+      }
+
+      await client.query(
+        `INSERT INTO chemistry_progress
+          (learner_id, lesson_id, best_score, passed, attempts_count, last_attempted)
+         VALUES ($1, $2, $3, $4, 1, NOW())
+         ON CONFLICT (learner_id, lesson_id)
+         DO UPDATE SET
+           best_score = GREATEST(chemistry_progress.best_score, $3),
+           passed = chemistry_progress.passed OR $4,
+           attempts_count = chemistry_progress.attempts_count + 1,
+           last_attempted = NOW()`,
+        [learnerId, lessonItem.id, scorePercent, passed]
+      )
+
+      await client.query('COMMIT')
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+
+    res.status(201).json({
+      synced: true,
+      attemptId,
+      scorePercent,
+      correct: correctCount,
+      total,
+      passed
+    })
+  } catch (error) {
+    console.error('Sync offline chemistry attempt error:', error)
+    res.status(500).json({ error: 'Failed to sync offline chemistry review' })
+  }
+})
+
 export default router

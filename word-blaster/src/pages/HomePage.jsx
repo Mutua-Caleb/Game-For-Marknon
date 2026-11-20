@@ -21,9 +21,11 @@ function HomePage() {
     }
   })()
 
-  // Fetch daily status and earnings on mount
+  // Fetch daily status and earnings on mount and after offline sync
   useEffect(() => {
-    if (learnerAccount?.id) {
+    if (!learnerAccount?.id) return undefined
+
+    const refreshLearnerData = () => {
       learnerApi.getDailyStatus(learnerAccount.id)
         .then(setDailyStatus)
         .catch(console.error)
@@ -31,6 +33,10 @@ function HomePage() {
         .then(setEarnings)
         .catch(console.error)
     }
+
+    refreshLearnerData()
+    window.addEventListener('wordblaster:synced', refreshLearnerData)
+    return () => window.removeEventListener('wordblaster:synced', refreshLearnerData)
   }, [learnerAccount?.id])
 
   const handlePlay = () => {

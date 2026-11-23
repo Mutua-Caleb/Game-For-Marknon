@@ -1,0 +1,563 @@
+.french-atelier-page {
+  min-height: 100vh;
+  position: relative;
+  padding: 1.25rem 1.5rem 5.5rem;
+}
+
+.french-shell {
+  position: relative;
+  z-index: 5;
+  max-width: 1140px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.french-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.french-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.french-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--realm-accent);
+}
+
+.french-brand div {
+  display: flex;
+  flex-direction: column;
+}
+
+.french-brand strong {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--obs-text-primary);
+}
+
+.french-brand span {
+  font-size: 0.76rem;
+  color: var(--obs-text-muted);
+}
+
+.french-mode-tabs {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.32rem;
+  border-radius: 14px;
+  background: rgba(14, 21, 39, 0.82);
+  border: 1px solid var(--obs-border);
+  flex-wrap: wrap;
+}
+
+.fr-tab {
+  padding: 0.48rem 0.92rem;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--obs-text-secondary);
+  background: transparent;
+}
+
+.fr-tab.is-active {
+  color: #ffffff;
+  background: var(--realm-accent-soft);
+  border: 1px solid var(--realm-accent);
+}
+
+/* Gender Legend */
+.gender-legend-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.legend-pill,
+.gender-tag {
+  padding: 0.24rem 0.72rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid;
+}
+
+.is-masc {
+  --gender-color: #38bdf8;
+}
+
+.is-fem {
+  --gender-color: #fb7185;
+}
+
+.is-plur {
+  --gender-color: #a78bfa;
+}
+
+.is-verb {
+  --gender-color: #fb923c;
+}
+
+.legend-pill.is-masc,
+.gender-tag.is-masc {
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.38);
+}
+
+.legend-pill.is-fem,
+.gender-tag.is-fem {
+  color: #fda4af;
+  background: rgba(251, 113, 133, 0.14);
+  border-color: rgba(251, 113, 133, 0.38);
+}
+
+.gender-tag.is-plur {
+  color: #c4b5fd;
+  background: rgba(167, 139, 250, 0.14);
+  border-color: rgba(167, 139, 250, 0.38);
+}
+
+.gender-tag.is-verb {
+  color: #fdba74;
+  background: rgba(251, 146, 60, 0.14);
+  border-color: rgba(251, 146, 60, 0.38);
+}
+
+.legend-pill.is-mastered {
+  margin-left: auto;
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.38);
+}
+
+.fr-eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #60a5fa;
+  margin-bottom: 0.3rem;
+}
+
+/* Atlas Layout */
+.atlas-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.atlas-map-panel,
+.stop-dossier {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.atlas-svg-wrap {
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 35%, #122142 0%, #091022 100%);
+  border: 1px solid var(--obs-border);
+  padding: 0.75rem;
+  overflow: hidden;
+}
+
+.francophonie-map-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.map-pin-group {
+  cursor: pointer;
+}
+
+.stop-pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.stop-pill {
+  padding: 0.38rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--obs-text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--obs-border);
+}
+
+.stop-pill.is-active {
+  color: #ffffff;
+  background: rgba(59, 130, 246, 0.24);
+  border-color: #60a5fa;
+}
+
+.stop-fact {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--obs-text-secondary);
+}
+
+.stop-word-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.dossier-word-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: rgba(8, 12, 24, 0.65);
+  border: 1px solid var(--obs-border);
+  border-left: 3px solid var(--gender-color, #60a5fa);
+}
+
+.dossier-word-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dossier-word-top strong {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--obs-text-primary);
+}
+
+.dossier-en {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--obs-text-secondary);
+  margin-top: 2px;
+}
+
+.dossier-word-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.audio-mini-btn,
+.master-mini-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--obs-text-primary);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--obs-border);
+}
+
+.master-mini-btn.is-done {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: #10b981;
+  color: #34d399;
+}
+
+/* Flashcards Stage */
+.french-flashcard-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.flashcard-toolbar {
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.audio-first-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--obs-text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--obs-border);
+}
+
+.audio-first-toggle.is-on {
+  color: #fde68a;
+  background: rgba(251, 146, 60, 0.18);
+  border-color: rgba(251, 146, 60, 0.45);
+}
+
+.fr-flashcard {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+  border-top: 3px solid var(--gender-color, #60a5fa);
+}
+
+.fr-card-top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.fr-audio-controls {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.fr-card-word {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.fr-card-phonetic {
+  font-size: 0.9rem;
+  color: var(--obs-text-muted);
+}
+
+.ear-mode-prompt {
+  padding: 1.5rem;
+  border-radius: 14px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px dashed rgba(96, 165, 250, 0.45);
+  color: var(--obs-text-secondary);
+}
+
+.fr-card-reveal {
+  width: 100%;
+  padding-top: 1rem;
+  border-top: 1px solid var(--obs-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.fr-card-english {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #93c5fd;
+}
+
+.fr-example-box {
+  padding: 0.9rem 1.1rem;
+  border-radius: 14px;
+  background: rgba(8, 12, 24, 0.6);
+  border: 1px solid var(--obs-border);
+}
+
+.fr-ex-fr {
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  color: #ffffff;
+}
+
+.fr-ex-en {
+  font-size: 0.86rem;
+  color: var(--obs-text-secondary);
+  margin-top: 0.25rem;
+}
+
+.fr-memory-hook {
+  font-size: 0.84rem;
+  color: #fde68a;
+}
+
+.fr-card-nav {
+  width: 100%;
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Sentence Builder */
+.sentence-builder-panel {
+  max-width: 820px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sb-header {
+  text-align: center;
+}
+
+.sb-prompt-label {
+  display: block;
+  font-size: 0.84rem;
+  color: var(--obs-text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.sb-english-prompt {
+  font-family: var(--font-serif);
+  font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.sb-dropzone {
+  min-height: 76px;
+  padding: 0.9rem 1.1rem;
+  border-radius: 16px;
+  background: rgba(8, 12, 24, 0.72);
+  border: 1.5px dashed rgba(96, 165, 250, 0.45);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.sb-dropzone.is-correct {
+  border-style: solid;
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.sb-dropzone.is-wrong {
+  border-style: solid;
+  border-color: #f43f5e;
+  background: rgba(244, 63, 94, 0.12);
+}
+
+.sb-placeholder {
+  color: var(--obs-text-muted);
+  font-size: 0.9rem;
+}
+
+.sb-bank {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.sb-tile {
+  padding: 0.62rem 1.05rem;
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--obs-text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.38);
+}
+
+.sb-tile:hover:not(:disabled) {
+  border-color: #60a5fa;
+  background: rgba(59, 130, 246, 0.22);
+  transform: translateY(-2px);
+}
+
+.sb-tile.is-placed {
+  background: rgba(59, 130, 246, 0.26);
+  border-color: #60a5fa;
+}
+
+.sb-tile.is-used {
+  opacity: 0.28;
+  cursor: default;
+  box-shadow: none;
+}
+
+.sb-feedback {
+  padding: 1rem 1.2rem;
+  border-radius: 14px;
+  border: 1px solid;
+}
+
+.sb-feedback.is-correct {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.sb-feedback.is-wrong {
+  background: rgba(244, 63, 94, 0.12);
+  border-color: rgba(244, 63, 94, 0.42);
+}
+
+.sb-feedback-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.sb-correct-line {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  color: #ffffff;
+  margin-bottom: 0.35rem;
+}
+
+.sb-grammar-note {
+  font-size: 0.86rem;
+  color: var(--obs-text-secondary);
+}
+
+.sb-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .atlas-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .french-atelier-page {
+    padding: 1rem 1rem 5.5rem;
+  }
+
+  .fr-flashcard,
+  .sentence-builder-panel {
+    padding: 1.35rem;
+  }
+}

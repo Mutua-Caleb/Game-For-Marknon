@@ -448,6 +448,21 @@ function HomePage() {
                           <span>Visual Lab</span>
                         </button>
                       )}
+                      {realm.id === 'maths' && (
+                        <button
+                          type="button"
+                          className="warmup-chip"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            playSound('click')
+                            navigate('/maths-forge')
+                          }}
+                          title="Open Year 7 Visual Maths Forge"
+                        >
+                          <ObservatoryIcon name="sparkles" size={13} />
+                          <span>Maths Forge</span>
+                        </button>
+                      )}
                       {realm.id === 'maths' && FEATURE_FLAGS.showSoroMathWarmup && (
                         <button
                           type="button"
@@ -457,6 +472,21 @@ function HomePage() {
                         >
                           <ObservatoryIcon name="bolt" size={13} />
                           <span>Speed Warm-Up</span>
+                        </button>
+                      )}
+                      {realm.id === 'french' && (
+                        <button
+                          type="button"
+                          className="warmup-chip french-studio-chip"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            playSound('click')
+                            navigate('/french')
+                          }}
+                          title="Open La Francophonie Atlas, Audio Deck & Sentence Builder"
+                        >
+                          <ObservatoryIcon name="sparkles" size={13} />
+                          <span>French Atelier</span>
                         </button>
                       )}
                       <span className="realm-enter-link">

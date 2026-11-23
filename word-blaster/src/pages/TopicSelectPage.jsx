@@ -230,17 +230,46 @@ function TopicSelectPage() {
             </button>
           )}
 
-          {activeRealm.id === 'maths' && FEATURE_FLAGS.showSoroMathWarmup && (
+          {activeRealm.id === 'maths' && (
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn-tactile"
+                onClick={() => {
+                  playSound('click')
+                  navigate('/maths-forge')
+                }}
+              >
+                <ObservatoryIcon name="sparkles" size={16} />
+                <span>Open Year 7 Visual Maths Forge</span>
+              </button>
+              {FEATURE_FLAGS.showSoroMathWarmup && (
+                <button
+                  type="button"
+                  className="btn-ghost warmup-banner-btn"
+                  onClick={() => {
+                    playSound('click')
+                    navigate('/math')
+                  }}
+                >
+                  <ObservatoryIcon name="bolt" size={16} />
+                  <span>3-Min Mental Speed Warm-Up</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {activeRealm.id === 'french' && (
             <button
               type="button"
-              className="btn-ghost warmup-banner-btn"
+              className="btn-tactile"
               onClick={() => {
                 playSound('click')
-                navigate('/math')
+                navigate('/french')
               }}
             >
-              <ObservatoryIcon name="bolt" size={16} />
-              <span>3-Min Mental Speed Warm-Up</span>
+              <ObservatoryIcon name="sparkles" size={16} />
+              <span>Open French Atelier &amp; Atlas</span>
             </button>
           )}
         </Motion.section>

@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
 import { quizSessionApi, learningApi, learnerApi } from '../utils/api'
 import { speakQuestionAnswer, cancelSpeech } from '../utils/voiceover'
+import { FEATURE_FLAGS, getRealmBySubject, recordDailyQuestAnswer } from '../data/curriculum'
+import AmbientBackdrop from '../components/AmbientBackdrop'
+import { ObservatoryIcon } from '../components/RealmIcons'
 import FallingQuestion from '../components/FallingQuestion'
 import AnswerInput from '../components/AnswerInput'
 import ScoreDisplay from '../components/ScoreDisplay'
@@ -15,6 +18,15 @@ import './GamePage.css'
 
 const MIN_QUIZ_TIME = 20 * 60
 const DISPLAY_DIVISOR = 2
+
+function normalizeAnswerText(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/[.,!?]+$/g, '')
+    .replace(/\s+/g, ' ')
+}
 
 // Get learner ID from account or fallback to random
 function getLearnerId() {
@@ -38,9 +50,12 @@ function getLearnerAccountId() {
 
 function GamePage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const isMistakeMode = searchParams.get('mode') === 'mistakes'
   const { playSound } = useSound()
   const {
     getWeightedQuestions,
+    getActiveFailedQuestions,
     getFilteredDiagrams,
     getFilteredPassages,
     gameSettings,
@@ -49,6 +64,10 @@ function GamePage() {
     selectedSubject,
     selectedTopics
   } = useGame()
+
+  const activeRealm = isMistakeMode
+    ? { id: 'mistakes', shortTitle: 'Mistake Forge' }
+    : (getRealmBySubject(selectedSubject) || { id: 'cat4', shortTitle: selectedSubject || 'Observatory' })
 
   const [activeQuestions, setActiveQuestions] = useState([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -96,30 +115,40 @@ function GamePage() {
   const diagramIndexRef = useRef(0)
   const passageIndexRef = useRef(0)
   const questionsUntilChallengeRef = useRef(8) // Show challenge every ~8 questions
-  const nextChallengeTypeRef = useRef('diagram') // Alternate between diagram and passage
+  const nextChallengeTypeRef = useRef('passage') // Prioritize reading passages
 
   const gameAreaRef = useRef(null)
   const inputRef = useRef(null)
 
   // Initialize question pool
   useEffect(() => {
-    const questions = getWeightedQuestions()
+    const questions = isMistakeMode
+      ? getActiveFailedQuestions(20)
+      : getWeightedQuestions()
     if (questions.length === 0) {
       navigate('/topics')
       return
     }
     setQuestionPool(questions)
     originalPoolSizeRef.current = questions.length
-  }, [getWeightedQuestions, navigate])
+  }, [getWeightedQuestions, getActiveFailedQuestions, isMistakeMode, navigate])
 
   // Initialize diagram and passage pools (shuffled)
   useEffect(() => {
-    const diagrams = getFilteredDiagrams()
-    setDiagramPool([...diagrams].sort(() => Math.random() - 0.5))
+    if (FEATURE_FLAGS.showSequenceAndDiagramModes && !isMistakeMode) {
+      const diagrams = getFilteredDiagrams()
+      setDiagramPool([...diagrams].sort(() => Math.random() - 0.5))
+    } else {
+      setDiagramPool([])
+    }
 
-    const passages = getFilteredPassages()
-    setPassagePool([...passages].sort(() => Math.random() - 0.5))
-  }, [getFilteredDiagrams, getFilteredPassages])
+    if (!isMistakeMode) {
+      const passages = getFilteredPassages()
+      setPassagePool([...passages].sort(() => Math.random() - 0.5))
+    } else {
+      setPassagePool([])
+    }
+  }, [getFilteredDiagrams, getFilteredPassages, isMistakeMode])
 
   // Rebuild question pool with spaced repetition after each full cycle
   useEffect(() => {
@@ -419,18 +448,19 @@ function GamePage() {
   const handleAnswer = useCallback((answer) => {
     if (activeQuestions.length === 0) return
 
-    const normalizedAnswer = answer.trim().toLowerCase()
+    const normalizedAnswer = normalizeAnswerText(answer)
 
     // Check against all active questions
     const matchedQuestion = activeQuestions.find(q => {
-      const correctAnswer = q.answer.toLowerCase()
+      const correctAnswer = normalizeAnswerText(q.answer)
       return normalizedAnswer === correctAnswer ||
-             (q.options && q.options.some(opt => opt.toLowerCase() === normalizedAnswer && opt.toLowerCase() === correctAnswer))
+             (q.options && q.options.some(opt => normalizeAnswerText(opt) === normalizedAnswer && normalizeAnswerText(opt) === correctAnswer))
     })
 
     if (matchedQuestion) {
-      // Correct answer!
-      playSound('correct')
+      // Correct answer! Pitch rises along pentatonic scale with streak
+      playSound('correct', { streak: sessionStats.streak })
+      recordDailyQuestAnswer(learnerId, matchedQuestion.subject)
 
       const streakBonus = sessionStats.streak >= 3 ? (sessionStats.streak >= 5 ? 3 : 2) : 1
       const timeBonus = Math.max(1, Math.floor((gameSettings.questionTime * 1000 - (Date.now() - matchedQuestion.startTime)) / 1000 / 5))
@@ -438,7 +468,7 @@ function GamePage() {
 
       setSessionStats(prev => {
         const newStreak = prev.streak + 1
-        if (newStreak === 5 || newStreak === 10) {
+        if (newStreak === 5 || newStreak === 10 || newStreak === 15) {
           playSound('streak')
         }
         return {
@@ -621,9 +651,8 @@ function GamePage() {
   const currentQuestion = activeQuestions[0]
 
   return (
-    <div className="game-page" ref={gameAreaRef}>
-      {/* Background particles */}
-      <div className="game-particles"></div>
+    <div className="game-page" data-realm={activeRealm.id} ref={gameAreaRef}>
+      <AmbientBackdrop realm={activeRealm.id} />
 
       {/* Countdown */}
       <AnimatePresence>
@@ -634,17 +663,18 @@ function GamePage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
+            <div className="countdown-realm-tag">{activeRealm.shortTitle}</div>
             <motion.div
-              className="countdown-number"
+              className="countdown-number mono-num"
               key={countdown}
-              initial={{ scale: 2, opacity: 0 }}
+              initial={{ scale: 1.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.5, opacity: 0 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.45 }}
             >
               {countdown}
             </motion.div>
-            <div className="countdown-text">Get Ready!</div>
+            <div className="countdown-text">Focus &amp; Begin</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -658,7 +688,7 @@ function GamePage() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -60, opacity: 0 }}
           >
-            <span className="warning-icon">&#9888;</span>
+            <ObservatoryIcon name="alert" size={18} />
             Tab switch detected! This has been logged. (Total: {tabSwitchCount})
           </motion.div>
         )}
@@ -666,9 +696,16 @@ function GamePage() {
 
       {/* Game Header */}
       <div className="game-header">
-        <button className="pause-button" onClick={togglePause}>
-          {isPaused ? '▶️' : '⏸️'}
-        </button>
+        <div className="header-left-group">
+          <button
+            className="pause-button"
+            onClick={togglePause}
+            aria-label={isPaused ? 'Resume game' : 'Pause game'}
+          >
+            <ObservatoryIcon name={isPaused ? 'play' : 'pause'} size={18} />
+          </button>
+          <span className="game-realm-pill">{activeRealm.shortTitle}</span>
+        </div>
         <ScoreDisplay
           score={sessionStats.score}
           streak={sessionStats.streak}
@@ -676,7 +713,7 @@ function GamePage() {
           wrong={sessionStats.wrong}
         />
         <div className="header-right-info">
-          <div className="quiz-timer">
+          <div className="quiz-timer mono-num">
             {Math.floor(Math.floor(activeSeconds / DISPLAY_DIVISOR) / 60)}:{String(Math.floor(activeSeconds / DISPLAY_DIVISOR) % 60).padStart(2, '0')}
             {!minTimeReached && (
               <span className="min-time-note"> / 30:00</span>
@@ -685,7 +722,7 @@ function GamePage() {
           <div className="lives-display">
             {[...Array(3)].map((_, i) => (
               <span key={i} className={`life-heart ${i < lives ? 'active' : 'lost'}`}>
-                &#10084;&#65039;
+                <ObservatoryIcon name="heart" size={18} />
               </span>
             ))}
           </div>

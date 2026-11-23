@@ -4,16 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { uploadApi, questionsApi, diagramsApi, passagesApi, statsApi, authApi, quizSessionApi, learnerApi, writingApi } from '../utils/api'
 import WritingCanvas from '../components/WritingCanvas'
+import { ALL_ADMIN_SUBJECTS, ALL_ADMIN_TOPICS } from '../data/curriculum'
 import './AdminPage.css'
 
-const SUBJECTS = ['English', 'Christian Religious Education', 'Creative Arts', 'Agriculture', 'Social Studies']
-const TOPICS = {
-  English: ['Vocabulary', 'Grammar', 'Spelling', 'Reading'],
-  'Christian Religious Education': ['Old Testament', 'New Testament', 'Christian Living', 'The Church'],
-  'Creative Arts': ['Drawing & Painting', 'Music', 'Drama', 'Crafts'],
-  Agriculture: ['Crop Farming', 'Animal Husbandry', 'Soil Science', 'Farm Tools'],
-  'Social Studies': ['Geography', 'History', 'Civics', 'Culture']
-}
+const SUBJECTS = ALL_ADMIN_SUBJECTS
+const TOPICS = ALL_ADMIN_TOPICS
 
 function AdminPage() {
   const navigate = useNavigate()

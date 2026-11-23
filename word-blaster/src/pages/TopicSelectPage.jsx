@@ -1,17 +1,25 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { motion as Motion } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
-import { subjects, topics } from '../data/defaultQuestions'
 import { learningApi } from '../utils/api'
+import {
+  ACTIVE_REALMS,
+  FEATURE_FLAGS,
+  PACE_MODES,
+  getMasteryTier,
+  getRealmById,
+  getRealmBySubject
+} from '../data/curriculum'
+import AmbientBackdrop from '../components/AmbientBackdrop'
+import { MasteryRing, ObservatoryIcon, RealmCrest } from '../components/RealmIcons'
 import './TopicSelectPage.css'
 
-// Get or create learner ID (stored in localStorage)
 function getLearnerId() {
   let learnerId = localStorage.getItem('learnerId')
   if (!learnerId) {
-    learnerId = 'learner_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+    learnerId = 'learner_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11)
     localStorage.setItem('learnerId', learnerId)
   }
   return learnerId
@@ -19,24 +27,42 @@ function getLearnerId() {
 
 function TopicSelectPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { playSound } = useSound()
   const {
+    selectedSubject,
     setSelectedSubject,
     setSelectedTopics,
     questions,
-    sequences,
-    diagrams,
+    passages,
     gameSettings,
     setGameSettings
   } = useGame()
 
-  const [selectedSubjectLocal, setSelectedSubjectLocal] = useState(null)
-  const [selectedTopicsLocal, setSelectedTopicsLocal] = useState([])
-  const [gameMode, setGameMode] = useState('quiz') // 'quiz', 'sequence', or 'diagram'
-  const [topicMastery, setTopicMastery] = useState({}) // { "subject:topic": { mastery_percentage, locked, lockReason } }
-  const [learnerStats, setLearnerStats] = useState(null)
+  const activeRealm = useMemo(() => {
+    const fromQuery = getRealmById(searchParams.get('realm'))
+    if (fromQuery) return fromQuery
+    const fromContext = getRealmBySubject(selectedSubject)
+    if (fromContext) return fromContext
+    return ACTIVE_REALMS[0]
+  }, [searchParams, selectedSubject])
+
+  const [selectedByRealm, setSelectedByRealm] = useState({})
+  const [topicMastery, setTopicMastery] = useState({})
 
   const learnerId = getLearnerId()
+  const selectedTopicsLocal = useMemo(
+    () => selectedByRealm[activeRealm.id] || [],
+    [selectedByRealm, activeRealm.id]
+  )
+
+  const setSelectedTopicsLocal = useCallback((updater) => {
+    setSelectedByRealm(prev => {
+      const current = prev[activeRealm.id] || []
+      const next = typeof updater === 'function' ? updater(current) : updater
+      return { ...prev, [activeRealm.id]: next }
+    })
+  }, [activeRealm.id])
 
   // Fetch mastery data on mount
   useEffect(() => {
@@ -44,9 +70,11 @@ function TopicSelectPage() {
       try {
         const data = await learningApi.getMastery(learnerId)
         const masteryMap = {}
-        data.topics.forEach(t => {
-          masteryMap[`${t.subject}:${t.topic}`] = t
-        })
+        if (Array.isArray(data?.topics)) {
+          data.topics.forEach(t => {
+            masteryMap[`${t.subject}:${t.topic}`] = t
+          })
+        }
         setTopicMastery(masteryMap)
       } catch (err) {
         console.error('Failed to fetch mastery:', err)
@@ -55,50 +83,43 @@ function TopicSelectPage() {
     fetchMastery()
   }, [learnerId])
 
-  // Fetch learner stats
-  useEffect(() => {
-    async function fetchStats() {
-      try {
-        const stats = await learningApi.getStats(learnerId)
-        setLearnerStats(stats)
-      } catch (err) {
-        console.error('Failed to fetch stats:', err)
-      }
-    }
-    fetchStats()
-  }, [learnerId])
-
   const getTopicMastery = useCallback((subject, topic) => {
     return topicMastery[`${subject}:${topic}`] || { mastery_percentage: 0, locked: false }
   }, [topicMastery])
 
-  const handleSubjectSelect = (subject) => {
+  // Merge configured realm topics with any extra DB topics for that subject
+  const realmTopics = useMemo(() => {
+    const dbTopics = questions
+      .filter(q => q.subject === activeRealm.subject)
+      .map(q => q.topic)
+    const merged = [...activeRealm.topics]
+    for (const t of dbTopics) {
+      if (t && !merged.includes(t)) merged.push(t)
+    }
+    return merged
+  }, [activeRealm, questions])
+
+  const handleRealmSwitch = (realmId) => {
     playSound('click')
-    setSelectedSubjectLocal(subject)
-    setSelectedTopicsLocal([])
+    setSearchParams({ realm: realmId }, { replace: true })
   }
 
   const handleTopicToggle = (topic) => {
-    const mastery = getTopicMastery(selectedSubjectLocal, topic)
+    const mastery = getTopicMastery(activeRealm.subject, topic)
     if (mastery.locked) {
-      // Show lock reason but don't select
       playSound('wrong')
       return
     }
     playSound('click')
-    setSelectedTopicsLocal(prev => {
-      if (prev.includes(topic)) {
-        return prev.filter(t => t !== topic)
-      }
-      return [...prev, topic]
-    })
+    setSelectedTopicsLocal(prev =>
+      prev.includes(topic) ? prev.filter(t => t !== topic) : [...prev, topic]
+    )
   }
 
   const handleSelectAll = () => {
     playSound('click')
-    if (selectedSubjectLocal) {
-      setSelectedTopicsLocal(topics[selectedSubjectLocal])
-    }
+    const unlocked = realmTopics.filter(t => !getTopicMastery(activeRealm.subject, t).locked)
+    setSelectedTopicsLocal(unlocked)
   }
 
   const handleClearAll = () => {
@@ -106,301 +127,244 @@ function TopicSelectPage() {
     setSelectedTopicsLocal([])
   }
 
+  const effectiveTopics = selectedTopicsLocal.length > 0 ? selectedTopicsLocal : realmTopics
+
+  const availableQuestionsCount = useMemo(() => {
+    return questions.filter(
+      q => q.subject === activeRealm.subject && effectiveTopics.includes(q.topic)
+    ).length
+  }, [questions, activeRealm.subject, effectiveTopics])
+
+  const availablePassagesCount = useMemo(() => {
+    return passages.filter(p => p.subject === activeRealm.subject).length
+  }, [passages, activeRealm.subject])
+
   const handleStartGame = () => {
+    if (availableQuestionsCount === 0) return
     playSound('gameStart')
-    setSelectedSubject(selectedSubjectLocal)
-    setSelectedTopics(selectedTopicsLocal.length > 0 ? selectedTopicsLocal : topics[selectedSubjectLocal])
-    const routes = { quiz: '/play', sequence: '/play/sequence', diagram: '/play/diagram' }
-    navigate(routes[gameMode] || '/play')
-  }
-
-  const getQuestionCount = () => {
-    let filtered = questions.filter(q => q.subject === selectedSubjectLocal)
-    if (selectedTopicsLocal.length > 0) {
-      filtered = filtered.filter(q => selectedTopicsLocal.includes(q.topic))
-    }
-    return filtered.length
-  }
-
-  const getSequenceCount = () => {
-    let filtered = sequences.filter(s => s.subject === selectedSubjectLocal)
-    if (selectedTopicsLocal.length > 0) {
-      filtered = filtered.filter(s => selectedTopicsLocal.includes(s.topic))
-    }
-    return filtered.length
-  }
-
-  const getDiagramCount = () => {
-    let filtered = diagrams.filter(d => d.subject === selectedSubjectLocal)
-    if (selectedTopicsLocal.length > 0) {
-      filtered = filtered.filter(d => selectedTopicsLocal.includes(d.topic))
-    }
-    return filtered.length
-  }
-
-  const subjectIcons = {
-    English: '📚',
-    'Christian Religious Education': '✝️',
-    'Creative Arts': '🎨',
-    Agriculture: '🌾',
-    'Social Studies': '🌍'
-  }
-
-  const topicIcons = {
-    'Vocabulary': '📖',
-    'Grammar': '✏️',
-    'Spelling': '🔤',
-    'Reading': '📕',
-    'Old Testament': '📜',
-    'New Testament': '📖',
-    'Christian Living': '🙏',
-    'The Church': '⛪',
-    'Drawing & Painting': '🖌️',
-    'Music': '🎵',
-    'Drama': '🎭',
-    'Crafts': '✂️',
-    'Crop Farming': '🌱',
-    'Animal Husbandry': '🐄',
-    'Soil Science': '🪱',
-    'Farm Tools': '🚜',
-    'Geography': '🗺️',
-    'History': '🏛️',
-    'Civics': '⚖️',
-    'Culture': '🎎'
+    setSelectedSubject(activeRealm.subject)
+    setSelectedTopics(effectiveTopics)
+    navigate('/play')
   }
 
   return (
-    <div className="topic-select-page">
-      <motion.div
-        className="topic-content"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <button className="back-button" onClick={() => navigate('/')}>
-          ← Back
-        </button>
+    <div className="topic-select-page" data-realm={activeRealm.id}>
+      <AmbientBackdrop realm={activeRealm.id} />
 
-        <h1 className="page-title">Choose Your Adventure!</h1>
+      <div className="topic-shell">
+        {/* Top Navigation Row */}
+        <header className="topic-topbar">
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => {
+              playSound('click')
+              navigate('/')
+            }}
+          >
+            <ObservatoryIcon name="arrow-left" size={16} />
+            <span>Command Center</span>
+          </button>
 
-        <div className="selection-container">
-          {/* Subject Selection */}
-          <section className="selection-section">
-            <h2 className="section-title">Pick a Subject</h2>
-            <div className="subjects-grid">
-              {subjects.map(subject => (
-                <motion.button
-                  key={subject}
-                  className={`subject-card ${selectedSubjectLocal === subject ? 'selected' : ''}`}
-                  onClick={() => handleSubjectSelect(subject)}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <span className="card-icon">{subjectIcons[subject]}</span>
-                  <span className="card-label">{subject}</span>
-                  <span className="card-count">
-                    {questions.filter(q => q.subject === subject).length} questions
-                  </span>
-                </motion.button>
-              ))}
-            </div>
-          </section>
-
-          {/* Topic Selection */}
-          {selectedSubjectLocal && (
-            <motion.section
-              className="selection-section"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="section-header">
-                <h2 className="section-title">Select Topics</h2>
-                <div className="section-actions">
-                  <button className="action-btn" onClick={handleSelectAll}>Select All</button>
-                  <button className="action-btn" onClick={handleClearAll}>Clear All</button>
-                </div>
-              </div>
-              <div className="topics-grid">
-                {topics[selectedSubjectLocal].map(topic => {
-                  const mastery = getTopicMastery(selectedSubjectLocal, topic)
-                  const isLocked = mastery.locked
-
-                  return (
-                    <motion.button
-                      key={topic}
-                      className={`topic-card ${selectedTopicsLocal.includes(topic) ? 'selected' : ''} ${isLocked ? 'locked' : ''}`}
-                      onClick={() => handleTopicToggle(topic)}
-                      whileHover={!isLocked ? { scale: 1.03 } : {}}
-                      whileTap={!isLocked ? { scale: 0.97 } : {}}
-                      title={isLocked ? mastery.lockReason : ''}
-                    >
-                      {isLocked && <span className="lock-icon">&#128274;</span>}
-                      <span className="card-icon">{topicIcons[topic]}</span>
-                      <span className="card-label">{topic}</span>
-                      <span className="card-count">
-                        {questions.filter(q => q.topic === topic).length} questions
-                      </span>
-
-                      {/* Mastery Progress Bar */}
-                      <div className="mastery-bar-container">
-                        <div
-                          className="mastery-bar"
-                          style={{ width: `${mastery.mastery_percentage || 0}%` }}
-                        />
-                        <span className="mastery-text">{Math.round(mastery.mastery_percentage || 0)}% mastery</span>
-                      </div>
-
-                      {isLocked && (
-                        <span className="lock-reason">{mastery.lockReason}</span>
-                      )}
-                      {selectedTopicsLocal.includes(topic) && !isLocked && (
-                        <span className="check-mark">&#10003;</span>
-                      )}
-                    </motion.button>
-                  )
-                })}
-              </div>
-            </motion.section>
-          )}
-
-          {/* Game Mode */}
-          {selectedSubjectLocal && (
-            <motion.section
-              className="selection-section"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.05 }}
-            >
-              <h2 className="section-title">Game Mode</h2>
-              <div className="mode-grid">
-                <motion.button
-                  className={`mode-card ${gameMode === 'quiz' ? 'selected' : ''}`}
-                  onClick={() => { playSound('click'); setGameMode('quiz') }}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <span className="card-icon">&#127922;</span>
-                  <span className="card-label">Quiz Blaster</span>
-                  <span className="card-count">
-                    {getQuestionCount()} questions
-                  </span>
-                  <span className="mode-desc">Answer falling questions before time runs out!</span>
-                  {gameMode === 'quiz' && <span className="check-mark">&#10003;</span>}
-                </motion.button>
-                <motion.button
-                  className={`mode-card ${gameMode === 'sequence' ? 'selected' : ''} ${getSequenceCount() === 0 ? 'disabled' : ''}`}
-                  onClick={() => {
-                    if (getSequenceCount() > 0) {
-                      playSound('click')
-                      setGameMode('sequence')
-                    }
-                  }}
-                  whileHover={getSequenceCount() > 0 ? { scale: 1.03 } : {}}
-                  whileTap={getSequenceCount() > 0 ? { scale: 0.97 } : {}}
-                >
-                  <span className="card-icon">&#128257;</span>
-                  <span className="card-label">Sequence Order</span>
-                  <span className="card-count">
-                    {getSequenceCount()} sequence{getSequenceCount() !== 1 ? 's' : ''}
-                  </span>
-                  <span className="mode-desc">Drag steps into the correct order to master processes!</span>
-                  {gameMode === 'sequence' && <span className="check-mark">&#10003;</span>}
-                </motion.button>
-                <motion.button
-                  className={`mode-card ${gameMode === 'diagram' ? 'selected' : ''} ${getDiagramCount() === 0 ? 'disabled' : ''}`}
-                  onClick={() => {
-                    if (getDiagramCount() > 0) {
-                      playSound('click')
-                      setGameMode('diagram')
-                    }
-                  }}
-                  whileHover={getDiagramCount() > 0 ? { scale: 1.03 } : {}}
-                  whileTap={getDiagramCount() > 0 ? { scale: 0.97 } : {}}
-                >
-                  <span className="card-icon">&#128444;</span>
-                  <span className="card-label">Diagram Label</span>
-                  <span className="card-count">
-                    {getDiagramCount()} diagram{getDiagramCount() !== 1 ? 's' : ''}
-                  </span>
-                  <span className="mode-desc">Label parts of scientific diagrams and images!</span>
-                  {gameMode === 'diagram' && <span className="check-mark">&#10003;</span>}
-                </motion.button>
-              </div>
-            </motion.section>
-          )}
-
-          {/* Settings */}
-          {selectedSubjectLocal && gameMode === 'quiz' && (
-            <motion.section
-              className="selection-section settings-section"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
-              <h2 className="section-title">Game Settings</h2>
-              <div className="settings-grid">
-                <div className="setting-item">
-                  <label>Time per Question</label>
-                  <div className="setting-options">
-                    {[30, 45, 60, 90].map(time => (
-                      <button
-                        key={time}
-                        className={`setting-btn ${gameSettings.questionTime === time ? 'active' : ''}`}
-                        onClick={() => {
-                          playSound('click')
-                          setGameSettings(prev => ({ ...prev, questionTime: time }))
-                        }}
-                      >
-                        {time}s
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.section>
-          )}
-
-          {/* Start Button */}
-          {selectedSubjectLocal && (
-            <motion.div
-              className="start-section"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-            >
-              <div className="question-summary">
-                <span className="summary-icon">
-                  {gameMode === 'sequence' ? '\uD83D\uDD00' : gameMode === 'diagram' ? '\uD83D\uDDBC' : '\uD83D\uDCDD'}
-                </span>
-                <span className="summary-text">
-                  {gameMode === 'sequence'
-                    ? `${getSequenceCount()} sequence${getSequenceCount() !== 1 ? 's' : ''} ready!`
-                    : gameMode === 'diagram'
-                    ? `${getDiagramCount()} diagram${getDiagramCount() !== 1 ? 's' : ''} ready!`
-                    : `${getQuestionCount()} questions ready to play!`}
-                </span>
-              </div>
-              <motion.button
-                className="start-button"
-                onClick={handleStartGame}
-                disabled={
-                  gameMode === 'sequence' ? getSequenceCount() === 0
-                  : gameMode === 'diagram' ? getDiagramCount() === 0
-                  : getQuestionCount() === 0
-                }
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+          {/* Realm Switcher Tabs */}
+          <nav className="realm-switcher" aria-label="Switch active prep realm">
+            {ACTIVE_REALMS.map(realm => (
+              <button
+                key={realm.id}
+                type="button"
+                className={`realm-tab ${realm.id === activeRealm.id ? 'is-active' : ''}`}
+                data-realm={realm.id}
+                onClick={() => handleRealmSwitch(realm.id)}
               >
-                <span className="button-icon">
-                  {gameMode === 'sequence' ? '\uD83C\uDFAF' : gameMode === 'diagram' ? '\uD83D\uDDBC' : '\uD83C\uDFAE'}
-                </span>
-                {gameMode === 'sequence' ? 'Start Sequence!' : gameMode === 'diagram' ? 'Start Labeling!' : 'Start Game!'}
-              </motion.button>
-            </motion.div>
+                <RealmCrest realmId={realm.id} size={18} />
+                <span>{realm.shortTitle}</span>
+              </button>
+            ))}
+          </nav>
+        </header>
+
+        {/* Active Realm Hero Banner */}
+        <Motion.section
+          key={activeRealm.id}
+          className="realm-banner obs-panel"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+        >
+          <div className="realm-banner-left">
+            <div className="banner-crest">
+              <RealmCrest realmId={activeRealm.id} size={36} />
+            </div>
+            <div>
+              <span className="banner-kicker">{activeRealm.kicker}</span>
+              <h1 className="banner-title">{activeRealm.title}</h1>
+              <p className="banner-desc">{activeRealm.description}</p>
+            </div>
+          </div>
+
+          {activeRealm.id === 'maths' && FEATURE_FLAGS.showSoroMathWarmup && (
+            <button
+              type="button"
+              className="btn-ghost warmup-banner-btn"
+              onClick={() => {
+                playSound('click')
+                navigate('/math')
+              }}
+            >
+              <ObservatoryIcon name="bolt" size={16} />
+              <span>3-Min Mental Speed Warm-Up</span>
+            </button>
           )}
+        </Motion.section>
+
+        {/* Skill Path Nodes */}
+        <section className="skill-map-section obs-panel">
+          <div className="section-header">
+            <div>
+              <span className="section-eyebrow">Skill Constellation</span>
+              <h2 className="section-title">Select Focus Nodes</h2>
+              <p className="section-hint">
+                Pick specific topics to target, or leave all unselected to train across the entire wing.
+              </p>
+            </div>
+            <div className="section-actions">
+              <button type="button" className="btn-ghost action-pill" onClick={handleSelectAll}>
+                Select All
+              </button>
+              <button type="button" className="btn-ghost action-pill" onClick={handleClearAll}>
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <div className="skill-nodes-grid">
+            {realmTopics.map((topic, idx) => {
+              const mastery = getTopicMastery(activeRealm.subject, topic)
+              const pct = Math.round(mastery.mastery_percentage || 0)
+              const tier = getMasteryTier(pct)
+              const isLocked = Boolean(mastery.locked)
+              const isSelected = selectedTopicsLocal.includes(topic)
+              const topicCount = questions.filter(
+                q => q.subject === activeRealm.subject && q.topic === topic
+              ).length
+
+              return (
+                <Motion.button
+                  key={topic}
+                  type="button"
+                  className={`skill-node ${isSelected ? 'is-selected' : ''} ${isLocked ? 'is-locked' : ''}`}
+                  onClick={() => handleTopicToggle(topic)}
+                  whileHover={!isLocked ? { y: -3 } : {}}
+                  whileTap={!isLocked ? { scale: 0.98 } : {}}
+                  title={isLocked ? mastery.lockReason : `Select ${topic}`}
+                >
+                  <div className="node-top-row">
+                    <span className="node-index mono-num">0{idx + 1}</span>
+                    <span
+                      className="node-tier-pill"
+                      style={{ color: tier.color, borderColor: `${tier.color}55` }}
+                    >
+                      {tier.id === 'crown' && <ObservatoryIcon name="crown" size={12} />}
+                      {tier.label}
+                    </span>
+                  </div>
+
+                  <div className="node-body">
+                    <MasteryRing
+                      percent={pct}
+                      size={56}
+                      strokeWidth={4.5}
+                      color={isLocked ? '#64748b' : activeRealm.accent}
+                    >
+                      {isLocked ? (
+                        <ObservatoryIcon name="lock" size={18} />
+                      ) : (
+                        <span className="node-pct mono-num">{pct}%</span>
+                      )}
+                    </MasteryRing>
+
+                    <div className="node-copy">
+                      <span className="node-title">{topic}</span>
+                      <span className="node-count mono-num">
+                        {topicCount} {topicCount === 1 ? 'drill' : 'drills'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isLocked && mastery.lockReason && (
+                    <span className="node-lock-reason">{mastery.lockReason}</span>
+                  )}
+
+                  {isSelected && !isLocked && (
+                    <span className="node-selected-check" aria-label="Selected">
+                      <ObservatoryIcon name="check" size={14} />
+                    </span>
+                  )}
+                </Motion.button>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* Training Pace Selector */}
+        <section className="pace-section obs-panel">
+          <div className="pace-header">
+            <div>
+              <span className="section-eyebrow">Tempo Control</span>
+              <h2 className="section-title">Training Pace</h2>
+            </div>
+            <span className="pace-caption">Choose deep analytical thinking or exam speed</span>
+          </div>
+
+          <div className="pace-grid">
+            {PACE_MODES.map(mode => {
+              const isActive = gameSettings.questionTime === mode.seconds
+              return (
+                <button
+                  key={mode.id}
+                  type="button"
+                  className={`pace-card ${isActive ? 'is-active' : ''}`}
+                  onClick={() => {
+                    playSound('click')
+                    setGameSettings(prev => ({ ...prev, questionTime: mode.seconds }))
+                  }}
+                >
+                  <div className="pace-card-top">
+                    <span className="pace-label">{mode.label}</span>
+                    <span className="pace-seconds mono-num">{mode.seconds}s</span>
+                  </div>
+                  <span className="pace-desc">{mode.description}</span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* Launch Session Bar */}
+        <div className="launch-bar obs-panel">
+          <div className="launch-summary">
+            <span className="launch-summary-title">
+              {selectedTopicsLocal.length > 0
+                ? `${selectedTopicsLocal.length} focus ${selectedTopicsLocal.length === 1 ? 'node' : 'nodes'} selected`
+                : `Full ${activeRealm.shortTitle} Wing`}
+            </span>
+            <span className="launch-summary-meta mono-num">
+              {availableQuestionsCount} drills ready
+              {availablePassagesCount > 0 ? ` · ${availablePassagesCount} reading passages included` : ''}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="btn-tactile launch-btn"
+            onClick={handleStartGame}
+            disabled={availableQuestionsCount === 0}
+          >
+            <ObservatoryIcon name="play" size={17} />
+            <span>Launch Session</span>
+          </button>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

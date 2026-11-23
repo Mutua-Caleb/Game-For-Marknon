@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion as Motion } from 'framer-motion'
 import { learnerApi } from '../utils/api'
+import AmbientBackdrop from '../components/AmbientBackdrop'
+import { ObservatoryIcon } from '../components/RealmIcons'
 import './LearnerLoginPage.css'
 
 function LearnerLoginPage() {
@@ -36,7 +38,6 @@ function LearnerLoginPage() {
         learner = await learnerApi.login(name.trim(), pin.trim())
       }
 
-      // Store learner info in localStorage
       localStorage.setItem('learnerAccount', JSON.stringify(learner))
       localStorage.setItem('learnerId', `learner_${learner.id}`)
 
@@ -55,30 +56,31 @@ function LearnerLoginPage() {
   }
 
   return (
-    <div className="learner-login-page">
-      <div className="stars-bg"></div>
+    <div className="learner-login-page" data-realm="cat4">
+      <AmbientBackdrop realm="cat4" />
 
-      <motion.div
-        className="login-card"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+      <Motion.div
+        className="login-card obs-panel"
+        initial={{ opacity: 0, y: 20, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
       >
-        <motion.h1
-          className="login-title"
-          animate={{ y: [0, -5, 0] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-        >
-          Word Blaster!
-        </motion.h1>
+        <div className="login-crest">
+          <ObservatoryIcon name="sparkles" size={26} />
+        </div>
+
+        <span className="login-eyebrow">British Year 6–7 Prep Academy</span>
+        <h1 className="login-title">Scholar&apos;s Observatory</h1>
 
         <p className="login-subtitle">
-          {isRegistering ? 'Create your account' : 'Welcome back! Log in to play'}
+          {isRegistering
+            ? 'Register your scholar profile to track mastery & rewards'
+            : 'Sign in to continue your daily prep mission'}
         </p>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="name">Your Name</label>
+            <label htmlFor="name">Scholar Name</label>
             <input
               id="name"
               type="text"
@@ -91,43 +93,47 @@ function LearnerLoginPage() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="pin">PIN</label>
+            <label htmlFor="pin">Access PIN</label>
             <input
               id="pin"
               type="password"
+              className="pin-input mono-num"
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="4-digit PIN"
+              placeholder="••••"
               inputMode="numeric"
               autoComplete="off"
             />
           </div>
 
           {error && (
-            <motion.div
+            <Motion.div
               className="login-error"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
             >
-              {error}
-            </motion.div>
+              <ObservatoryIcon name="alert" size={16} />
+              <span>{error}</span>
+            </Motion.div>
           )}
 
-          <button type="submit" className="login-button" disabled={isLoading}>
-            {isLoading ? 'Please wait...' : (isRegistering ? 'Create Account' : 'Log In')}
+          <button type="submit" className="btn-tactile login-button" disabled={isLoading}>
+            {isLoading ? 'Entering Observatory...' : (isRegistering ? 'Create Scholar Profile' : 'Enter Observatory')}
+            {!isLoading && <ObservatoryIcon name="arrow-right" size={18} />}
           </button>
         </form>
 
         <button
+          type="button"
           className="toggle-mode"
           onClick={() => {
             setIsRegistering(!isRegistering)
             setError('')
           }}
         >
-          {isRegistering ? 'Already have an account? Log in' : "New here? Create an account"}
+          {isRegistering ? 'Already registered? Sign in' : 'New scholar? Create an account'}
         </button>
-      </motion.div>
+      </Motion.div>
     </div>
   )
 }

@@ -1,0 +1,209 @@
+/* ==========================================================================
+   Scholar's Observatory — Unified Design System Tokens
+   ========================================================================== */
+
+:root {
+  /* Core Atmospheric Surfaces */
+  --obs-bg-deep: #080c18;
+  --obs-bg-base: #0b1020;
+  --obs-bg-elevated: #11182d;
+  --obs-surface-1: rgba(19, 27, 48, 0.78);
+  --obs-surface-2: rgba(25, 35, 62, 0.88);
+  --obs-surface-solid: #141c33;
+  --obs-surface-hover: rgba(34, 47, 82, 0.92);
+
+  /* Specular Borders & Hairlines */
+  --obs-border: rgba(255, 255, 255, 0.09);
+  --obs-border-strong: rgba(255, 255, 255, 0.16);
+  --obs-highlight: rgba(255, 255, 255, 0.06);
+
+  /* Typography */
+  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Newsreader', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Text Hierarchy */
+  --obs-text-primary: #f3f6fc;
+  --obs-text-secondary: #a7b4cc;
+  --obs-text-muted: #72819e;
+
+  /* Semantic Status Colors */
+  --obs-gold: #f5b942;
+  --obs-gold-soft: rgba(245, 185, 66, 0.16);
+  --obs-gold-border: rgba(245, 185, 66, 0.35);
+  --obs-emerald: #10b981;
+  --obs-emerald-soft: rgba(16, 185, 129, 0.16);
+  --obs-crimson: #ef4444;
+  --obs-crimson-soft: rgba(239, 68, 68, 0.16);
+  --obs-indigo: #6366f1;
+  --obs-cyan: #22d3ee;
+
+  /* Active Realm Theme Defaults (overridden by [data-realm]) */
+  --realm-accent: #6366f1;
+  --realm-accent-dark: #4338ca;
+  --realm-accent-soft: rgba(99, 102, 241, 0.16);
+  --realm-glow: rgba(99, 102, 241, 0.32);
+  --realm-secondary: #22d3ee;
+
+  /* Legacy CSS variable aliases for backward compatibility */
+  --primary-color: #6366f1;
+  --secondary-color: #22d3ee;
+  --accent-color: #f5b942;
+  --success-color: #10b981;
+  --danger-color: #ef4444;
+  --warning-color: #f59e0b;
+  --bg-gradient: radial-gradient(circle at 20% 0%, #162244 0%, #0b1020 55%, #070a14 100%);
+  --card-bg: rgba(19, 27, 48, 0.85);
+  --text-dark: #0f172a;
+  --text-light: #f3f6fc;
+
+  /* Elevation & Radii */
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+  --shadow-card: 0 18px 45px rgba(3, 6, 16, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-lift: 0 24px 60px rgba(3, 6, 16, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Realm-Scoped Atmospheric Palettes */
+[data-realm='english'] {
+  --realm-accent: #10b981;
+  --realm-accent-dark: #047857;
+  --realm-accent-soft: rgba(16, 185, 129, 0.16);
+  --realm-glow: rgba(16, 185, 129, 0.32);
+  --realm-secondary: #f3e7cf;
+}
+
+[data-realm='cat4'] {
+  --realm-accent: #6366f1;
+  --realm-accent-dark: #4338ca;
+  --realm-accent-soft: rgba(99, 102, 241, 0.18);
+  --realm-glow: rgba(99, 102, 241, 0.36);
+  --realm-secondary: #22d3ee;
+}
+
+[data-realm='maths'] {
+  --realm-accent: #f59e0b;
+  --realm-accent-dark: #b45309;
+  --realm-accent-soft: rgba(245, 158, 11, 0.16);
+  --realm-glow: rgba(245, 158, 11, 0.34);
+  --realm-secondary: #fcd34d;
+}
+
+[data-realm='french'] {
+  --realm-accent: #3b82f6;
+  --realm-accent-dark: #1d4ed8;
+  --realm-accent-soft: rgba(59, 130, 246, 0.18);
+  --realm-glow: rgba(59, 130, 246, 0.36);
+  --realm-secondary: #fb923c;
+}
+
+[data-realm='mistakes'] {
+  --realm-accent: #f43f5e;
+  --realm-accent-dark: #be123c;
+  --realm-accent-soft: rgba(244, 63, 94, 0.18);
+  --realm-glow: rgba(244, 63, 94, 0.36);
+  --realm-secondary: #fbbf24;
+}
+
+/* Shared Observatory Surfaces */
+.obs-panel {
+  background: var(--obs-surface-1);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--obs-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* Tactile 3D Pressable Button System */
+.btn-tactile {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.5rem;
+  border-radius: 14px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  background: linear-gradient(180deg, var(--realm-accent) 0%, var(--realm-accent-dark) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 4px 0 var(--realm-accent-dark),
+    0 12px 28px var(--realm-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.14s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.14s ease;
+  cursor: pointer;
+}
+
+.btn-tactile:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow:
+    0 6px 0 var(--realm-accent-dark),
+    0 16px 34px var(--realm-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+.btn-tactile:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 var(--realm-accent-dark),
+    0 4px 12px var(--realm-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.btn-tactile:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  transform: none;
+  filter: grayscale(0.3);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.05rem;
+  border-radius: 12px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--obs-text-primary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--obs-border);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+  cursor: pointer;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--obs-border-strong);
+  transform: translateY(-1px);
+}
+
+.btn-ghost:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.mono-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

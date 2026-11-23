@@ -1,0 +1,74 @@
+.ambient-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse 85% 60% at 50% -10%, #162140 0%, #0b1020 55%, #070a14 100%);
+}
+
+.ambient-nebula {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(110px);
+  opacity: 0.42;
+  transition: background 0.6s ease;
+}
+
+.ambient-nebula-primary {
+  width: 620px;
+  height: 460px;
+  top: -160px;
+  left: -120px;
+  background: radial-gradient(circle, var(--realm-glow) 0%, transparent 72%);
+}
+
+.ambient-nebula-secondary {
+  width: 540px;
+  height: 440px;
+  bottom: -180px;
+  right: -120px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.16) 0%, transparent 72%);
+}
+
+.ambient-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 15%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 15%, transparent 80%);
+}
+
+.ambient-stars {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+}
+
+.ambient-stars-near {
+  background-image:
+    radial-gradient(1.5px 1.5px at 28px 42px, rgba(255, 255, 255, 0.72), transparent),
+    radial-gradient(1.5px 1.5px at 142px 96px, rgba(245, 185, 66, 0.55), transparent),
+    radial-gradient(1.2px 1.2px at 220px 180px, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 90px 210px, rgba(165, 180, 252, 0.55), transparent);
+  background-size: 280px 260px;
+  animation: observatory-twinkle 7s ease-in-out infinite;
+  opacity: 0.55;
+}
+
+.ambient-stars-far {
+  background-image:
+    radial-gradient(1px 1px at 60px 20px, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1px 1px at 170px 140px, rgba(255, 255, 255, 0.35), transparent),
+    radial-gradient(1px 1px at 310px 70px, rgba(255, 255, 255, 0.4), transparent);
+  background-size: 360px 320px;
+  opacity: 0.4;
+}
+
+@keyframes observatory-twinkle {
+  0%, 100% { opacity: 0.42; }
+  50% { opacity: 0.68; }
+}

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useGame } from '../context/GameContext'
+import { useSound } from '../context/SoundContext'
 import { learnerApi } from '../utils/api'
+import { getRealmBySubject } from '../data/curriculum'
+import { MasteryRing } from './RealmIcons'
 import './FocusRewardTracker.css'
 
 const CREDIT_BLOCK_MS = 10 * 60 * 1000
@@ -28,12 +31,12 @@ function readLearner() {
 }
 
 function activitySubject(pathname, selectedSubject) {
-  if (pathname === '/math') return 'Math'
+  if (pathname === '/math') return 'Maths'
   if (pathname === '/latin') return 'Latin'
   if (pathname === '/chemistry') return 'Chemistry'
   if (pathname === '/writing') return 'Writing'
   if (pathname === '/play' || pathname === '/play/sequence' || pathname === '/play/diagram') {
-    return selectedSubject || 'Quiz practice'
+    return selectedSubject || 'Focus Practice'
   }
   return null
 }
@@ -50,9 +53,11 @@ function readActiveMs(key) {
 function FocusRewardTracker() {
   const { pathname } = useLocation()
   const { selectedSubject } = useGame()
+  const { playSound } = useSound()
   const learner = useMemo(readLearner, [pathname])
   const subject = activitySubject(pathname, selectedSubject)
-  const isMath = subject === 'Math'
+  const realm = getRealmBySubject(subject)
+  const isSoroMath = pathname === '/math'
   const [activeMs, setActiveMs] = useState(0)
   const [running, setRunning] = useState(false)
   const [todayEarnings, setTodayEarnings] = useState(0)
@@ -76,16 +81,16 @@ function FocusRewardTracker() {
     keyRef.current = learner?.id && subject
       ? storageKey(learner.id, subject, dateRef.current)
       : null
-    const saved = !isMath && keyRef.current ? readActiveMs(keyRef.current) : 0
+    const saved = !isSoroMath && keyRef.current ? readActiveMs(keyRef.current) : 0
     activeMsRef.current = saved
     lastReportedRef.current = null
     lastActivityRef.current = 0
     setActiveMs(saved)
     setRunning(false)
-  }, [isMath, learner?.id, subject])
+  }, [isSoroMath, learner?.id, subject])
 
   useEffect(() => {
-    if (!subject || isMath) return undefined
+    if (!subject || isSoroMath) return undefined
 
     const markActivity = () => {
       lastActivityRef.current = Date.now()
@@ -124,10 +129,10 @@ function FocusRewardTracker() {
       window.clearInterval(interval)
       events.forEach(eventName => window.removeEventListener(eventName, markActivity))
     }
-  }, [isMath, learner?.id, subject])
+  }, [isSoroMath, learner?.id, subject])
 
   useEffect(() => {
-    if (!isMath) return undefined
+    if (!isSoroMath) return undefined
 
     const handleMathProgress = event => {
       if (event.origin !== window.location.origin) return
@@ -140,7 +145,7 @@ function FocusRewardTracker() {
 
     window.addEventListener('message', handleMathProgress)
     return () => window.removeEventListener('message', handleMathProgress)
-  }, [isMath])
+  }, [isSoroMath])
 
   const syncFocus = useCallback(async () => {
     if (!learner?.id || !subject || syncBusyRef.current) return
@@ -153,15 +158,16 @@ function FocusRewardTracker() {
       lastReportedRef.current = reported
       setTodayEarnings(Number(result.todayEarnings) || 0)
       if (result.awardKsh > 0) {
+        playSound('focusBlockComplete')
         setAwardFlash(Number(result.awardKsh))
-        window.setTimeout(() => setAwardFlash(0), 2400)
+        window.setTimeout(() => setAwardFlash(0), 2600)
       }
     } catch (error) {
       console.error('Focus credit sync failed:', error)
     } finally {
       syncBusyRef.current = false
     }
-  }, [learner?.id, subject])
+  }, [learner?.id, subject, playSound])
 
   useEffect(() => {
     if (!subject) return undefined
@@ -177,18 +183,35 @@ function FocusRewardTracker() {
   const percent = Math.min(100, (blockProgressMs / CREDIT_BLOCK_MS) * 100)
 
   return (
-    <aside className={`focus-reward-tracker ${running ? 'running' : 'paused'}`} aria-live="polite">
-      <div className="focus-reward-heading">
-        <span>{subject} focus</span>
-        <strong>KSh {todayEarnings.toFixed(2)}</strong>
+    <aside
+      className={`focus-reward-tracker ${running ? 'running' : 'paused'}`}
+      data-realm={realm?.id || undefined}
+      aria-live="polite"
+    >
+      <MasteryRing
+        percent={percent}
+        size={44}
+        strokeWidth={4}
+        color={running ? '#f5b942' : 'rgba(148, 163, 184, 0.55)'}
+        trackColor="rgba(255, 255, 255, 0.1)"
+      >
+        <span className={`focus-ring-dot ${running ? 'is-live' : ''}`} />
+      </MasteryRing>
+
+      <div className="focus-reward-meta">
+        <div className="focus-reward-heading">
+          <span>{subject} Focus</span>
+          <strong className="mono-num">KSh {todayEarnings.toFixed(0)}</strong>
+        </div>
+        <div className="focus-reward-time">
+          <strong className="mono-num">{formatTime(blockProgressMs)}</strong>
+          <span>/ 10:00 &middot; {running ? 'Active' : 'Paused'}</span>
+        </div>
       </div>
-      <div className="focus-reward-time">
-        <strong>{formatTime(blockProgressMs)}</strong>
-        <span>/ 10:00</span>
-      </div>
-      <div className="focus-reward-track"><div style={{ width: `${percent}%` }} /></div>
-      <small>{running ? 'Focus counting' : 'Paused'} &middot; KSh20 at 10:00</small>
-      {awardFlash > 0 && <div className="focus-reward-award">+ KSh {awardFlash}</div>}
+
+      {awardFlash > 0 && (
+        <div className="focus-reward-award mono-num">+KSh {awardFlash}</div>
+      )}
     </aside>
   )
 }

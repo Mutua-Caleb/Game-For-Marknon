@@ -1,7 +1,28 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { questionsApi, sequencesApi, diagramsApi, passagesApi, statsApi } from '../utils/api'
+import { defaultQuestions } from '../data/defaultQuestions'
+import { ACTIVE_SUBJECTS, FEATURE_FLAGS } from '../data/curriculum'
 
 const GameContext = createContext()
+
+function mergeWithStarterQuestions(fetchedQuestions) {
+  const safeFetched = Array.isArray(fetchedQuestions) ? fetchedQuestions : []
+  const existingIds = new Set(safeFetched.map(q => q.id))
+  const subjectsWithDbQuestions = new Set(safeFetched.map(q => q.subject))
+
+  // For any active prep realm with no custom questions in DB yet, supply the British prep starter pack.
+  // Also ensure any missing topic in the 4 active realms gets starter questions if empty.
+  const topicKeysPresent = new Set(safeFetched.map(q => `${q.subject}::${q.topic}`))
+
+  const additions = defaultQuestions.filter(q => {
+    if (existingIds.has(q.id)) return false
+    if (!subjectsWithDbQuestions.has(q.subject)) return true
+    if (!topicKeysPresent.has(`${q.subject}::${q.topic}`)) return true
+    return false
+  })
+
+  return [...safeFetched, ...additions]
+}
 
 export function GameProvider({ children }) {
   const [questions, setQuestions] = useState([])
@@ -29,11 +50,12 @@ export function GameProvider({ children }) {
   const loadAllContent = useCallback(async (isInitial = false) => {
     try {
       const fetchedQuestions = await questionsApi.getAll()
-      setQuestions(fetchedQuestions)
+      const mergedQuestions = mergeWithStarterQuestions(fetchedQuestions)
+      setQuestions(mergedQuestions)
 
       // Build local stats map from fetched data
       const statsMap = {}
-      for (const q of fetchedQuestions) {
+      for (const q of mergedQuestions) {
         statsMap[q.id] = {
           correct: q.correctCount || 0,
           wrong: q.wrongCount || 0
@@ -74,6 +96,7 @@ export function GameProvider({ children }) {
       }
     } catch (error) {
       console.error('Error loading data:', error)
+      setQuestions(prev => (prev.length > 0 ? prev : defaultQuestions))
     } finally {
       if (isInitial) {
         setIsLoading(false)
@@ -103,10 +126,11 @@ export function GameProvider({ children }) {
   const refreshQuestions = useCallback(async () => {
     try {
       const fetchedQuestions = await questionsApi.getAll()
-      setQuestions(fetchedQuestions)
+      const mergedQuestions = mergeWithStarterQuestions(fetchedQuestions)
+      setQuestions(mergedQuestions)
 
       const statsMap = {}
-      for (const q of fetchedQuestions) {
+      for (const q of mergedQuestions) {
         statsMap[q.id] = {
           correct: q.correctCount || 0,
           wrong: q.wrongCount || 0
@@ -309,6 +333,14 @@ export function GameProvider({ children }) {
       .slice(0, limit)
   }, [questions, questionStats])
 
+  // Get failed questions restricted to active curriculum realms (for Mistake Forge)
+  const getActiveFailedQuestions = useCallback((limit = 15) => {
+    const activeSet = new Set(ACTIVE_SUBJECTS)
+    return getMostFailedQuestions(Math.max(limit * 2, 30))
+      .filter(q => (FEATURE_FLAGS.showLegacySubjects || activeSet.has(q.subject)) && q.stats.wrong > 0)
+      .slice(0, limit)
+  }, [getMostFailedQuestions])
+
   // Save game session to server
   const saveSession = useCallback(async (sessionData) => {
     try {
@@ -346,6 +378,7 @@ export function GameProvider({ children }) {
     resetStats,
     getTopicsForSubject,
     getMostFailedQuestions,
+    getActiveFailedQuestions,
     setQuestions,
     refreshQuestions,
     saveSession

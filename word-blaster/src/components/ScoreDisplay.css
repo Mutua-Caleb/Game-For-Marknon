@@ -1,94 +1,88 @@
 .score-display {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 0.9rem;
 }
 
 .score-main {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 0.5rem 1rem;
-  border-radius: 50px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.42rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--obs-border-strong);
 }
 
 .score-icon {
-  font-size: 1.5rem;
+  display: inline-flex;
+  color: var(--obs-gold);
 }
 
 .score-value {
-  font-family: 'Fredoka One', cursive;
-  font-size: 1.5rem;
-  color: white;
-  min-width: 60px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #ffffff;
+  min-width: 44px;
   text-align: center;
 }
 
 .streak-display {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  background: linear-gradient(45deg, #f39c12, #e74c3c);
-  padding: 0.4rem 0.8rem;
-  border-radius: 50px;
-  animation: pulse 0.5s ease-in-out infinite;
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
 }
 
 .streak-icon {
-  font-size: 1.2rem;
+  display: inline-flex;
+  color: #ffffff;
 }
 
 .streak-value {
-  font-family: 'Fredoka One', cursive;
-  font-size: 1.2rem;
-  color: white;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #ffffff;
 }
 
 .stats-mini {
   display: flex;
-  gap: 0.75rem;
-  font-size: 1rem;
-  font-weight: 600;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.stat-correct,
+.stat-wrong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .stat-correct {
-  color: #00b894;
+  color: #34d399;
 }
 
 .stat-wrong {
-  color: #e74c3c;
+  color: #fb7185;
 }
 
 @media (max-width: 768px) {
   .score-display {
-    gap: 0.75rem;
+    gap: 0.55rem;
   }
 
   .score-main {
-    padding: 0.4rem 0.75rem;
-  }
-
-  .score-icon {
-    font-size: 1.2rem;
+    padding: 0.35rem 0.7rem;
   }
 
   .score-value {
-    font-size: 1.2rem;
-    min-width: 40px;
-  }
-
-  .streak-display {
-    padding: 0.3rem 0.6rem;
-  }
-
-  .streak-icon {
     font-size: 1rem;
-  }
-
-  .streak-value {
-    font-size: 1rem;
+    min-width: 32px;
   }
 
   .stats-mini {

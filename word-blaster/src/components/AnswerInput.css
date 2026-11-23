@@ -18,9 +18,9 @@
 }
 
 .input-wrapper:focus-within {
-  border-color: #00cec9;
-  background: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 0 16px rgba(0, 206, 201, 0.3);
+  border-color: var(--realm-accent);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 18px var(--realm-glow);
 }
 
 .input-icon {
@@ -40,7 +40,7 @@
 }
 
 .input-wrapper input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.48);
   font-weight: 400;
   font-size: 0.85rem;
 }
@@ -50,7 +50,7 @@
 }
 
 .submit-button {
-  background: linear-gradient(45deg, #00b894, #00cec9);
+  background: linear-gradient(180deg, var(--realm-accent), var(--realm-accent-dark));
   color: white;
   padding: 0.5rem 1rem;
   border-radius: 50px;
@@ -59,12 +59,13 @@
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  box-shadow: 0 4px 14px rgba(0, 184, 148, 0.4);
+  box-shadow: 0 4px 14px var(--realm-glow);
   white-space: nowrap;
 }
 
 .submit-button:hover:not(:disabled) {
-  box-shadow: 0 6px 20px rgba(0, 184, 148, 0.5);
+  filter: brightness(1.08);
+  box-shadow: 0 6px 20px var(--realm-glow);
 }
 
 .submit-button:disabled {

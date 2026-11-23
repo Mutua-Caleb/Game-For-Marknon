@@ -1,39 +1,50 @@
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion as Motion, AnimatePresence } from 'framer-motion'
+import { ObservatoryIcon } from './RealmIcons'
 import './ScoreDisplay.css'
 
 function ScoreDisplay({ score, streak, correct, wrong }) {
   return (
     <div className="score-display">
       <div className="score-main">
-        <span className="score-icon">🏆</span>
+        <span className="score-icon">
+          <ObservatoryIcon name="trophy" size={18} />
+        </span>
         <AnimatePresence mode="wait">
-          <motion.span
+          <Motion.span
             key={score}
-            className="score-value"
-            initial={{ scale: 1.5, color: '#fdcb6e' }}
+            className="score-value mono-num"
+            initial={{ scale: 1.32, color: '#f5b942' }}
             animate={{ scale: 1, color: '#ffffff' }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.25 }}
           >
             {score}
-          </motion.span>
+          </Motion.span>
         </AnimatePresence>
       </div>
 
       {streak > 0 && (
-        <motion.div
+        <Motion.div
           className="streak-display"
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           exit={{ scale: 0 }}
         >
-          <span className="streak-icon">🔥</span>
-          <span className="streak-value">{streak}</span>
-        </motion.div>
+          <span className="streak-icon">
+            <ObservatoryIcon name="flame" size={15} />
+          </span>
+          <span className="streak-value mono-num">{streak}x</span>
+        </Motion.div>
       )}
 
-      <div className="stats-mini">
-        <span className="stat-correct">✅ {correct}</span>
-        <span className="stat-wrong">❌ {wrong}</span>
+      <div className="stats-mini mono-num">
+        <span className="stat-correct">
+          <ObservatoryIcon name="check" size={14} />
+          {correct}
+        </span>
+        <span className="stat-wrong">
+          <ObservatoryIcon name="target" size={14} />
+          {wrong}
+        </span>
       </div>
     </div>
   )

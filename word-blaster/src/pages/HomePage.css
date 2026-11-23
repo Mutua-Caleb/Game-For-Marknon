@@ -639,6 +639,36 @@
   transform: translateY(-1px);
 }
 
+.warmup-chip.english-studio-chip {
+  color: #a7f3d0;
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.warmup-chip.english-studio-chip:hover {
+  background: rgba(16, 185, 129, 0.28);
+}
+
+.warmup-chip.cat4-studio-chip {
+  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.42);
+}
+
+.warmup-chip.cat4-studio-chip:hover {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+.warmup-chip.french-studio-chip {
+  color: #bfdbfe;
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.42);
+}
+
+.warmup-chip.french-studio-chip:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
 .realm-enter-link {
   display: inline-flex;
   align-items: center;

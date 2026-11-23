@@ -202,6 +202,20 @@ function TopicSelectPage() {
             </div>
           </div>
 
+          {activeRealm.id === 'english' && (
+            <button
+              type="button"
+              className="btn-tactile"
+              onClick={() => {
+                playSound('click')
+                navigate('/reading')
+              }}
+            >
+              <ObservatoryIcon name="sparkles" size={16} />
+              <span>Open Reading &amp; Vocab Studio</span>
+            </button>
+          )}
+
           {activeRealm.id === 'maths' && FEATURE_FLAGS.showSoroMathWarmup && (
             <button
               type="button"

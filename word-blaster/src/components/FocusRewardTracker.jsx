@@ -31,6 +31,7 @@ function readLearner() {
 }
 
 function activitySubject(pathname, selectedSubject) {
+  if (pathname === '/reading') return 'English'
   if (pathname === '/math') return 'Maths'
   if (pathname === '/latin') return 'Latin'
   if (pathname === '/chemistry') return 'Chemistry'

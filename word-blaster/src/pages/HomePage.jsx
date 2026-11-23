@@ -418,6 +418,21 @@ function HomePage() {
                     </span>
 
                     <div className="realm-footer-actions">
+                      {realm.id === 'english' && (
+                        <button
+                          type="button"
+                          className="warmup-chip english-studio-chip"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            playSound('click')
+                            navigate('/reading')
+                          }}
+                          title="Open Analytical Reading & PEEL Studio"
+                        >
+                          <ObservatoryIcon name="sparkles" size={13} />
+                          <span>Reading Studio</span>
+                        </button>
+                      )}
                       {realm.id === 'maths' && FEATURE_FLAGS.showSoroMathWarmup && (
                         <button
                           type="button"

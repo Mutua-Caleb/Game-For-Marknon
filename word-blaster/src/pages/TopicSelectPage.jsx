@@ -216,6 +216,20 @@ function TopicSelectPage() {
             </button>
           )}
 
+          {activeRealm.id === 'cat4' && (
+            <button
+              type="button"
+              className="btn-tactile"
+              onClick={() => {
+                playSound('click')
+                navigate('/cat4')
+              }}
+            >
+              <ObservatoryIcon name="target" size={16} />
+              <span>Open CAT4 Visual Reasoning Lab</span>
+            </button>
+          )}
+
           {activeRealm.id === 'maths' && FEATURE_FLAGS.showSoroMathWarmup && (
             <button
               type="button"

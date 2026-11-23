@@ -13,6 +13,7 @@ import LatinWorldPage from './pages/LatinWorldPage'
 import SpeedMathPage from './pages/SpeedMathPage'
 import ChemistryPage from './pages/ChemistryPage'
 import ReadingStudioPage from './pages/ReadingStudioPage'
+import Cat4LabPage from './pages/Cat4LabPage'
 import FocusRewardTracker from './components/FocusRewardTracker'
 import OfflineSyncBanner from './components/OfflineSyncBanner'
 import { FEATURE_FLAGS } from './data/curriculum'
@@ -44,6 +45,7 @@ function App() {
         <Route path="/" element={<RequireLearner><HomePage /></RequireLearner>} />
         <Route path="/topics" element={<RequireLearner><TopicSelectPage /></RequireLearner>} />
         <Route path="/reading" element={<RequireLearner><ReadingStudioPage /></RequireLearner>} />
+        <Route path="/cat4" element={<RequireLearner><Cat4LabPage /></RequireLearner>} />
         <Route path="/play" element={<RequireLearner><GamePage /></RequireLearner>} />
         <Route
           path="/play/sequence"

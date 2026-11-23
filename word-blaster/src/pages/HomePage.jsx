@@ -433,6 +433,21 @@ function HomePage() {
                           <span>Reading Studio</span>
                         </button>
                       )}
+                      {realm.id === 'cat4' && (
+                        <button
+                          type="button"
+                          className="warmup-chip cat4-studio-chip"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            playSound('click')
+                            navigate('/cat4')
+                          }}
+                          title="Open CAT4 Visual Matrices & Spatial Folding Lab"
+                        >
+                          <ObservatoryIcon name="target" size={13} />
+                          <span>Visual Lab</span>
+                        </button>
+                      )}
                       {realm.id === 'maths' && FEATURE_FLAGS.showSoroMathWarmup && (
                         <button
                           type="button"

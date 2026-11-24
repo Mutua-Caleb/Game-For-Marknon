@@ -29,7 +29,7 @@ export function GameProvider({ children }) {
   const [selectedSubject, setSelectedSubject] = useState(null)
   const [selectedTopics, setSelectedTopics] = useState([])
   const [gameSettings, setGameSettings] = useState({
-    questionTime: 45,
+    questionTime: 60,
     difficultyLevel: 1,
     showHints: true
   })

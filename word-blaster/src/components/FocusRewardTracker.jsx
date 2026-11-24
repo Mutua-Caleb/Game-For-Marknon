@@ -60,7 +60,6 @@ function FocusRewardTracker() {
   const learner = useMemo(readLearner, [pathname])
   const subject = activitySubject(pathname, selectedSubject)
   const realm = getRealmBySubject(subject)
-  const isSoroMath = pathname === '/math'
   const [activeMs, setActiveMs] = useState(0)
   const [running, setRunning] = useState(false)
   const [todayEarnings, setTodayEarnings] = useState(0)
@@ -84,16 +83,16 @@ function FocusRewardTracker() {
     keyRef.current = learner?.id && subject
       ? storageKey(learner.id, subject, dateRef.current)
       : null
-    const saved = !isSoroMath && keyRef.current ? readActiveMs(keyRef.current) : 0
+    const saved = keyRef.current ? readActiveMs(keyRef.current) : 0
     activeMsRef.current = saved
     lastReportedRef.current = null
     lastActivityRef.current = 0
     setActiveMs(saved)
     setRunning(false)
-  }, [isSoroMath, learner?.id, subject])
+  }, [learner?.id, subject])
 
   useEffect(() => {
-    if (!subject || isSoroMath) return undefined
+    if (!subject) return undefined
 
     const markActivity = () => {
       lastActivityRef.current = Date.now()
@@ -132,23 +131,7 @@ function FocusRewardTracker() {
       window.clearInterval(interval)
       events.forEach(eventName => window.removeEventListener(eventName, markActivity))
     }
-  }, [isSoroMath, learner?.id, subject])
-
-  useEffect(() => {
-    if (!isSoroMath) return undefined
-
-    const handleMathProgress = event => {
-      if (event.origin !== window.location.origin) return
-      if (event.data?.source !== 'soromath-active-study') return
-      const nextActiveMs = Math.max(0, Number(event.data.activeMs) || 0)
-      activeMsRef.current = nextActiveMs
-      setActiveMs(nextActiveMs)
-      setRunning(event.data.running === true)
-    }
-
-    window.addEventListener('message', handleMathProgress)
-    return () => window.removeEventListener('message', handleMathProgress)
-  }, [isSoroMath])
+  }, [learner?.id, subject])
 
   const syncFocus = useCallback(async () => {
     if (!learner?.id || !subject || syncBusyRef.current) return

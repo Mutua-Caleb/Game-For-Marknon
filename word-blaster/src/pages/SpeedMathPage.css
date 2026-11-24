@@ -1,176 +1,170 @@
 .speed-math-page {
   min-height: 100vh;
   position: relative;
-  overflow-x: hidden;
-  padding: 1.25rem;
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
 }
 
-.math-particles {
-  position: fixed;
-  inset: 0;
-  background-image:
-    radial-gradient(2px 2px at 100px 50px, rgba(255,255,255,0.3), transparent),
-    radial-gradient(2px 2px at 220px 150px, rgba(85,239,196,0.25), transparent),
-    radial-gradient(2px 2px at 340px 250px, rgba(253,203,110,0.3), transparent),
-    radial-gradient(2px 2px at 460px 100px, rgba(253,121,168,0.25), transparent);
-  background-size: 520px 420px;
-  animation: twinkle 4s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes twinkle {
-  0%, 100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.55;
-  }
-}
-
-.math-shell {
+.mental-shell {
   position: relative;
-  z-index: 1;
-  max-width: 1180px;
+  z-index: 5;
+  max-width: 1080px;
   margin: 0 auto;
-}
-
-.soromath-shell {
+  padding: 1.5rem 1.5rem 5.5rem;
   display: flex;
-  min-height: calc(100vh - 2.5rem);
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1.35rem;
 }
 
-.soromath-topbar {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 1rem;
+.mental-topbar {
+  display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.math-back-button,
-.math-reload-button {
-  border: 2px solid rgba(255, 255, 255, 0.18);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  padding: 0.75rem 1.25rem;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(14px);
-}
-
-.math-reload-button {
-  background: linear-gradient(45deg, rgba(0, 184, 148, 0.9), rgba(0, 206, 201, 0.9));
-}
-
-.math-kicker {
-  margin: 0 0 0.2rem;
-  color: #55efc4;
-  font-size: 0.82rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.soromath-title h1 {
-  margin: 0;
-  color: white;
-  font-size: clamp(2.1rem, 5vw, 4rem);
-  line-height: 0.95;
-  text-shadow: 2px 3px 0 rgba(0, 0, 0, 0.24);
-}
-
-.soromath-mode-strip {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.55rem;
-}
-
-.soromath-mode-strip span {
-  min-height: 42px;
-  display: grid;
-  place-items: center;
-  border: 2px solid rgba(255, 255, 255, 0.14);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 0.78rem;
-  font-weight: 900;
+.mental-hero {
+  padding: 2.1rem;
   text-align: center;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
-  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  background: linear-gradient(150deg, rgba(245, 158, 11, 0.16) 0%, rgba(19, 27, 48, 0.92) 65%);
 }
 
-.soromath-frame-wrap {
-  flex: 1;
-  min-height: 680px;
-  overflow: hidden;
-  border: 3px solid rgba(85, 239, 196, 0.38);
-  border-radius: 22px;
-  background: #111;
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.34);
+.mental-hero-crest {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--obs-gold);
+  background: var(--obs-gold-soft);
+  border: 1px solid var(--obs-gold-border);
+  margin-bottom: 0.25rem;
 }
 
-.soromath-frame {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: 680px;
-  border: 0;
-  background: #000;
+.mental-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--obs-gold);
+}
+
+.mental-hero h1 {
+  font-size: clamp(1.6rem, 3vw, 2.25rem);
+  font-weight: 800;
+}
+
+.mental-hero p {
+  max-width: 620px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--obs-text-secondary);
+}
+
+.audioread-toggle {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--obs-border);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--obs-text-primary);
+  cursor: pointer;
+}
+
+.audioread-toggle input {
+  accent-color: #f59e0b;
+  width: 16px;
+  height: 16px;
+}
+
+.mental-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+.mental-mode-card {
+  padding: 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.mental-mode-card:hover {
+  border-color: var(--obs-gold);
+  background: var(--obs-surface-2);
+}
+
+.mental-mode-card.is-featured {
+  border-color: rgba(245, 185, 66, 0.42);
+  background: linear-gradient(160deg, rgba(245, 158, 11, 0.14), rgba(19, 27, 48, 0.9));
+}
+
+.mental-part-pill {
+  align-self: flex-start;
+  padding: 0.22rem 0.68rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.mental-mode-card h2 {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.mental-mode-card p {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--obs-text-secondary);
+}
+
+.mental-card-foot {
+  margin-top: auto;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--obs-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--obs-text-muted);
+}
+
+.mental-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--obs-gold);
+}
+
+.mental-arena {
+  position: relative;
+  z-index: 5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 860px) {
-  .soromath-topbar {
-    grid-template-columns: 1fr auto;
-  }
-
-  .soromath-title {
-    grid-column: 1 / -1;
-    grid-row: 1;
-  }
-
-  .math-back-button,
-  .math-reload-button {
-    grid-row: 2;
-  }
-
-  .soromath-mode-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .soromath-frame-wrap,
-  .soromath-frame {
-    min-height: 760px;
-  }
-}
-
-@media (max-width: 540px) {
-  .speed-math-page {
-    padding: 0.75rem;
-  }
-
-  .soromath-shell {
-    min-height: calc(100vh - 1.5rem);
-  }
-
-  .math-back-button,
-  .math-reload-button {
-    padding: 0.65rem 0.9rem;
-  }
-
-  .soromath-mode-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .soromath-mode-strip span {
-    min-height: 38px;
-    font-size: 0.72rem;
-  }
-
-  .soromath-frame-wrap,
-  .soromath-frame {
-    min-height: 820px;
+  .mental-mode-grid {
+    grid-template-columns: 1fr;
   }
 }

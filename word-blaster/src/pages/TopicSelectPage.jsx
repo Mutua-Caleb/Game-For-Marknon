@@ -241,7 +241,7 @@ function TopicSelectPage() {
                 }}
               >
                 <ObservatoryIcon name="sparkles" size={16} />
-                <span>Open Year 7 Visual Maths Forge</span>
+                <span>Open Maths Chapters (Ch. 1–7)</span>
               </button>
               {FEATURE_FLAGS.showSoroMathWarmup && (
                 <button
@@ -253,7 +253,7 @@ function TopicSelectPage() {
                   }}
                 >
                   <ObservatoryIcon name="bolt" size={16} />
-                  <span>3-Min Mental Speed Warm-Up</span>
+                  <span>Mental Arithmetic Exam (Ch. 1)</span>
                 </button>
               )}
             </div>

@@ -1,44 +1,46 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
 import { quizSessionApi, learningApi, learnerApi } from '../utils/api'
 import { speakQuestionAnswer, cancelSpeech } from '../utils/voiceover'
 import { FEATURE_FLAGS, getRealmBySubject, recordDailyQuestAnswer } from '../data/curriculum'
 import AmbientBackdrop from '../components/AmbientBackdrop'
-import { ObservatoryIcon } from '../components/RealmIcons'
-import FallingQuestion from '../components/FallingQuestion'
-import AnswerInput from '../components/AnswerInput'
+import { MasteryRing, ObservatoryIcon } from '../components/RealmIcons'
 import ScoreDisplay from '../components/ScoreDisplay'
-import ExplosionEffect from '../components/ExplosionEffect'
 import DiagramChallenge from '../components/DiagramChallenge'
 import PassageChallenge from '../components/PassageChallenge'
 import './GamePage.css'
 
 const MIN_QUIZ_TIME = 20 * 60
 const DISPLAY_DIVISOR = 2
+const DEFAULT_QUESTION_SECONDS = 60
 
 function normalizeAnswerText(value) {
   return String(value || '')
     .trim()
     .toLowerCase()
     .replace(/[’‘]/g, "'")
+    .replace(/−/g, '-')
     .replace(/[.,!?]+$/g, '')
     .replace(/\s+/g, ' ')
 }
 
-// Get learner ID from account or fallback to random
+function formatClock(sec) {
+  const safe = Math.max(0, Math.ceil(sec))
+  return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
+}
+
 function getLearnerId() {
   let learnerId = localStorage.getItem('learnerId')
   if (!learnerId) {
-    learnerId = 'learner_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+    learnerId = 'learner_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11)
     localStorage.setItem('learnerId', learnerId)
   }
   return learnerId
 }
 
-// Get learner account ID (numeric, for daily tracking)
 function getLearnerAccountId() {
   try {
     const account = JSON.parse(localStorage.getItem('learnerAccount'))
@@ -48,6 +50,11 @@ function getLearnerAccountId() {
   }
 }
 
+/**
+ * Full-Screen Timed Focus Arena (replaces distracting falling bubbles).
+ * One question occupies the full screen cleanly for 1 minute (60s).
+ * If unanswered when the timer hits 0:00, it disappears and loads the next question automatically.
+ */
 function GamePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -65,13 +72,22 @@ function GamePage() {
     selectedTopics
   } = useGame()
 
+  const questionDuration = Number(gameSettings?.questionTime) || DEFAULT_QUESTION_SECONDS
+
   const activeRealm = isMistakeMode
     ? { id: 'mistakes', shortTitle: 'Mistake Forge' }
     : (getRealmBySubject(selectedSubject) || { id: 'cat4', shortTitle: selectedSubject || 'Observatory' })
 
-  const [activeQuestions, setActiveQuestions] = useState([])
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [questionPool, setQuestionPool] = useState([])
+  const [questionPool, setQuestionPool] = useState(() => (
+    isMistakeMode ? getActiveFailedQuestions(20) : getWeightedQuestions()
+  ))
+  const [poolIndex, setPoolIndex] = useState(0)
+  const [secondsLeft, setSecondsLeft] = useState(questionDuration)
+  const [typedAnswer, setTypedAnswer] = useState('')
+  const [showHint, setShowHint] = useState(false)
+  const [questionPhase, setQuestionPhase] = useState('active') // 'active' | 'correct' | 'wrong' | 'timeout'
+  const [feedbackPayload, setFeedbackPayload] = useState(null)
+
   const [sessionStats, setSessionStats] = useState({
     correct: 0,
     wrong: 0,
@@ -79,127 +95,93 @@ function GamePage() {
     score: 0
   })
   const [isPaused, setIsPaused] = useState(false)
-  const [showCorrectFeedback, setShowCorrectFeedback] = useState(false)
-  const [showWrongFeedback, setShowWrongFeedback] = useState(null)
-  const [explosions, setExplosions] = useState([])
   const [gameStarted, setGameStarted] = useState(false)
   const [countdown, setCountdown] = useState(3)
   const [lives, setLives] = useState(3)
   const [gameOver, setGameOver] = useState(false)
 
-  // Quiz monitoring state
+  // Quiz monitoring & active time tracking
   const [quizSessionId, setQuizSessionId] = useState(null)
   const [tabSwitchCount, setTabSwitchCount] = useState(0)
   const [showTabWarning, setShowTabWarning] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [activeSeconds, setActiveSeconds] = useState(0)
   const [minTimeReached, setMinTimeReached] = useState(false)
-  const gameStartTimeRef = useRef(null)
 
-  // Anti-slacking: only count active time
+  const gameStartTimeRef = useRef(null)
+  const questionStartTimeRef = useRef(0)
   const lastInteractionRef = useRef(0)
   const activeSecondsRef = useRef(0)
-  const IDLE_THRESHOLD = 30000 // 30 seconds of no interaction = idle
+  const IDLE_THRESHOLD = 30000
 
   const learnerId = getLearnerId()
-
   const failedQuestionsRef = useRef(new Set())
-  const originalPoolSizeRef = useRef(0)
+  const originalPoolSizeRef = useRef(questionPool.length)
   const lastRebuildCycleRef = useRef(0)
+  const advanceTimerRef = useRef(null)
+  const inputRef = useRef(null)
 
-  // Diagram + Passage challenge state
-  const [diagramPool, setDiagramPool] = useState([])
-  const [passagePool, setPassagePool] = useState([])
+  // Diagram + Passage challenge pools
+  const [diagramPool] = useState(() => (
+    FEATURE_FLAGS.showSequenceAndDiagramModes && !isMistakeMode
+      ? [...getFilteredDiagrams()].sort(() => Math.random() - 0.5)
+      : []
+  ))
+  const [passagePool] = useState(() => (
+    !isMistakeMode
+      ? [...getFilteredPassages()].sort(() => Math.random() - 0.5)
+      : []
+  ))
   const [activeDiagram, setActiveDiagram] = useState(null)
   const [activePassage, setActivePassage] = useState(null)
   const diagramIndexRef = useRef(0)
   const passageIndexRef = useRef(0)
-  const questionsUntilChallengeRef = useRef(8) // Show challenge every ~8 questions
-  const nextChallengeTypeRef = useRef('passage') // Prioritize reading passages
+  const questionsUntilChallengeRef = useRef(8)
+  const nextChallengeTypeRef = useRef('passage')
 
-  const gameAreaRef = useRef(null)
-  const inputRef = useRef(null)
+  const currentQuestion = questionPool.length > 0
+    ? questionPool[poolIndex % questionPool.length]
+    : null
 
-  // Initialize question pool
+  const clearPendingAdvance = useCallback(() => {
+    if (advanceTimerRef.current) {
+      window.clearTimeout(advanceTimerRef.current)
+      advanceTimerRef.current = null
+    }
+  }, [])
+
+  useEffect(() => clearPendingAdvance, [clearPendingAdvance])
+
+  // Redirect back to topic select if no questions exist
   useEffect(() => {
-    const questions = isMistakeMode
-      ? getActiveFailedQuestions(20)
-      : getWeightedQuestions()
-    if (questions.length === 0) {
+    if (questionPool.length === 0) {
       navigate('/topics')
-      return
     }
-    setQuestionPool(questions)
-    originalPoolSizeRef.current = questions.length
-  }, [getWeightedQuestions, getActiveFailedQuestions, isMistakeMode, navigate])
+  }, [questionPool.length, navigate])
 
-  // Initialize diagram and passage pools (shuffled)
+  // Countdown before starting
   useEffect(() => {
-    if (FEATURE_FLAGS.showSequenceAndDiagramModes && !isMistakeMode) {
-      const diagrams = getFilteredDiagrams()
-      setDiagramPool([...diagrams].sort(() => Math.random() - 0.5))
-    } else {
-      setDiagramPool([])
-    }
-
-    if (!isMistakeMode) {
-      const passages = getFilteredPassages()
-      setPassagePool([...passages].sort(() => Math.random() - 0.5))
-    } else {
-      setPassagePool([])
-    }
-  }, [getFilteredDiagrams, getFilteredPassages, isMistakeMode])
-
-  // Rebuild question pool with spaced repetition after each full cycle
-  useEffect(() => {
-    if (originalPoolSizeRef.current === 0 || currentQuestionIndex === 0) return
-
-    const cycle = Math.floor(currentQuestionIndex / originalPoolSizeRef.current)
-    if (cycle > lastRebuildCycleRef.current) {
-      lastRebuildCycleRef.current = cycle
-
-      const base = getWeightedQuestions()
-      if (base.length === 0) return
-
-      const newPool = []
-      for (const q of base) {
-        newPool.push(q)
-        // Failed questions appear 3x as often (spaced repetition)
-        if (failedQuestionsRef.current.has(q.id)) {
-          newPool.push({ ...q })
-          newPool.push({ ...q })
-        }
+    if (countdown <= 0) return undefined
+    const timer = window.setTimeout(() => {
+      const nextCount = countdown - 1
+      setCountdown(nextCount)
+      if (nextCount === 0) {
+        setGameStarted(true)
+        questionStartTimeRef.current = Date.now()
+        playSound('gameStart')
       }
+    }, 850)
+    return () => window.clearTimeout(timer)
+  }, [countdown, playSound])
 
-      // Fisher-Yates shuffle
-      for (let i = newPool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [newPool[i], newPool[j]] = [newPool[j], newPool[i]]
-      }
-
-      setQuestionPool(newPool)
-    }
-  }, [currentQuestionIndex, getWeightedQuestions])
-
-  // Countdown before game starts
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
-      return () => clearTimeout(timer)
-    } else if (countdown === 0 && !gameStarted) {
-      setGameStarted(true)
-      playSound('gameStart')
-    }
-  }, [countdown, gameStarted, playSound])
-
-  // Create quiz session when game starts
+  // Start quiz session on server
   useEffect(() => {
     if (!gameStarted || quizSessionId) return
-
     gameStartTimeRef.current = Date.now()
+    lastInteractionRef.current = Date.now()
 
     quizSessionApi.start({
-      subject: selectedSubject,
+      subject: selectedSubject || activeRealm.shortTitle,
       topics: selectedTopics,
       gameMode: 'quiz',
       minTimeRequired: MIN_QUIZ_TIME
@@ -208,18 +190,15 @@ function GamePage() {
     }).catch(err => {
       console.error('Failed to create quiz session:', err)
     })
-  }, [gameStarted, quizSessionId, selectedSubject, selectedTopics])
+  }, [gameStarted, quizSessionId, selectedSubject, selectedTopics, activeRealm.shortTitle])
 
-  // Track user interactions for anti-slacking
+  // Track user interaction for anti-slacking
   useEffect(() => {
-    if (!gameStarted) return
-
+    if (!gameStarted) return undefined
     const markActive = () => { lastInteractionRef.current = Date.now() }
-
     window.addEventListener('pointerdown', markActive)
     window.addEventListener('keydown', markActive)
     window.addEventListener('touchstart', markActive)
-
     return () => {
       window.removeEventListener('pointerdown', markActive)
       window.removeEventListener('keydown', markActive)
@@ -227,243 +206,180 @@ function GamePage() {
     }
   }, [gameStarted])
 
-  // Cancel any voice-over speech when leaving the page
-  useEffect(() => {
-    return () => cancelSpeech()
-  }, [])
+  useEffect(() => () => cancelSpeech(), [])
 
-  // Elapsed time counter - counts only active time (anti-slacking)
+  // Active study time ticker
   useEffect(() => {
-    if (!gameStarted) return
-
-    const timer = setInterval(() => {
+    if (!gameStarted) return undefined
+    const timer = window.setInterval(() => {
       if (gameStartTimeRef.current) {
-        const elapsed = Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
-        setElapsedSeconds(elapsed)
-
-        // Only count active seconds toward quota (anti-slacking)
+        setElapsedSeconds(Math.floor((Date.now() - gameStartTimeRef.current) / 1000))
         if (Date.now() - lastInteractionRef.current < IDLE_THRESHOLD) {
           activeSecondsRef.current += 1
           setActiveSeconds(activeSecondsRef.current)
         }
-
         if (activeSecondsRef.current >= MIN_QUIZ_TIME) {
           setMinTimeReached(true)
         }
       }
     }, 1000)
-
-    return () => clearInterval(timer)
+    return () => window.clearInterval(timer)
   }, [gameStarted])
 
-  // Save progress on page unload (so reload doesn't lose time)
+  // Save active time on page unload
   useEffect(() => {
-    if (!gameStarted) return
-
+    if (!gameStarted) return undefined
     const saveProgress = () => {
       const accountId = getLearnerAccountId()
       if (accountId && activeSecondsRef.current > 0) {
-        const activeMinutes = activeSecondsRef.current / 60
-        // Uses sendBeacon online, or queues locally in IndexedDB when offline
-        learnerApi.recordTimeBeacon(accountId, activeMinutes)
-        activeSecondsRef.current = 0 // Reset so endGame doesn't double-count
+        learnerApi.recordTimeBeacon(accountId, activeSecondsRef.current / 60)
+        activeSecondsRef.current = 0
       }
     }
-
     window.addEventListener('beforeunload', saveProgress)
     return () => window.removeEventListener('beforeunload', saveProgress)
   }, [gameStarted])
 
   // Tab visibility detection
   useEffect(() => {
-    if (!gameStarted || !quizSessionId) return
-
+    if (!gameStarted || !quizSessionId) return undefined
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        // User left the tab
         setTabSwitchCount(prev => prev + 1)
-        quizSessionApi.recordTabEvent(quizSessionId, 'left').catch(console.error)
+        quizSessionApi.recordTabSwitch(quizSessionId).catch(console.error)
       } else {
-        // User returned to the tab
         setShowTabWarning(true)
-        quizSessionApi.recordTabEvent(quizSessionId, 'returned').catch(console.error)
-        setTimeout(() => setShowTabWarning(false), 4000)
+        window.setTimeout(() => setShowTabWarning(false), 4000)
       }
     }
-
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [gameStarted, quizSessionId])
 
-  // Determine question size class based on content
-  const getQuestionSize = useCallback((q) => {
-    const textLen = q.question.length
-    const hasImage = !!q.image
-    const hasOptions = q.type === 'multiple' && q.options
-    const longestOption = hasOptions ? Math.max(...q.options.map(o => o.length)) : 0
-
-    if (hasImage) return 'large'
-    if (hasOptions && (textLen > 60 || longestOption > 20)) return 'large'
-    if (hasOptions || textLen > 50) return 'medium'
-    return 'compact'
-  }, [])
-
-  // Spawn new question
-  const spawnQuestion = useCallback(() => {
-    if (questionPool.length === 0 || gameOver || isPaused || activeDiagram || activePassage) return
-
-    const questionData = questionPool[currentQuestionIndex % questionPool.length]
-    const size = getQuestionSize(questionData)
-
-    // Assign lanes: check which lanes are occupied
-    const occupiedLanes = activeQuestions.map(q => q.lane)
-    let lane
-    if (!occupiedLanes.includes('left')) {
-      lane = 'left'
-    } else if (!occupiedLanes.includes('right')) {
-      lane = 'right'
-    } else {
-      lane = 'left' // fallback
-    }
-
-    // X positions based on lane and size
-    let x
-    if (size === 'large') {
-      // Large questions center more
-      x = lane === 'left' ? 30 : 70
-    } else if (size === 'medium') {
-      x = lane === 'left' ? 25 : 75
-    } else {
-      x = lane === 'left' ? 20 : 80
-    }
-
-    const newQuestion = {
-      ...questionData,
-      instanceId: `${questionData.id}_${Date.now()}`,
-      x,
-      lane,
-      size,
-      startTime: Date.now()
-    }
-
-    setActiveQuestions(prev => [...prev, newQuestion])
-    setCurrentQuestionIndex(prev => prev + 1)
-  }, [questionPool, currentQuestionIndex, gameOver, isPaused, activeDiagram, activePassage, activeQuestions, getQuestionSize])
-
-  // Game loop - spawn questions (paused during diagram/passage challenges)
-  useEffect(() => {
-    if (!gameStarted || gameOver || isPaused || activeDiagram || activePassage) return
-
-    // Spawn first question immediately
-    if (activeQuestions.length === 0) {
-      spawnQuestion()
-    }
-
-    // Spawn new question every few seconds based on difficulty
-    const spawnInterval = setInterval(() => {
-      if (activeQuestions.length < 2) { // Max 2 questions at once
-        spawnQuestion()
+  const advanceToNext = useCallback(() => {
+    clearPendingAdvance()
+    setPoolIndex(prevIdx => {
+      const nextIdx = prevIdx + 1
+      if (originalPoolSizeRef.current > 0) {
+        const cycle = Math.floor(nextIdx / originalPoolSizeRef.current)
+        if (cycle > lastRebuildCycleRef.current) {
+          lastRebuildCycleRef.current = cycle
+          const base = isMistakeMode ? getActiveFailedQuestions(20) : getWeightedQuestions()
+          if (base.length > 0) {
+            const newPool = []
+            for (const q of base) {
+              newPool.push(q)
+              if (failedQuestionsRef.current.has(q.id)) {
+                newPool.push({ ...q })
+                newPool.push({ ...q })
+              }
+            }
+            for (let i = newPool.length - 1; i > 0; i -= 1) {
+              const j = Math.floor(Math.random() * (i + 1))
+              ;[newPool[i], newPool[j]] = [newPool[j], newPool[i]]
+            }
+            setQuestionPool(newPool)
+          }
+        }
       }
-    }, 8000)
-
-    return () => clearInterval(spawnInterval)
-  }, [gameStarted, gameOver, isPaused, activeDiagram, activePassage, activeQuestions.length, spawnQuestion])
-
-  // Handle question timeout (falls to bottom)
-  const handleQuestionTimeout = useCallback((question) => {
-    // Don't process timeouts during diagram/passage challenges
-    if (activeDiagram || activePassage) return
-
-    playSound('explosion')
-
-    // Create explosion at the bottom
-    const explosion = {
-      id: Date.now(),
-      x: question.x,
-      y: 85,
-      answer: question.answer
-    }
-    setExplosions(prev => [...prev, explosion])
-
-    // Show wrong feedback with correct answer
-    setShowWrongFeedback({
-      answer: question.answer,
-      question: question.question
+      return nextIdx
     })
-    setTimeout(() => setShowWrongFeedback(null), 2500)
+    setSecondsLeft(questionDuration)
+    setTypedAnswer('')
+    setShowHint(false)
+    setFeedbackPayload(null)
+    setQuestionPhase('active')
+    questionStartTimeRef.current = Date.now()
+    window.setTimeout(() => inputRef.current?.focus(), 60)
+  }, [clearPendingAdvance, questionDuration, isMistakeMode, getActiveFailedQuestions, getWeightedQuestions])
 
-    // Voice-over: read the question and correct answer aloud
-    speakQuestionAnswer(question.question, question.answer)
-
-    // Record as wrong and track for spaced repetition
-    recordAnswer(question.id, false)
-    failedQuestionsRef.current.add(question.id)
-
-    // Record detailed answer for quiz session
-    if (quizSessionId) {
-      quizSessionApi.recordAnswer(quizSessionId, {
-        questionId: question.id,
-        questionText: question.question,
-        correctAnswer: question.answer,
-        givenAnswer: null,
-        isCorrect: false,
-        timeTakenMs: Date.now() - question.startTime
-      }).catch(console.error)
+  // Strict per-question 60-second countdown; disappears & auto-advances when 0:00 hits
+  useEffect(() => {
+    if (!gameStarted || isPaused || gameOver || activeDiagram || activePassage || questionPhase !== 'active' || !currentQuestion) {
+      return undefined
     }
 
-    // Record for spaced repetition (wrong/timeout)
-    learningApi.recordAnswer(
-      learnerId,
-      question.id,
-      false,
-      Date.now() - question.startTime
-    ).catch(console.error)
+    const timer = window.setInterval(() => {
+      setSecondsLeft(prev => {
+        if (prev <= 1) {
+          window.clearInterval(timer)
+          playSound('wrong')
+          setQuestionPhase('timeout')
+          setFeedbackPayload({ answer: currentQuestion.answer, question: currentQuestion.question })
+          speakQuestionAnswer(currentQuestion.question, currentQuestion.answer)
 
-    setSessionStats(prev => ({
-      ...prev,
-      wrong: prev.wrong + 1,
-      streak: 0
-    }))
+          recordAnswer(currentQuestion.id, false)
+          failedQuestionsRef.current.add(currentQuestion.id)
 
-    // Remove question
-    setActiveQuestions(prev => prev.filter(q => q.instanceId !== question.instanceId))
+          const timeTakenMs = Date.now() - questionStartTimeRef.current
+          if (quizSessionId) {
+            quizSessionApi.recordAnswer(quizSessionId, {
+              questionId: currentQuestion.id,
+              questionText: currentQuestion.question,
+              correctAnswer: currentQuestion.answer,
+              givenAnswer: null,
+              isCorrect: false,
+              timeTakenMs
+            }).catch(console.error)
+          }
+          learningApi.recordAnswer(learnerId, currentQuestion.id, false, timeTakenMs).catch(console.error)
 
-    // Remove explosion after animation
-    setTimeout(() => {
-      setExplosions(prev => prev.filter(e => e.id !== explosion.id))
+          setSessionStats(s => ({ ...s, wrong: s.wrong + 1, streak: 0 }))
+          setLives(l => {
+            const nextL = l - 1
+            if (nextL <= 0) {
+              setGameOver(true)
+              playSound('gameOver')
+            }
+            return nextL
+          })
+
+          advanceTimerRef.current = window.setTimeout(() => {
+            advanceToNext()
+          }, 2100)
+          return 0
+        }
+        return prev - 1
+      })
     }, 1000)
 
-    // Lose a life
-    setLives(prev => {
-      const newLives = prev - 1
-      if (newLives <= 0) {
-        setGameOver(true)
-        playSound('gameOver')
-      }
-      return newLives
-    })
-  }, [playSound, recordAnswer, activeDiagram, activePassage])
+    return () => window.clearInterval(timer)
+  }, [
+    gameStarted,
+    isPaused,
+    gameOver,
+    activeDiagram,
+    activePassage,
+    questionPhase,
+    currentQuestion,
+    playSound,
+    recordAnswer,
+    quizSessionId,
+    learnerId,
+    advanceToNext
+  ])
 
-  // Handle answer submission
-  const handleAnswer = useCallback((answer) => {
-    if (activeQuestions.length === 0) return
+  const submitAnswer = useCallback((rawAnswer) => {
+    if (!currentQuestion || questionPhase !== 'active' || isPaused) return
+    const normalizedGiven = normalizeAnswerText(rawAnswer)
+    if (!normalizedGiven) return
 
-    const normalizedAnswer = normalizeAnswerText(answer)
+    const correctAnswer = normalizeAnswerText(currentQuestion.answer)
+    const isCorrect = normalizedGiven === correctAnswer || (
+      Array.isArray(currentQuestion.options) &&
+      currentQuestion.options.some(
+        opt => normalizeAnswerText(opt) === normalizedGiven && normalizeAnswerText(opt) === correctAnswer
+      )
+    )
 
-    // Check against all active questions
-    const matchedQuestion = activeQuestions.find(q => {
-      const correctAnswer = normalizeAnswerText(q.answer)
-      return normalizedAnswer === correctAnswer ||
-             (q.options && q.options.some(opt => normalizeAnswerText(opt) === normalizedAnswer && normalizeAnswerText(opt) === correctAnswer))
-    })
+    const timeTakenMs = Date.now() - questionStartTimeRef.current
 
-    if (matchedQuestion) {
-      // Correct answer! Pitch rises along pentatonic scale with streak
+    if (isCorrect) {
       playSound('correct', { streak: sessionStats.streak })
-      recordDailyQuestAnswer(learnerId, matchedQuestion.subject)
+      recordDailyQuestAnswer(learnerId, currentQuestion.subject)
 
       const streakBonus = sessionStats.streak >= 3 ? (sessionStats.streak >= 5 ? 3 : 2) : 1
-      const timeBonus = Math.max(1, Math.floor((gameSettings.questionTime * 1000 - (Date.now() - matchedQuestion.startTime)) / 1000 / 5))
+      const timeBonus = Math.max(1, Math.floor(secondsLeft / 5))
       const points = 10 * streakBonus + timeBonus
 
       setSessionStats(prev => {
@@ -479,43 +395,29 @@ function GamePage() {
         }
       })
 
-      recordAnswer(matchedQuestion.id, true)
-
-      // Record detailed answer for quiz session
+      recordAnswer(currentQuestion.id, true)
       if (quizSessionId) {
         quizSessionApi.recordAnswer(quizSessionId, {
-          questionId: matchedQuestion.id,
-          questionText: matchedQuestion.question,
-          correctAnswer: matchedQuestion.answer,
-          givenAnswer: answer.trim(),
+          questionId: currentQuestion.id,
+          questionText: currentQuestion.question,
+          correctAnswer: currentQuestion.answer,
+          givenAnswer: String(rawAnswer).trim(),
           isCorrect: true,
-          timeTakenMs: Date.now() - matchedQuestion.startTime
+          timeTakenMs
         }).catch(console.error)
       }
+      learningApi.recordAnswer(learnerId, currentQuestion.id, true, timeTakenMs).catch(console.error)
 
-      // Record for spaced repetition
-      learningApi.recordAnswer(
-        learnerId,
-        matchedQuestion.id,
-        true,
-        Date.now() - matchedQuestion.startTime
-      ).catch(console.error)
+      setQuestionPhase('correct')
+      setFeedbackPayload({ answer: currentQuestion.answer, points })
 
-      setShowCorrectFeedback(true)
-      setTimeout(() => setShowCorrectFeedback(false), 500)
-
-      // Remove the answered question
-      setActiveQuestions(prev => prev.filter(q => q.instanceId !== matchedQuestion.instanceId))
-
-      // Check if it's time for a challenge (diagram or passage)
+      // Periodically trigger inline reading passage challenge if available
       questionsUntilChallengeRef.current -= 1
       const hasDiagrams = diagramPool.length > 0
       const hasPassages = passagePool.length > 0
-      if (questionsUntilChallengeRef.current <= 0 && (hasDiagrams || hasPassages)) {
-        setTimeout(() => {
-          setActiveQuestions([])
 
-          // Decide which challenge to show (alternate, or use what's available)
+      if (questionsUntilChallengeRef.current <= 0 && (hasDiagrams || hasPassages)) {
+        advanceTimerRef.current = window.setTimeout(() => {
           let showDiagram = false
           if (hasDiagrams && hasPassages) {
             showDiagram = nextChallengeTypeRef.current === 'diagram'
@@ -523,7 +425,6 @@ function GamePage() {
           } else {
             showDiagram = hasDiagrams
           }
-
           if (showDiagram) {
             const diagram = diagramPool[diagramIndexRef.current % diagramPool.length]
             diagramIndexRef.current += 1
@@ -533,39 +434,65 @@ function GamePage() {
             passageIndexRef.current += 1
             setActivePassage(passage)
           }
-
           questionsUntilChallengeRef.current = 6 + Math.floor(Math.random() * 5)
-        }, 800)
+          advanceToNext()
+        }, 900)
       } else {
-        // Spawn next question after a short delay
-        setTimeout(() => {
-          if (!gameOver && !isPaused) {
-            spawnQuestion()
-          }
-        }, 1000)
+        advanceTimerRef.current = window.setTimeout(() => {
+          advanceToNext()
+        }, 900)
       }
     } else {
-      // Wrong answer - shake effect
       playSound('wrong')
-      if (inputRef.current) {
-        inputRef.current.classList.add('shake-animation')
-        setTimeout(() => {
-          if (inputRef.current) {
-            inputRef.current.classList.remove('shake-animation')
-          }
-        }, 500)
+      setQuestionPhase('wrong')
+      setFeedbackPayload({ answer: currentQuestion.answer, given: String(rawAnswer).trim() })
+      speakQuestionAnswer(currentQuestion.question, currentQuestion.answer)
+
+      recordAnswer(currentQuestion.id, false)
+      failedQuestionsRef.current.add(currentQuestion.id)
+
+      if (quizSessionId) {
+        quizSessionApi.recordAnswer(quizSessionId, {
+          questionId: currentQuestion.id,
+          questionText: currentQuestion.question,
+          correctAnswer: currentQuestion.answer,
+          givenAnswer: String(rawAnswer).trim(),
+          isCorrect: false,
+          timeTakenMs
+        }).catch(console.error)
       }
+      learningApi.recordAnswer(learnerId, currentQuestion.id, false, timeTakenMs).catch(console.error)
+
+      setSessionStats(prev => ({ ...prev, wrong: prev.wrong + 1, streak: 0 }))
+      setLives(prev => {
+        const nextL = prev - 1
+        if (nextL <= 0) {
+          setGameOver(true)
+          playSound('gameOver')
+        }
+        return nextL
+      })
+
+      advanceTimerRef.current = window.setTimeout(() => {
+        advanceToNext()
+      }, 2200)
     }
-  }, [activeQuestions, playSound, gameSettings.questionTime, recordAnswer, sessionStats.streak, spawnQuestion, gameOver, isPaused, diagramPool, passagePool])
+  }, [
+    currentQuestion,
+    questionPhase,
+    isPaused,
+    playSound,
+    sessionStats.streak,
+    learnerId,
+    secondsLeft,
+    recordAnswer,
+    quizSessionId,
+    diagramPool,
+    passagePool,
+    advanceToNext
+  ])
 
-  // Handle option click for multiple choice
-  const handleOptionClick = useCallback((option) => {
-    handleAnswer(option)
-  }, [handleAnswer])
-
-  // Handle diagram challenge completion
   const handleDiagramComplete = useCallback(({ correctCount, totalLabels }) => {
-    // Award score points
     const points = Math.round((correctCount / totalLabels) * 100)
     setSessionStats(prev => ({
       ...prev,
@@ -573,14 +500,10 @@ function GamePage() {
       wrong: prev.wrong + (totalLabels - correctCount),
       score: prev.score + points
     }))
-
-    // Clear diagram and resume falling questions
     setActiveDiagram(null)
   }, [])
 
-  // Handle passage challenge completion
   const handlePassageComplete = useCallback(({ correctCount, totalQuestions }) => {
-    // Award score points
     const points = Math.round((correctCount / totalQuestions) * 100)
     setSessionStats(prev => ({
       ...prev,
@@ -588,24 +511,20 @@ function GamePage() {
       wrong: prev.wrong + (totalQuestions - correctCount),
       score: prev.score + points
     }))
-
-    // Clear passage and resume falling questions
     setActivePassage(null)
   }, [])
 
-  // Pause/Resume game
   const togglePause = useCallback(() => {
     setIsPaused(prev => !prev)
     playSound('click')
   }, [playSound])
 
-  // End game
   const endGame = useCallback(() => {
+    clearPendingAdvance()
     const durationSeconds = gameStartTimeRef.current
       ? Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
       : 0
 
-    // Complete quiz session on server
     if (quizSessionId) {
       quizSessionApi.complete(quizSessionId, {
         score: sessionStats.score,
@@ -614,11 +533,9 @@ function GamePage() {
       }).catch(console.error)
     }
 
-    // Record ACTIVE time only for daily tracking (anti-slacking)
     const accountId = getLearnerAccountId()
     if (accountId && activeSecondsRef.current > 0) {
-      const activeMinutes = activeSecondsRef.current / 60
-      learnerApi.recordTime(accountId, activeMinutes).catch(console.error)
+      learnerApi.recordTime(accountId, activeSecondsRef.current / 60).catch(console.error)
     }
 
     setCurrentSession({
@@ -628,61 +545,69 @@ function GamePage() {
       timestamp: Date.now()
     })
     navigate('/results', { state: { ...sessionStats, tabSwitches: tabSwitchCount, durationSeconds } })
-  }, [sessionStats, setCurrentSession, navigate, quizSessionId, tabSwitchCount])
+  }, [clearPendingAdvance, sessionStats, setCurrentSession, navigate, quizSessionId, tabSwitchCount])
 
-  // Handle game over - enforce minimum time
   useEffect(() => {
     if (gameOver) {
       if (minTimeReached) {
-        setTimeout(() => {
-          endGame()
-        }, 2000)
-      } else {
-        // Reset lives and keep going - minimum time not met
-        setTimeout(() => {
-          setGameOver(false)
-          setLives(3)
-        }, 1500)
+        const t = window.setTimeout(() => endGame(), 1800)
+        return () => window.clearTimeout(t)
       }
+      const t = window.setTimeout(() => {
+        setGameOver(false)
+        setLives(3)
+      }, 1600)
+      return () => window.clearTimeout(t)
     }
+    return undefined
   }, [gameOver, endGame, minTimeReached])
 
-  // Current question for input display
-  const currentQuestion = activeQuestions[0]
+  const timerPct = (secondsLeft / questionDuration) * 100
+  const timerColor = secondsLeft > 20 ? '#10b981' : secondsLeft > 10 ? '#f5b942' : '#f43f5e'
 
   return (
-    <div className="game-page" data-realm={activeRealm.id} ref={gameAreaRef}>
+    <div className="game-page" data-realm={activeRealm.id}>
       <AmbientBackdrop realm={activeRealm.id} />
 
-      {/* Countdown */}
+      {/* Top Per-Question 1-Minute Countdown Bar */}
+      {gameStarted && !activeDiagram && !activePassage && (
+        <div className="game-top-timer-track">
+          <div
+            className="game-top-timer-fill"
+            style={{ width: `${timerPct}%`, backgroundColor: timerColor }}
+          />
+        </div>
+      )}
+
+      {/* Countdown Overlay */}
       <AnimatePresence>
         {countdown > 0 && (
-          <motion.div
+          <Motion.div
             className="countdown-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <div className="countdown-realm-tag">{activeRealm.shortTitle}</div>
-            <motion.div
+            <Motion.div
               className="countdown-number mono-num"
               key={countdown}
-              initial={{ scale: 1.8, opacity: 0 }}
+              initial={{ scale: 1.7, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.5, opacity: 0 }}
-              transition={{ duration: 0.45 }}
+              transition={{ duration: 0.4 }}
             >
               {countdown}
-            </motion.div>
-            <div className="countdown-text">Focus &amp; Begin</div>
-          </motion.div>
+            </Motion.div>
+            <div className="countdown-text">Full-Screen Focus &middot; {formatClock(questionDuration)} per Question</div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {/* Tab Switch Warning */}
       <AnimatePresence>
         {showTabWarning && (
-          <motion.div
+          <Motion.div
             className="tab-warning-banner"
             initial={{ y: -60, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -690,34 +615,34 @@ function GamePage() {
           >
             <ObservatoryIcon name="alert" size={18} />
             Tab switch detected! This has been logged. (Total: {tabSwitchCount})
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {/* Game Header */}
-      <div className="game-header">
+      <header className="game-header">
         <div className="header-left-group">
           <button
             className="pause-button"
             onClick={togglePause}
-            aria-label={isPaused ? 'Resume game' : 'Pause game'}
+            aria-label={isPaused ? 'Resume session' : 'Pause session'}
           >
             <ObservatoryIcon name={isPaused ? 'play' : 'pause'} size={18} />
           </button>
           <span className="game-realm-pill">{activeRealm.shortTitle}</span>
         </div>
+
         <ScoreDisplay
           score={sessionStats.score}
           streak={sessionStats.streak}
           correct={sessionStats.correct}
           wrong={sessionStats.wrong}
         />
+
         <div className="header-right-info">
           <div className="quiz-timer mono-num">
             {Math.floor(Math.floor(activeSeconds / DISPLAY_DIVISOR) / 60)}:{String(Math.floor(activeSeconds / DISPLAY_DIVISOR) % 60).padStart(2, '0')}
-            {!minTimeReached && (
-              <span className="min-time-note"> / 30:00</span>
-            )}
+            {!minTimeReached && <span className="min-time-note"> / 30:00</span>}
           </div>
           <div className="lives-display">
             {[...Array(3)].map((_, i) => (
@@ -727,96 +652,167 @@ function GamePage() {
             ))}
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Tab switch counter (persistent small badge) */}
       {tabSwitchCount > 0 && gameStarted && (
         <div className="tab-switch-badge">
-          <span className="warning-icon">&#9888;</span> {tabSwitchCount} tab switch{tabSwitchCount !== 1 ? 'es' : ''}
+          <ObservatoryIcon name="alert" size={13} /> {tabSwitchCount} tab switch{tabSwitchCount !== 1 ? 'es' : ''}
         </div>
       )}
 
-      {/* Game Area */}
-      <div className="game-area">
-        {/* Falling Questions (hidden during diagram/passage challenge) */}
-        {!activeDiagram && !activePassage && (
-          <AnimatePresence>
-            {activeQuestions.map(question => (
-              <FallingQuestion
-                key={question.instanceId}
-                question={question}
-                duration={gameSettings.questionTime}
-                isPaused={isPaused}
-                onTimeout={() => handleQuestionTimeout(question)}
-                onOptionClick={handleOptionClick}
-              />
-            ))}
+      {/* FULL-SCREEN FOCUSED QUESTION STAGE (Zero Falling Bubbles!) */}
+      <main className="focus-stage-main">
+        {!activeDiagram && !activePassage && gameStarted && currentQuestion && (
+          <AnimatePresence mode="wait">
+            {questionPhase === 'timeout' ? (
+              <Motion.div
+                key={`timeout_${poolIndex}`}
+                className="focus-question-card obs-panel is-timeout"
+                initial={{ opacity: 0, scale: 0.94 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.92 }}
+              >
+                <span className="focus-timeout-badge">Time&apos;s Up ({formatClock(questionDuration)})</span>
+                <h2 className="focus-timeout-heading">Question Expired</h2>
+                <p className="focus-timeout-answer">
+                  Correct Answer: <strong>{feedbackPayload?.answer}</strong>
+                </p>
+                <span className="focus-timeout-sub">Moving to next question…</span>
+              </Motion.div>
+            ) : (
+              <Motion.div
+                key={`q_${poolIndex}_${currentQuestion.id}`}
+                className="focus-question-card obs-panel"
+                initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -18, scale: 0.97 }}
+                transition={{ duration: 0.25 }}
+              >
+                {/* Card Top Meta + 1-Minute Countdown Ring */}
+                <div className="focus-card-top">
+                  <div className="focus-topic-badges">
+                    <span className="focus-topic-pill">{currentQuestion.topic || activeRealm.shortTitle}</span>
+                    <span className="focus-qnum mono-num">Question #{poolIndex + 1}</span>
+                  </div>
+
+                  <div className={`focus-ring-wrap ${secondsLeft <= 10 ? 'is-urgent' : ''}`}>
+                    <MasteryRing percent={timerPct} size={58} strokeWidth={5} color={timerColor}>
+                      <span className="mono-num focus-ring-time" style={{ color: timerColor }}>
+                        {formatClock(secondsLeft)}
+                      </span>
+                    </MasteryRing>
+                  </div>
+                </div>
+
+                {/* Optional Question Image */}
+                {currentQuestion.image && (
+                  <div className="focus-q-image">
+                    <img src={currentQuestion.image} alt="Question illustration" />
+                  </div>
+                )}
+
+                {/* Large Centered Question Text */}
+                <h1 className="focus-q-prompt">{currentQuestion.question}</h1>
+
+                {/* Multiple Choice Grid OR Clean Typed Input */}
+                {currentQuestion.type === 'multiple' && Array.isArray(currentQuestion.options) ? (
+                  <div className="focus-mc-grid">
+                    {currentQuestion.options.map((opt, oi) => {
+                      const letter = String.fromCharCode(65 + oi)
+                      const isRight = questionPhase !== 'active' &&
+                        normalizeAnswerText(opt) === normalizeAnswerText(currentQuestion.answer)
+                      const isWrongChosen = questionPhase === 'wrong' &&
+                        normalizeAnswerText(opt) === normalizeAnswerText(feedbackPayload?.given)
+                      return (
+                        <button
+                          key={oi}
+                          type="button"
+                          className={`focus-mc-option ${isRight ? 'is-correct' : ''} ${isWrongChosen ? 'is-wrong' : ''}`}
+                          disabled={questionPhase !== 'active' || isPaused}
+                          onClick={() => submitAnswer(opt)}
+                        >
+                          <span className="focus-mc-letter mono-num">{letter}</span>
+                          <span className="focus-mc-label">{opt}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <form
+                    className="focus-text-form"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      submitAnswer(typedAnswer)
+                    }}
+                  >
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      className="focus-text-input"
+                      value={typedAnswer}
+                      onChange={e => setTypedAnswer(e.target.value)}
+                      placeholder="Type your answer and press Enter…"
+                      disabled={questionPhase !== 'active' || isPaused}
+                      autoComplete="off"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="btn-tactile focus-submit-btn"
+                      disabled={questionPhase !== 'active' || !typedAnswer.trim() || isPaused}
+                    >
+                      Submit
+                    </button>
+                  </form>
+                )}
+
+                {/* Optional Hint Toggle */}
+                {currentQuestion.hint && questionPhase === 'active' && (
+                  <div className="focus-hint-row">
+                    {!showHint ? (
+                      <button
+                        type="button"
+                        className="focus-hint-trigger"
+                        onClick={() => { playSound('click'); setShowHint(true) }}
+                      >
+                        Need a hint?
+                      </button>
+                    ) : (
+                      <div className="focus-hint-box">{currentQuestion.hint}</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Instant Inline Feedback Banner */}
+                {questionPhase === 'correct' && (
+                  <Motion.div
+                    className="focus-feedback-strip is-correct"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <ObservatoryIcon name="check" size={18} />
+                    <strong>Correct!</strong>
+                    <span className="mono-num">+{feedbackPayload?.points || 10} pts</span>
+                  </Motion.div>
+                )}
+
+                {questionPhase === 'wrong' && (
+                  <Motion.div
+                    className="focus-feedback-strip is-wrong"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <ObservatoryIcon name="alert" size={18} />
+                    <span>
+                      Correct Answer: <strong>{feedbackPayload?.answer}</strong>
+                    </span>
+                  </Motion.div>
+                )}
+              </Motion.div>
+            )}
           </AnimatePresence>
         )}
-
-        {/* Explosions */}
-        <AnimatePresence>
-          {explosions.map(explosion => (
-            <ExplosionEffect
-              key={explosion.id}
-              x={explosion.x}
-              y={explosion.y}
-              answer={explosion.answer}
-            />
-          ))}
-        </AnimatePresence>
-
-        {/* Feedback Overlays */}
-        <AnimatePresence>
-          {showCorrectFeedback && (
-            <motion.div
-              className="feedback-overlay correct"
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-            >
-              <span className="feedback-icon">✨</span>
-              <span className="feedback-text">Correct!</span>
-              {sessionStats.streak >= 3 && (
-                <span className="streak-bonus">🔥 {sessionStats.streak}x Streak!</span>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {showWrongFeedback && (
-            <motion.div
-              className="feedback-overlay wrong"
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -50, opacity: 0 }}
-            >
-              <span className="feedback-icon">💥</span>
-              <span className="feedback-text">Oops!</span>
-              <span className="correct-answer">
-                Answer: <strong>{showWrongFeedback.answer}</strong>
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Ground/Target Zone */}
-        <div className="ground-zone">
-          <div className="danger-line"></div>
-        </div>
-      </div>
-
-      {/* Answer Input - floating compact at bottom-right (hidden during diagram/passage) */}
-      {gameStarted && !gameOver && !activeDiagram && !activePassage && (
-        <div className="input-floating" ref={inputRef}>
-          <AnswerInput
-            onSubmit={handleAnswer}
-            disabled={isPaused || activeQuestions.length === 0}
-            currentQuestion={currentQuestion}
-          />
-        </div>
-      )}
+      </main>
 
       {/* Diagram Challenge Overlay */}
       <AnimatePresence>
@@ -845,71 +841,68 @@ function GamePage() {
       {/* Pause Overlay */}
       <AnimatePresence>
         {isPaused && (
-          <motion.div
+          <Motion.div
             className="pause-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <div className="pause-content">
-              <h2>Game Paused</h2>
-              <div className="pause-stats">
+              <h2>Session Paused</h2>
+              <div className="pause-stats mono-num">
                 <div>Score: {sessionStats.score}</div>
                 <div>Correct: {sessionStats.correct}</div>
-                <div>Wrong: {sessionStats.wrong}</div>
+                <div>Missed: {sessionStats.wrong}</div>
               </div>
               <div className="pause-buttons">
                 <button className="resume-btn" onClick={togglePause}>
-                  ▶️ Resume
+                  <ObservatoryIcon name="play" size={16} /> Resume
                 </button>
                 <button className="quit-btn" onClick={endGame} disabled={!minTimeReached}>
-                  🚪 End Game
+                  End Session
                 </button>
               </div>
               {!minTimeReached && (
-                <div className="min-time-note" style={{ marginTop: '0.5rem', fontSize: '0.85rem', opacity: 0.7 }}>
+                <div className="min-time-note" style={{ marginTop: '0.85rem', fontSize: '0.84rem' }}>
                   Active time remaining: {Math.floor(Math.floor(Math.max(0, MIN_QUIZ_TIME - activeSeconds) / DISPLAY_DIVISOR) / 60)}:{String(Math.floor(Math.max(0, MIN_QUIZ_TIME - activeSeconds) / DISPLAY_DIVISOR) % 60).padStart(2, '0')}
                 </div>
               )}
             </div>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
       {/* Game Over Overlay */}
       <AnimatePresence>
         {gameOver && (
-          <motion.div
+          <Motion.div
             className="game-over-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            <motion.div
+            <Motion.div
               className="game-over-content"
-              initial={{ scale: 0 }}
+              initial={{ scale: 0.85 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.2 }}
             >
               {minTimeReached ? (
                 <>
-                  <h2>Game Over!</h2>
+                  <h2>Session Complete</h2>
                   <div className="final-score">{sessionStats.score}</div>
-                  <div className="loading-text">Loading results...</div>
+                  <div className="loading-text">Preparing mission debrief…</div>
                 </>
               ) : (
                 <>
                   <h2>Keep Going!</h2>
-                  <div className="min-time-message">
-                    Minimum quiz time: 30 minutes
-                  </div>
+                  <div className="min-time-message">Minimum focus session: 30 minutes</div>
                   <div className="time-remaining">
                     {Math.floor(Math.floor(Math.max(0, MIN_QUIZ_TIME - elapsedSeconds) / DISPLAY_DIVISOR) / 60)}:{String(Math.floor(Math.max(0, MIN_QUIZ_TIME - elapsedSeconds) / DISPLAY_DIVISOR) % 60).padStart(2, '0')} remaining
                   </div>
-                  <div className="loading-text">Lives restored. Continuing...</div>
+                  <div className="loading-text">Lives restored — next question loading…</div>
                 </>
               )}
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
     </div>

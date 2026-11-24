@@ -457,10 +457,10 @@ function HomePage() {
                             playSound('click')
                             navigate('/maths-forge')
                           }}
-                          title="Open Year 7 Visual Maths Forge"
+                          title="Open Galore Park Chapters 1–7"
                         >
                           <ObservatoryIcon name="sparkles" size={13} />
-                          <span>Maths Forge</span>
+                          <span>Chapters 1–7</span>
                         </button>
                       )}
                       {realm.id === 'maths' && FEATURE_FLAGS.showSoroMathWarmup && (
@@ -468,10 +468,10 @@ function HomePage() {
                           type="button"
                           className="warmup-chip"
                           onClick={handleMentalWarmup}
-                          title="Open 3-minute mental speed arithmetic warm-up"
+                          title="Open Galore Park Chapter 1 ISEB Mental Arithmetic Exam"
                         >
                           <ObservatoryIcon name="bolt" size={13} />
-                          <span>Speed Warm-Up</span>
+                          <span>Mental Exam</span>
                         </button>
                       )}
                       {realm.id === 'french' && (

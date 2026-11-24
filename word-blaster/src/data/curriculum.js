@@ -54,21 +54,23 @@ export const ACTIVE_REALMS = [
   {
     id: 'maths',
     subject: 'Maths',
-    title: 'Year 7 Maths Forge',
+    title: 'CE 13+ & Year 7 Maths',
     shortTitle: 'Maths',
-    kicker: 'KS3 Foundation & Extension',
-    description: 'Algebra, fractions & percentages, ratios, geometry, and problem solving.',
+    kicker: 'Galore Park Chapters 1–7',
+    description: 'Chapter-by-chapter Number, Algebra, Area & Perimeter, Geometry, Stats & ISEB Mental Arithmetic.',
     accent: '#f59e0b',
     accentSoft: 'rgba(245, 158, 11, 0.16)',
     accentGlow: 'rgba(245, 158, 11, 0.36)',
     secondary: '#fbbf24',
     topics: [
-      'Algebra & Equations',
-      'Fractions & Percentages',
-      'Ratio & Proportion',
-      'Geometry & Angles'
+      'Mental Arithmetic',
+      'Number',
+      'Algebra',
+      'Area, Perimeter & Units',
+      'Geometry',
+      'Probability & Stats'
     ],
-    dailyGoalLabel: '10 Year 7 Maths challenges'
+    dailyGoalLabel: '1 Galore Park chapter or Mental test'
   },
   {
     id: 'french',
@@ -125,22 +127,22 @@ export const ALL_ADMIN_TOPICS = {
 
 export const PACE_MODES = [
   {
-    id: 'deep',
-    label: 'Deep Think',
-    seconds: 75,
-    description: 'Unhurried analytical pace'
+    id: 'standard',
+    label: '1-Min Focus (Standard)',
+    seconds: 60,
+    description: 'Full-screen 60s per question — auto-advances on timeout'
   },
   {
-    id: 'standard',
-    label: 'Standard',
-    seconds: 45,
-    description: 'Balanced training tempo'
+    id: 'deep',
+    label: 'Extended Analysis',
+    seconds: 90,
+    description: 'Extra thinking room for multi-step problems'
   },
   {
     id: 'exam',
-    label: 'Exam Pace',
-    seconds: 25,
-    description: 'Sharp CAT4 & 11+ speed'
+    label: 'Rapid Drill',
+    seconds: 30,
+    description: 'High-tempo recall speed'
   }
 ]
 

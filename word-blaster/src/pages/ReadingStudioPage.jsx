@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { useGame } from '../context/GameContext'
 import { useSound } from '../context/SoundContext'
+import { quizSessionApi, learnerApi } from '../utils/api'
 import { recordDailyQuestAnswer } from '../data/curriculum'
 import {
   ANALYTICAL_PASSAGES,
@@ -23,6 +24,14 @@ const HIGHLIGHT_TOOLS = [
   { id: 'craft', label: 'Craft', color: '#22d3ee' },
   { id: 'vocab', label: 'Vocab', color: '#fb7185' }
 ]
+
+function readLearnerAccount() {
+  try {
+    return JSON.parse(localStorage.getItem('learnerAccount'))
+  } catch {
+    return null
+  }
+}
 
 function getLearnerTrackingId() {
   return localStorage.getItem('learnerId') || 'guest'
@@ -104,6 +113,15 @@ function ReadingStudioPage() {
   const [streak, setStreak] = useState(0)
   const [inPeelStage, setInPeelStage] = useState(false)
 
+  // Session tracking refs
+  const sessionIdRef = useRef(null)
+  const sessionPromiseRef = useRef(null)
+  const sessionStartRef = useRef(0)
+  const questionStartRef = useRef(0)
+  const bestStreakRef = useRef(0)
+  const scoreRef = useRef(0)
+  const completedRef = useRef(false)
+
   // PEEL Builder state
   const [peel, setPeel] = useState({ point: '', evidence: '', explain: '', link: '' })
   const [showPeelModel, setShowPeelModel] = useState(false)
@@ -130,7 +148,46 @@ function ReadingStudioPage() {
     ? activePassage.questions[qIndex]
     : null
 
-  const openPassage = (passage) => {
+  const flushPartialSession = useCallback(() => {
+    if (completedRef.current || !sessionIdRef.current || !sessionStartRef.current) return
+    const durationSeconds = Math.max(1, Math.floor((Date.now() - sessionStartRef.current) / 1000))
+    quizSessionApi.sendActivityBeacon(sessionIdRef.current, {
+      score: scoreRef.current,
+      bestStreak: bestStreakRef.current,
+      durationSeconds
+    })
+    const learner = readLearnerAccount()
+    if (learner?.id && durationSeconds >= 10) {
+      learnerApi.recordTimeBeacon(learner.id, durationSeconds / 60)
+    }
+    sessionIdRef.current = null
+    sessionPromiseRef.current = null
+  }, [])
+
+  useEffect(() => () => flushPartialSession(), [flushPartialSession])
+
+  useEffect(() => {
+    if (!activePassageId) return undefined
+    const handleVis = () => {
+      if (!sessionIdRef.current) return
+      quizSessionApi.recordTabEvent(sessionIdRef.current, document.hidden ? 'left' : 'returned').catch(console.error)
+    }
+    document.addEventListener('visibilitychange', handleVis)
+    return () => document.removeEventListener('visibilitychange', handleVis)
+  }, [activePassageId])
+
+  const recordReadingAnswer = useCallback((payload) => {
+    if (sessionIdRef.current) {
+      quizSessionApi.recordAnswer(sessionIdRef.current, payload).catch(console.error)
+    } else if (sessionPromiseRef.current) {
+      sessionPromiseRef.current.then(sid => {
+        if (sid) quizSessionApi.recordAnswer(sid, payload).catch(console.error)
+      }).catch(console.error)
+    }
+  }, [])
+
+  const openPassage = useCallback((passage) => {
+    flushPartialSession()
     playSound('gameStart')
     setActivePassageId(passage.id)
     setQIndex(0)
@@ -147,9 +204,34 @@ function ReadingStudioPage() {
     setInspectedWord(null)
     setPeel({ point: '', evidence: '', explain: '', link: '' })
     setShowPeelModel(false)
-  }
+
+    const learner = readLearnerAccount()
+    const now = Date.now()
+    sessionStartRef.current = now
+    questionStartRef.current = now
+    bestStreakRef.current = 0
+    scoreRef.current = 0
+    completedRef.current = false
+    sessionIdRef.current = null
+
+    sessionPromiseRef.current = quizSessionApi.start({
+      learnerId: learner?.id || null,
+      playerName: learner?.name || 'Anonymous',
+      subject: 'English',
+      topics: [passage.title, passage.genre || 'Reading'].filter(Boolean),
+      gameMode: 'reading',
+      minTimeRequired: 10 * 60
+    }).then(res => {
+      sessionIdRef.current = res?.sessionId || null
+      return sessionIdRef.current
+    }).catch(err => {
+      console.error('Failed to start reading session:', err)
+      return null
+    })
+  }, [flushPartialSession, playSound])
 
   const closePassage = () => {
+    flushPartialSession()
     playSound('click')
     setActivePassageId(null)
   }
@@ -186,20 +268,38 @@ function ReadingStudioPage() {
   }
 
   const handleCheckAnswer = () => {
-    if (!currentQuestion) return
+    if (!currentQuestion || !activePassage) return
     const given = currentQuestion.options ? selectedOption : typedAnswer.trim()
     if (!given) return
 
     const isCorrect = given.trim().toLowerCase() === currentQuestion.answer.trim().toLowerCase()
     const pinnedRight = pinnedParagraph === currentQuestion.evidenceParagraph
+    const timeTakenMs = questionStartRef.current ? Math.max(300, Date.now() - questionStartRef.current) : 0
+
+    recordReadingAnswer({
+      questionId: currentQuestion.id,
+      questionText: `[${activePassage.title}] ${currentQuestion.question}`,
+      correctAnswer: currentQuestion.answer,
+      givenAnswer: given.trim(),
+      isCorrect,
+      outcome: isCorrect ? 'correct' : 'wrong',
+      subject: 'English',
+      topic: `${activePassage.title} · ${currentQuestion.skill || activePassage.genre || 'Reading'}`,
+      timeTakenMs
+    })
 
     if (isCorrect) {
       const nextStreak = streak + 1
       playSound('correct', { streak })
       if (nextStreak === 3 || nextStreak === 5) playSound('streak')
       setStreak(nextStreak)
+      bestStreakRef.current = Math.max(bestStreakRef.current, nextStreak)
       setCorrectCount(c => c + 1)
-      setSessionScore(s => s + 100 + (pinnedRight ? 50 : 0))
+      setSessionScore(s => {
+        const next = s + 100 + (pinnedRight ? 50 : 0)
+        scoreRef.current = next
+        return next
+      })
       recordDailyQuestAnswer(trackingId, 'English')
     } else {
       playSound('wrong')
@@ -208,6 +308,32 @@ function ReadingStudioPage() {
 
     setCheckedResult({ isCorrect, pinnedRight })
   }
+
+  const completeReadingSession = useCallback((finalCorrect, totalQ) => {
+    if (completedRef.current) return
+    completedRef.current = true
+    const durationSeconds = sessionStartRef.current
+      ? Math.max(1, Math.floor((Date.now() - sessionStartRef.current) / 1000))
+      : 0
+    const payload = {
+      score: scoreRef.current,
+      bestStreak: bestStreakRef.current,
+      correctAnswers: finalCorrect,
+      wrongAnswers: Math.max(0, totalQ - finalCorrect),
+      durationSeconds
+    }
+    if (sessionIdRef.current) {
+      quizSessionApi.complete(sessionIdRef.current, payload).catch(console.error)
+    } else if (sessionPromiseRef.current) {
+      sessionPromiseRef.current.then(sid => {
+        if (sid) quizSessionApi.complete(sid, payload).catch(console.error)
+      }).catch(console.error)
+    }
+    const learner = readLearnerAccount()
+    if (learner?.id && durationSeconds > 0) {
+      learnerApi.recordTime(learner.id, durationSeconds / 60).catch(console.error)
+    }
+  }, [])
 
   const handleNextQuestion = () => {
     if (!activePassage) return
@@ -220,6 +346,7 @@ function ReadingStudioPage() {
       setCheckedResult(null)
       setShowHint(false)
       setPinnedParagraph(null)
+      questionStartRef.current = Date.now()
     } else {
       // Save reading score and advance to PEEL analytical builder
       const nextProg = saveReadingPassageResult(activePassage.id, {
@@ -228,6 +355,7 @@ function ReadingStudioPage() {
         peelCompleted: false
       })
       setReadingProgress(nextProg)
+      completeReadingSession(correctCount, activePassage.questions.length)
       setInPeelStage(true)
     }
   }
@@ -243,6 +371,12 @@ function ReadingStudioPage() {
       peelCompleted: true
     })
     setReadingProgress(nextProg)
+    if (sessionIdRef.current && sessionStartRef.current) {
+      quizSessionApi.updateActivity(sessionIdRef.current, {
+        durationSeconds: Math.max(1, Math.floor((Date.now() - sessionStartRef.current) / 1000)),
+        completed: true
+      }).catch(console.error)
+    }
   }
 
   // Render paragraph text with clickable glossary terms & evidence quote spotlight

@@ -51,6 +51,9 @@ function DiagramChallenge({ diagram, onComplete, playSound, quizSessionId }) {
           correctAnswer: label.correct_answer,
           givenAnswer: answers[label.label_key] || '',
           isCorrect,
+          outcome: isCorrect ? 'correct' : 'wrong',
+          subject: diagram.subject || 'General',
+          topic: diagram.topic || diagram.title || 'Diagram',
           timeTakenMs: 0
         }).catch(console.error)
       }

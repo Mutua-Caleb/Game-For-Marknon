@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { useSound } from '../context/SoundContext'
-import { quizSessionApi } from '../utils/api'
+import { quizSessionApi, learnerApi } from '../utils/api'
 import { recordDailyQuestAnswer } from '../data/curriculum'
 import { CE_MATHS_QUESTIONS, isMathsAnswerCorrect } from '../data/ceMathsCurriculum'
 import AmbientBackdrop from '../components/AmbientBackdrop'
@@ -63,7 +63,12 @@ function SpeedMathPage() {
   const [finished, setFinished] = useState(false)
 
   const sessionIdRef = useRef(null)
+  const sessionPromiseRef = useRef(null)
   const startedAtRef = useRef(0)
+  const questionStartRef = useRef(0)
+  const bestStreakRef = useRef(0)
+  const scoreRef = useRef(0)
+  const completedRef = useRef(false)
   const advanceRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -83,18 +88,56 @@ function SpeedMathPage() {
     }
   }, [])
 
+  const flushPartialSession = useCallback(() => {
+    if (completedRef.current || !sessionIdRef.current || !startedAtRef.current) return
+    const durationSeconds = Math.max(1, Math.floor((Date.now() - startedAtRef.current) / 1000))
+    quizSessionApi.sendActivityBeacon(sessionIdRef.current, {
+      score: scoreRef.current,
+      bestStreak: bestStreakRef.current,
+      durationSeconds
+    })
+    const learner = readLearnerAccount()
+    if (learner?.id && durationSeconds >= 10) {
+      learnerApi.recordTimeBeacon(learner.id, durationSeconds / 60)
+    }
+    sessionIdRef.current = null
+    sessionPromiseRef.current = null
+  }, [])
+
   useEffect(() => {
     return () => {
       clearAdvance()
+      flushPartialSession()
       if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel()
       }
     }
-  }, [clearAdvance])
+  }, [clearAdvance, flushPartialSession])
+
+  useEffect(() => {
+    if (!mode || finished) return undefined
+    const handleVis = () => {
+      if (!sessionIdRef.current) return
+      quizSessionApi.recordTabEvent(sessionIdRef.current, document.hidden ? 'left' : 'returned').catch(console.error)
+    }
+    document.addEventListener('visibilitychange', handleVis)
+    return () => document.removeEventListener('visibilitychange', handleVis)
+  }, [mode, finished])
+
+  const recordMentalAnswer = useCallback((payload) => {
+    if (sessionIdRef.current) {
+      quizSessionApi.recordAnswer(sessionIdRef.current, payload).catch(console.error)
+    } else if (sessionPromiseRef.current) {
+      sessionPromiseRef.current.then(sid => {
+        if (sid) quizSessionApi.recordAnswer(sid, payload).catch(console.error)
+      }).catch(console.error)
+    }
+  }, [])
 
   // Start quiz session tracking on server when entering a test
   const startMentalMode = (selectedMode) => {
     clearAdvance()
+    flushPartialSession()
     playSound('gameStart')
     setMode(selectedMode)
     setQIndex(0)
@@ -106,17 +149,33 @@ function SpeedMathPage() {
     setLog([])
     setFinished(false)
     startedAtRef.current = Date.now()
+    questionStartRef.current = Date.now()
+    bestStreakRef.current = 0
+    scoreRef.current = 0
+    completedRef.current = false
+    sessionIdRef.current = null
+
+    const modeLabel = selectedMode === 'basic'
+      ? 'Mental Arithmetic · 1.1 Basic Skills'
+      : selectedMode === 'strategies'
+        ? 'Mental Arithmetic · 1.2 Mental Strategies'
+        : 'Mental Arithmetic · Full Exam'
 
     const learner = readLearnerAccount()
-    quizSessionApi.start({
+    sessionPromiseRef.current = quizSessionApi.start({
+      learnerId: learner?.id || null,
       playerName: learner?.name || 'Anonymous',
       subject: 'Maths',
-      topics: [`Mental Arithmetic (${selectedMode})`],
+      topics: [modeLabel],
       gameMode: 'math',
       minTimeRequired: 10 * 60
     }).then(res => {
       sessionIdRef.current = res?.sessionId || null
-    }).catch(console.error)
+      return sessionIdRef.current
+    }).catch(err => {
+      console.error('Failed to start mental arithmetic session:', err)
+      return null
+    })
   }
 
   // Optional British Examiner Read-Aloud when a new question appears
@@ -135,26 +194,36 @@ function SpeedMathPage() {
       setSecondsLeft(QUESTION_SECONDS)
       setUserAnswer('')
       setStatus('active')
+      questionStartRef.current = Date.now()
     } else {
       playSound('focusBlockComplete')
       setFinished(true)
+      completedRef.current = true
       const finalLog = latestLog || log
       const correct = finalLog.filter(x => x.outcome === 'correct').length
       const wrong = finalLog.length - correct
+      const durationSeconds = Math.max(1, Math.floor((Date.now() - startedAtRef.current) / 1000))
+      const completePayload = {
+        subject: 'Maths',
+        score: scoreRef.current,
+        correctAnswers: correct,
+        wrongAnswers: wrong,
+        bestStreak: bestStreakRef.current,
+        durationSeconds
+      }
       if (sessionIdRef.current) {
-        quizSessionApi.updateActivity(sessionIdRef.current, {
-          subject: 'Maths',
-          topics: [`Mental Arithmetic (${mode})`],
-          score,
-          correctAnswers: correct,
-          wrongAnswers: wrong,
-          bestStreak: streak,
-          durationSeconds: Math.floor((Date.now() - startedAtRef.current) / 1000),
-          completed: true
+        quizSessionApi.complete(sessionIdRef.current, completePayload).catch(console.error)
+      } else if (sessionPromiseRef.current) {
+        sessionPromiseRef.current.then(sid => {
+          if (sid) quizSessionApi.complete(sid, completePayload).catch(console.error)
         }).catch(console.error)
       }
+      const learner = readLearnerAccount()
+      if (learner?.id && durationSeconds > 0) {
+        learnerApi.recordTime(learner.id, durationSeconds / 60).catch(console.error)
+      }
     }
-  }, [clearAdvance, qIndex, mentalQuestions.length, playSound, log, mode, score, streak])
+  }, [clearAdvance, qIndex, mentalQuestions.length, playSound, log])
 
   // Strict 1-minute countdown per question; disappears & advances automatically on timeout
   useEffect(() => {
@@ -167,6 +236,20 @@ function SpeedMathPage() {
           playSound('wrong')
           setStreak(0)
           setStatus('timeout')
+          const timeTakenMs = questionStartRef.current
+            ? Date.now() - questionStartRef.current
+            : QUESTION_SECONDS * 1000
+          recordMentalAnswer({
+            questionId: currentQuestion.id,
+            questionText: currentQuestion.prompt,
+            correctAnswer: currentQuestion.answer,
+            givenAnswer: null,
+            isCorrect: false,
+            outcome: 'timeout',
+            subject: 'Maths',
+            topic: currentQuestion.section || 'Mental Arithmetic',
+            timeTakenMs
+          })
           const entry = { question: currentQuestion, given: '', outcome: 'timeout' }
           setLog(prevLog => {
             const nextLog = [...prevLog, entry]
@@ -180,15 +263,32 @@ function SpeedMathPage() {
     }, 1000)
 
     return () => window.clearInterval(timer)
-  }, [mode, finished, status, currentQuestion, playSound, advanceQuestion])
+  }, [mode, finished, status, currentQuestion, playSound, advanceQuestion, recordMentalAnswer])
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!currentQuestion || status !== 'active' || !userAnswer.trim()) return
 
-    const ok = isMathsAnswerCorrect(userAnswer, currentQuestion)
+    const trimmed = userAnswer.trim()
+    const ok = isMathsAnswerCorrect(trimmed, currentQuestion)
     const outcome = ok ? 'correct' : 'wrong'
-    const entry = { question: currentQuestion, given: userAnswer.trim(), outcome }
+    const timeTakenMs = questionStartRef.current
+      ? Math.max(200, Date.now() - questionStartRef.current)
+      : (QUESTION_SECONDS - secondsLeft) * 1000
+
+    recordMentalAnswer({
+      questionId: currentQuestion.id,
+      questionText: currentQuestion.prompt,
+      correctAnswer: currentQuestion.answer,
+      givenAnswer: trimmed,
+      isCorrect: ok,
+      outcome,
+      subject: 'Maths',
+      topic: currentQuestion.section || 'Mental Arithmetic',
+      timeTakenMs
+    })
+
+    const entry = { question: currentQuestion, given: trimmed, outcome }
     const nextLog = [...log, entry]
     setLog(nextLog)
     setStatus(outcome)
@@ -198,7 +298,12 @@ function SpeedMathPage() {
       playSound('correct', { streak })
       if (nextStreak === 5 || nextStreak === 10) playSound('streak')
       setStreak(nextStreak)
-      setScore(s => s + 100 + secondsLeft)
+      bestStreakRef.current = Math.max(bestStreakRef.current, nextStreak)
+      setScore(s => {
+        const next = s + 100 + secondsLeft
+        scoreRef.current = next
+        return next
+      })
       recordDailyQuestAnswer(trackingId, 'Maths')
     } else {
       playSound('wrong')

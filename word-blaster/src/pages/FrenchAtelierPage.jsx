@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion as Motion } from 'framer-motion'
 import { useSound } from '../context/SoundContext'
+import { quizSessionApi, learnerApi } from '../utils/api'
 import { recordDailyQuestAnswer } from '../data/curriculum'
 import {
   FRANCOPHONIE_STOPS,
@@ -13,6 +14,14 @@ import { ObservatoryIcon, RealmCrest } from '../components/RealmIcons'
 import './FrenchAtelierPage.css'
 
 const FRENCH_PROGRESS_KEY = 'observatory-french-mastered-v1'
+
+function readLearnerAccount() {
+  try {
+    return JSON.parse(localStorage.getItem('learnerAccount'))
+  } catch {
+    return null
+  }
+}
 
 function readMasteredWords() {
   try {
@@ -83,6 +92,63 @@ function FrenchAtelierPage() {
   const [sentenceResult, setSentenceResult] = useState(null) // 'correct' | 'wrong' | null
   const [streak, setStreak] = useState(0)
 
+  const sessionIdRef = useRef(null)
+  const sessionPromiseRef = useRef(null)
+  const sessionStartRef = useRef(0)
+  const questionStartRef = useRef(0)
+  const bestStreakRef = useRef(0)
+  const scoreRef = useRef(0)
+  const topicsUsedRef = useRef(new Set())
+
+  useEffect(() => {
+    questionStartRef.current = Date.now()
+  }, [sentenceIdx, tab])
+
+  const ensureFrenchSession = useCallback((initialTopic) => {
+    if (sessionIdRef.current) return Promise.resolve(sessionIdRef.current)
+    if (sessionPromiseRef.current) return sessionPromiseRef.current
+
+    const learner = readLearnerAccount()
+    sessionStartRef.current = Date.now()
+    if (initialTopic) topicsUsedRef.current.add(initialTopic)
+
+    sessionPromiseRef.current = quizSessionApi.start({
+      learnerId: learner?.id || null,
+      playerName: learner?.name || 'Anonymous',
+      subject: 'French',
+      topics: Array.from(topicsUsedRef.current),
+      gameMode: 'french',
+      minTimeRequired: 10 * 60
+    }).then(res => {
+      sessionIdRef.current = res?.sessionId || null
+      return sessionIdRef.current
+    }).catch(err => {
+      console.error('Failed to start French session:', err)
+      sessionPromiseRef.current = null
+      return null
+    })
+    return sessionPromiseRef.current
+  }, [])
+
+  useEffect(() => {
+    const topicsSet = topicsUsedRef.current
+    return () => {
+      if (!sessionIdRef.current || !sessionStartRef.current) return
+      const durationSeconds = Math.max(1, Math.floor((Date.now() - sessionStartRef.current) / 1000))
+      quizSessionApi.sendActivityBeacon(sessionIdRef.current, {
+        score: scoreRef.current,
+        bestStreak: bestStreakRef.current,
+        durationSeconds,
+        topics: Array.from(topicsSet),
+        completed: true
+      })
+      const learner = readLearnerAccount()
+      if (learner?.id && durationSeconds >= 10) {
+        learnerApi.recordTimeBeacon(learner.id, durationSeconds / 60)
+      }
+    }
+  }, [])
+
   const activeStop = useMemo(
     () => FRANCOPHONIE_STOPS.find(s => s.id === selectedStopId) || FRANCOPHONIE_STOPS[0],
     [selectedStopId]
@@ -144,16 +210,45 @@ function FrenchAtelierPage() {
     const built = chosenTokens.map(t => t.word).join(' ')
     const target = activeSentence.answerTokens.join(' ')
     const isCorrect = built === target
+    const timeTakenMs = questionStartRef.current ? Math.max(300, Date.now() - questionStartRef.current) : 0
+    const topicName = activeSentence.topic || 'Sentence Builder'
+    topicsUsedRef.current.add(topicName)
+
     setSentenceResult(isCorrect ? 'correct' : 'wrong')
     if (isCorrect) {
+      const nextStreak = streak + 1
       playSound('correct', { streak })
-      setStreak(s => s + 1)
+      setStreak(nextStreak)
+      bestStreakRef.current = Math.max(bestStreakRef.current, nextStreak)
+      scoreRef.current += 100
       recordDailyQuestAnswer(trackingId, 'French')
       speakFrench(target, false)
     } else {
       playSound('wrong')
       setStreak(0)
     }
+
+    ensureFrenchSession(topicName).then(sid => {
+      if (!sid) return
+      quizSessionApi.recordAnswer(sid, {
+        questionId: activeSentence.id,
+        questionText: `Translate: "${activeSentence.english}"`,
+        correctAnswer: target,
+        givenAnswer: built,
+        isCorrect,
+        outcome: isCorrect ? 'correct' : 'wrong',
+        subject: 'French',
+        topic: topicName,
+        timeTakenMs
+      }).catch(console.error)
+      quizSessionApi.updateActivity(sid, {
+        score: scoreRef.current,
+        bestStreak: bestStreakRef.current,
+        durationSeconds: Math.max(1, Math.floor((Date.now() - sessionStartRef.current) / 1000)),
+        topics: Array.from(topicsUsedRef.current),
+        completed: true
+      }).catch(console.error)
+    }).catch(console.error)
   }
 
   const handleNextSentence = () => {
@@ -161,6 +256,7 @@ function FrenchAtelierPage() {
     setSentenceIdx(i => (i + 1) % FRENCH_SENTENCE_BUILDERS.length)
     setChosenTokens([])
     setSentenceResult(null)
+    questionStartRef.current = Date.now()
   }
 
   const genderLabel = (g) => {

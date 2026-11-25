@@ -41,13 +41,16 @@ function getLearnerId() {
   return learnerId
 }
 
-function getLearnerAccountId() {
+function getLearnerAccount() {
   try {
-    const account = JSON.parse(localStorage.getItem('learnerAccount'))
-    return account?.id || null
+    return JSON.parse(localStorage.getItem('learnerAccount'))
   } catch {
     return null
   }
+}
+
+function getLearnerAccountId() {
+  return getLearnerAccount()?.id || null
 }
 
 /**
@@ -92,6 +95,7 @@ function GamePage() {
     correct: 0,
     wrong: 0,
     streak: 0,
+    bestStreak: 0,
     score: 0
   })
   const [isPaused, setIsPaused] = useState(false)
@@ -180,17 +184,20 @@ function GamePage() {
     gameStartTimeRef.current = Date.now()
     lastInteractionRef.current = Date.now()
 
+    const learner = getLearnerAccount()
     quizSessionApi.start({
+      learnerId: learner?.id || null,
+      playerName: learner?.name || 'Anonymous',
       subject: selectedSubject || activeRealm.shortTitle,
       topics: selectedTopics,
-      gameMode: 'quiz',
+      gameMode: isMistakeMode ? 'mistakes' : 'quiz',
       minTimeRequired: MIN_QUIZ_TIME
     }).then(result => {
       setQuizSessionId(result.sessionId)
     }).catch(err => {
       console.error('Failed to create quiz session:', err)
     })
-  }, [gameStarted, quizSessionId, selectedSubject, selectedTopics, activeRealm.shortTitle])
+  }, [gameStarted, quizSessionId, selectedSubject, selectedTopics, activeRealm.shortTitle, isMistakeMode])
 
   // Track user interaction for anti-slacking
   useEffect(() => {
@@ -235,10 +242,15 @@ function GamePage() {
         learnerApi.recordTimeBeacon(accountId, activeSecondsRef.current / 60)
         activeSecondsRef.current = 0
       }
+      if (quizSessionId && gameStartTimeRef.current) {
+        quizSessionApi.sendActivityBeacon(quizSessionId, {
+          durationSeconds: Math.floor((Date.now() - gameStartTimeRef.current) / 1000)
+        })
+      }
     }
     window.addEventListener('beforeunload', saveProgress)
     return () => window.removeEventListener('beforeunload', saveProgress)
-  }, [gameStarted])
+  }, [gameStarted, quizSessionId])
 
   // Tab visibility detection
   useEffect(() => {
@@ -246,8 +258,9 @@ function GamePage() {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         setTabSwitchCount(prev => prev + 1)
-        quizSessionApi.recordTabSwitch(quizSessionId).catch(console.error)
+        quizSessionApi.recordTabEvent(quizSessionId, 'left').catch(console.error)
       } else {
+        quizSessionApi.recordTabEvent(quizSessionId, 'returned').catch(console.error)
         setShowTabWarning(true)
         window.setTimeout(() => setShowTabWarning(false), 4000)
       }
@@ -319,6 +332,9 @@ function GamePage() {
               correctAnswer: currentQuestion.answer,
               givenAnswer: null,
               isCorrect: false,
+              outcome: 'timeout',
+              subject: currentQuestion.subject || selectedSubject || activeRealm.shortTitle,
+              topic: currentQuestion.topic || null,
               timeTakenMs
             }).catch(console.error)
           }
@@ -356,7 +372,9 @@ function GamePage() {
     recordAnswer,
     quizSessionId,
     learnerId,
-    advanceToNext
+    advanceToNext,
+    selectedSubject,
+    activeRealm.shortTitle
   ])
 
   const submitAnswer = useCallback((rawAnswer) => {
@@ -391,6 +409,7 @@ function GamePage() {
           ...prev,
           correct: prev.correct + 1,
           streak: newStreak,
+          bestStreak: Math.max(prev.bestStreak || 0, newStreak),
           score: prev.score + points
         }
       })
@@ -403,6 +422,9 @@ function GamePage() {
           correctAnswer: currentQuestion.answer,
           givenAnswer: String(rawAnswer).trim(),
           isCorrect: true,
+          outcome: 'correct',
+          subject: currentQuestion.subject || selectedSubject || activeRealm.shortTitle,
+          topic: currentQuestion.topic || null,
           timeTakenMs
         }).catch(console.error)
       }
@@ -458,6 +480,9 @@ function GamePage() {
           correctAnswer: currentQuestion.answer,
           givenAnswer: String(rawAnswer).trim(),
           isCorrect: false,
+          outcome: 'wrong',
+          subject: currentQuestion.subject || selectedSubject || activeRealm.shortTitle,
+          topic: currentQuestion.topic || null,
           timeTakenMs
         }).catch(console.error)
       }
@@ -489,7 +514,9 @@ function GamePage() {
     quizSessionId,
     diagramPool,
     passagePool,
-    advanceToNext
+    advanceToNext,
+    selectedSubject,
+    activeRealm.shortTitle
   ])
 
   const handleDiagramComplete = useCallback(({ correctCount, totalLabels }) => {
@@ -528,7 +555,9 @@ function GamePage() {
     if (quizSessionId) {
       quizSessionApi.complete(quizSessionId, {
         score: sessionStats.score,
-        bestStreak: sessionStats.streak,
+        bestStreak: Math.max(sessionStats.bestStreak || 0, sessionStats.streak || 0),
+        correctAnswers: sessionStats.correct,
+        wrongAnswers: sessionStats.wrong,
         durationSeconds
       }).catch(console.error)
     }

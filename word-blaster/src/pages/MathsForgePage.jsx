@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import { useSound } from '../context/SoundContext'
+import { quizSessionApi, learnerApi } from '../utils/api'
 import { recordDailyQuestAnswer } from '../data/curriculum'
 import {
   CE_MATHS_QUESTIONS,
@@ -16,6 +17,14 @@ import { MathsVisualDiagram } from '../components/MathsVisualModels'
 import './MathsForgePage.css'
 
 const QUESTION_DURATION_SEC = 60
+
+function readLearnerAccount() {
+  try {
+    return JSON.parse(localStorage.getItem('learnerAccount'))
+  } catch {
+    return null
+  }
+}
 
 function getTrackingId() {
   return localStorage.getItem('learnerId') || 'guest'
@@ -52,6 +61,13 @@ function MathsForgePage() {
 
   const inputRef = useRef(null)
   const advanceTimerRef = useRef(null)
+  const sessionIdRef = useRef(null)
+  const sessionPromiseRef = useRef(null)
+  const sessionStartRef = useRef(0)
+  const questionStartRef = useRef(0)
+  const bestStreakRef = useRef(0)
+  const scoreRef = useRef(0)
+  const completedRef = useRef(false)
 
   const activeChapter = useMemo(
     () => MATHS_CHAPTERS.find(c => c.id === activeChapterId) || null,
@@ -72,10 +88,54 @@ function MathsForgePage() {
     }
   }, [])
 
-  useEffect(() => clearPendingAdvance, [clearPendingAdvance])
+  const flushPartialSession = useCallback(() => {
+    if (completedRef.current || !sessionIdRef.current || !sessionStartRef.current) return
+    const durationSeconds = Math.max(1, Math.floor((Date.now() - sessionStartRef.current) / 1000))
+    quizSessionApi.sendActivityBeacon(sessionIdRef.current, {
+      score: scoreRef.current,
+      bestStreak: bestStreakRef.current,
+      durationSeconds
+    })
+    const learner = readLearnerAccount()
+    if (learner?.id && durationSeconds >= 10) {
+      learnerApi.recordTimeBeacon(learner.id, durationSeconds / 60)
+    }
+    sessionIdRef.current = null
+    sessionPromiseRef.current = null
+  }, [])
 
-  const startChapter = (chapterId) => {
+  useEffect(() => {
+    return () => {
+      clearPendingAdvance()
+      flushPartialSession()
+    }
+  }, [clearPendingAdvance, flushPartialSession])
+
+  // Record tab visibility changes during active chapter test
+  useEffect(() => {
+    if (!activeChapterId || finished) return undefined
+    const handleVis = () => {
+      const sid = sessionIdRef.current
+      if (!sid) return
+      quizSessionApi.recordTabEvent(sid, document.hidden ? 'left' : 'returned').catch(console.error)
+    }
+    document.addEventListener('visibilitychange', handleVis)
+    return () => document.removeEventListener('visibilitychange', handleVis)
+  }, [activeChapterId, finished])
+
+  const recordSessionAnswer = useCallback((payload) => {
+    if (sessionIdRef.current) {
+      quizSessionApi.recordAnswer(sessionIdRef.current, payload).catch(console.error)
+    } else if (sessionPromiseRef.current) {
+      sessionPromiseRef.current.then(sid => {
+        if (sid) quizSessionApi.recordAnswer(sid, payload).catch(console.error)
+      }).catch(console.error)
+    }
+  }, [])
+
+  const startChapter = useCallback((chapterId) => {
     clearPendingAdvance()
+    flushPartialSession()
     playSound('gameStart')
     setActiveChapterId(chapterId)
     setQIndex(0)
@@ -90,10 +150,36 @@ function MathsForgePage() {
     setStreak(0)
     setResultsLog([])
     setFinished(false)
-  }
+
+    const chapter = MATHS_CHAPTERS.find(c => c.id === chapterId)
+    const learner = readLearnerAccount()
+    const now = Date.now()
+    sessionStartRef.current = now
+    questionStartRef.current = now
+    bestStreakRef.current = 0
+    scoreRef.current = 0
+    completedRef.current = false
+    sessionIdRef.current = null
+
+    sessionPromiseRef.current = quizSessionApi.start({
+      learnerId: learner?.id || null,
+      playerName: learner?.name || 'Anonymous',
+      subject: 'Maths',
+      topics: [chapter?.shortTitle || chapterId],
+      gameMode: 'maths-forge',
+      minTimeRequired: 10 * 60
+    }).then(res => {
+      sessionIdRef.current = res?.sessionId || null
+      return sessionIdRef.current
+    }).catch(err => {
+      console.error('Failed to start Maths Forge session:', err)
+      return null
+    })
+  }, [clearPendingAdvance, flushPartialSession, playSound])
 
   const exitToChapters = () => {
     clearPendingAdvance()
+    flushPartialSession()
     playSound('click')
     setActiveChapterId(null)
   }
@@ -107,15 +193,40 @@ function MathsForgePage() {
       setScratchpad('')
       setShowHint(false)
       setStatus('active')
+      questionStartRef.current = Date.now()
       window.setTimeout(() => inputRef.current?.focus(), 60)
     } else {
-      const correctTotal = (latestLog || resultsLog).filter(r => r.outcome === 'correct').length
+      const finalLog = latestLog || resultsLog
+      const correctTotal = finalLog.filter(r => r.outcome === 'correct').length
+      const wrongTotal = finalLog.length - correctTotal
       if (activeChapterId) {
         const updated = saveMathsChapterResult(activeChapterId, {
           correct: correctTotal,
           total: chapterQuestions.length
         })
         setChapterProgress(updated)
+      }
+      const durationSeconds = sessionStartRef.current
+        ? Math.max(1, Math.floor((Date.now() - sessionStartRef.current) / 1000))
+        : 0
+      completedRef.current = true
+      const finishPayload = {
+        score: scoreRef.current,
+        bestStreak: bestStreakRef.current,
+        correctAnswers: correctTotal,
+        wrongAnswers: wrongTotal,
+        durationSeconds
+      }
+      if (sessionIdRef.current) {
+        quizSessionApi.complete(sessionIdRef.current, finishPayload).catch(console.error)
+      } else if (sessionPromiseRef.current) {
+        sessionPromiseRef.current.then(sid => {
+          if (sid) quizSessionApi.complete(sid, finishPayload).catch(console.error)
+        }).catch(console.error)
+      }
+      const learner = readLearnerAccount()
+      if (learner?.id && durationSeconds > 0) {
+        learnerApi.recordTime(learner.id, durationSeconds / 60).catch(console.error)
       }
       playSound('focusBlockComplete')
       setFinished(true)
@@ -135,6 +246,20 @@ function MathsForgePage() {
           playSound('wrong')
           setStreak(0)
           setStatus('timeout')
+          const timeTakenMs = questionStartRef.current
+            ? Date.now() - questionStartRef.current
+            : QUESTION_DURATION_SEC * 1000
+          recordSessionAnswer({
+            questionId: currentQuestion.id,
+            questionText: currentQuestion.prompt,
+            correctAnswer: currentQuestion.answer,
+            givenAnswer: null,
+            isCorrect: false,
+            outcome: 'timeout',
+            subject: 'Maths',
+            topic: currentQuestion.section || activeChapter?.shortTitle || 'Maths',
+            timeTakenMs
+          })
           const entry = { question: currentQuestion, given: '', outcome: 'timeout' }
           setResultsLog(log => {
             const nextLog = [...log, entry]
@@ -150,15 +275,32 @@ function MathsForgePage() {
     }, 1000)
 
     return () => window.clearInterval(interval)
-  }, [activeChapterId, finished, status, isPaused, currentQuestion, playSound, moveToNextQuestion])
+  }, [activeChapterId, activeChapter, finished, status, isPaused, currentQuestion, playSound, moveToNextQuestion, recordSessionAnswer])
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!currentQuestion || status !== 'active' || !userAnswer.trim()) return
 
-    const correct = isMathsAnswerCorrect(userAnswer, currentQuestion)
+    const trimmed = userAnswer.trim()
+    const correct = isMathsAnswerCorrect(trimmed, currentQuestion)
     const outcome = correct ? 'correct' : 'wrong'
-    const entry = { question: currentQuestion, given: userAnswer.trim(), outcome }
+    const timeTakenMs = questionStartRef.current
+      ? Math.max(200, Date.now() - questionStartRef.current)
+      : (QUESTION_DURATION_SEC - secondsLeft) * 1000
+
+    recordSessionAnswer({
+      questionId: currentQuestion.id,
+      questionText: currentQuestion.prompt,
+      correctAnswer: currentQuestion.answer,
+      givenAnswer: trimmed,
+      isCorrect: correct,
+      outcome,
+      subject: 'Maths',
+      topic: currentQuestion.section || activeChapter?.shortTitle || 'Maths',
+      timeTakenMs
+    })
+
+    const entry = { question: currentQuestion, given: trimmed, outcome }
     setResultsLog(prev => [...prev, entry])
     setStatus(outcome)
 
@@ -167,8 +309,13 @@ function MathsForgePage() {
       playSound('correct', { streak })
       if (nextStreak === 3 || nextStreak === 6) playSound('streak')
       setStreak(nextStreak)
+      bestStreakRef.current = Math.max(bestStreakRef.current, nextStreak)
       const timeBonus = Math.round(secondsLeft * 1.5)
-      setScore(s => s + 100 + timeBonus)
+      setScore(s => {
+        const next = s + 100 + timeBonus
+        scoreRef.current = next
+        return next
+      })
       recordDailyQuestAnswer(trackingId, 'Maths')
     } else {
       playSound('wrong')

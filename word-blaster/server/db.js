@@ -344,7 +344,10 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_sequence_questions_subject ON sequence_questions(subject);
     CREATE INDEX IF NOT EXISTS idx_sequence_steps_sequence ON sequence_steps(sequence_id);
     CREATE INDEX IF NOT EXISTS idx_quiz_sessions_started ON quiz_sessions(started_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_quiz_sessions_player ON quiz_sessions(player_name);
+    CREATE INDEX IF NOT EXISTS idx_quiz_sessions_subject ON quiz_sessions(subject);
     CREATE INDEX IF NOT EXISTS idx_quiz_session_answers_session ON quiz_session_answers(session_id);
+    CREATE INDEX IF NOT EXISTS idx_quiz_session_answers_answered ON quiz_session_answers(answered_at DESC);
     CREATE INDEX IF NOT EXISTS idx_quiz_tab_events_session ON quiz_tab_events(session_id);
     CREATE INDEX IF NOT EXISTS idx_diagram_questions_subject ON diagram_questions(subject);
     CREATE INDEX IF NOT EXISTS idx_diagram_labels_diagram ON diagram_labels(diagram_id);
@@ -369,6 +372,11 @@ export async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_writing_submissions_prompt ON writing_submissions(prompt_id);
     CREATE INDEX IF NOT EXISTS idx_writing_submissions_learner ON writing_submissions(learner_id);
   `)
+
+  await p.query('ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS learner_id INTEGER')
+  await p.query('ALTER TABLE quiz_session_answers ADD COLUMN IF NOT EXISTS subject TEXT')
+  await p.query('ALTER TABLE quiz_session_answers ADD COLUMN IF NOT EXISTS topic TEXT')
+  await p.query('ALTER TABLE quiz_session_answers ADD COLUMN IF NOT EXISTS outcome TEXT')
 
   await p.query('ALTER TABLE learner_earnings ADD COLUMN IF NOT EXISTS quiz_correct_answers INTEGER DEFAULT 0')
   await p.query('ALTER TABLE learner_earnings ADD COLUMN IF NOT EXISTS chemistry_correct_answers INTEGER DEFAULT 0')

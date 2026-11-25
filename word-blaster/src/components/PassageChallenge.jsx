@@ -42,10 +42,13 @@ function PassageChallenge({ passage, onComplete, playSound, quizSessionId }) {
       if (quizSessionId) {
         quizSessionApi.recordAnswer(quizSessionId, {
           questionId: `passage_${passage.id}_q${i}`,
-          questionText: q.question,
+          questionText: `[${passage.title}] ${q.question}`,
           correctAnswer: q.answer,
           givenAnswer: answers[i] || '',
           isCorrect,
+          outcome: isCorrect ? 'correct' : 'wrong',
+          subject: passage.subject || 'English',
+          topic: passage.topic || passage.title || 'Reading',
           timeTakenMs: 0
         }).catch(console.error)
       }

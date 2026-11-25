@@ -505,6 +505,52 @@ export const quizSessionApi = {
       headers: getAuthHeaders()
     })
     return handleResponse(res)
+  },
+
+  async getDailyReport(params = {}) {
+    const searchParams = new URLSearchParams()
+    searchParams.set('tzOffset', String(params.tzOffset ?? new Date().getTimezoneOffset()))
+    if (params.range) searchParams.set('range', params.range)
+    if (params.date) searchParams.set('date', params.date)
+    if (params.startDate) searchParams.set('startDate', params.startDate)
+    if (params.endDate) searchParams.set('endDate', params.endDate)
+    if (params.player) searchParams.set('player', params.player)
+    if (params.subject) searchParams.set('subject', params.subject)
+    if (params.topic) searchParams.set('topic', params.topic)
+    if (params.status) searchParams.set('status', params.status)
+
+    const res = await fetch(`${API_BASE}/quiz-sessions/daily-report?${searchParams}`, {
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  },
+
+  async getAttempts(params = {}) {
+    const searchParams = new URLSearchParams()
+    searchParams.set('tzOffset', String(params.tzOffset ?? new Date().getTimezoneOffset()))
+    if (params.range) searchParams.set('range', params.range)
+    if (params.date) searchParams.set('date', params.date)
+    if (params.startDate) searchParams.set('startDate', params.startDate)
+    if (params.endDate) searchParams.set('endDate', params.endDate)
+    if (params.player) searchParams.set('player', params.player)
+    if (params.subject) searchParams.set('subject', params.subject)
+    if (params.topic) searchParams.set('topic', params.topic)
+    if (params.result) searchParams.set('result', params.result)
+    if (params.search) searchParams.set('search', params.search)
+    if (params.limit) searchParams.set('limit', String(params.limit))
+    if (params.offset) searchParams.set('offset', String(params.offset))
+
+    const res = await fetch(`${API_BASE}/quiz-sessions/attempts?${searchParams}`, {
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
+  },
+
+  async getLearnersOverview() {
+    const res = await fetch(`${API_BASE}/quiz-sessions/learners-overview`, {
+      headers: getAuthHeaders()
+    })
+    return handleResponse(res)
   }
 }
 

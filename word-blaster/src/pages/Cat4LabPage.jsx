@@ -1,7 +1,8 @@
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion as Motion } from 'framer-motion'
 import { useSound } from '../context/SoundContext'
+import { quizSessionApi, learnerApi } from '../utils/api'
 import { recordDailyQuestAnswer } from '../data/curriculum'
 import {
   CAT4_BATTERIES,
@@ -19,8 +20,23 @@ import './Cat4LabPage.css'
 
 const EXAM_PACE_SECONDS = 35
 
+function readLearnerAccount() {
+  try {
+    return JSON.parse(localStorage.getItem('learnerAccount'))
+  } catch {
+    return null
+  }
+}
+
 function getLearnerTrackingId() {
   return localStorage.getItem('learnerId') || 'guest'
+}
+
+function formatCat4Option(puzzle, optId) {
+  if (!optId) return null
+  const opt = puzzle?.options?.find(o => o.id === optId)
+  if (!opt) return String(optId)
+  return opt.label ? `${opt.id}: ${opt.label}` : `Option ${opt.id}`
 }
 
 function Cat4LabPage() {
@@ -40,6 +56,20 @@ function Cat4LabPage() {
   const [finished, setFinished] = useState(false)
   const [secondsLeft, setSecondsLeft] = useState(EXAM_PACE_SECONDS)
 
+  const sessionIdRef = useRef(null)
+  const sessionPromiseRef = useRef(null)
+  const sessionStartRef = useRef(0)
+  const questionStartRef = useRef(0)
+  const bestStreakRef = useRef(0)
+  const scoreRef = useRef(0)
+  const answeredCountRef = useRef(0)
+  const correctCountRef = useRef(0)
+  const completedRef = useRef(false)
+
+  useEffect(() => {
+    questionStartRef.current = Date.now()
+  }, [puzzleIndex, battery])
+
   const puzzlePool = useMemo(() => {
     if (battery === 'all') return CAT4_PUZZLES
     return CAT4_PUZZLES.filter(p => p.battery === battery)
@@ -47,7 +77,63 @@ function Cat4LabPage() {
 
   const currentPuzzle = puzzlePool[puzzleIndex] || null
 
+  const ensureSession = useCallback((activeBattery) => {
+    if (sessionIdRef.current) return Promise.resolve(sessionIdRef.current)
+    if (sessionPromiseRef.current) return sessionPromiseRef.current
+
+    const learner = readLearnerAccount()
+    const batteryMeta = CAT4_BATTERIES.find(b => b.id === activeBattery)
+    sessionStartRef.current = sessionStartRef.current || Date.now()
+    completedRef.current = false
+
+    sessionPromiseRef.current = quizSessionApi.start({
+      learnerId: learner?.id || null,
+      playerName: learner?.name || 'Anonymous',
+      subject: 'CAT4',
+      topics: [batteryMeta?.label || 'All Batteries'],
+      gameMode: 'cat4',
+      minTimeRequired: 10 * 60
+    }).then(res => {
+      sessionIdRef.current = res?.sessionId || null
+      return sessionIdRef.current
+    }).catch(err => {
+      console.error('Failed to start CAT4 session:', err)
+      sessionPromiseRef.current = null
+      return null
+    })
+    return sessionPromiseRef.current
+  }, [])
+
+  const flushPartialSession = useCallback(() => {
+    if (completedRef.current || !sessionIdRef.current || !sessionStartRef.current) return
+    const durationSeconds = Math.max(1, Math.floor((Date.now() - sessionStartRef.current) / 1000))
+    quizSessionApi.sendActivityBeacon(sessionIdRef.current, {
+      score: scoreRef.current,
+      bestStreak: bestStreakRef.current,
+      durationSeconds
+    })
+    const learner = readLearnerAccount()
+    if (learner?.id && durationSeconds >= 10) {
+      learnerApi.recordTimeBeacon(learner.id, durationSeconds / 60)
+    }
+    sessionIdRef.current = null
+    sessionPromiseRef.current = null
+  }, [])
+
+  useEffect(() => () => flushPartialSession(), [flushPartialSession])
+
+  useEffect(() => {
+    if (finished) return undefined
+    const handleVis = () => {
+      if (!sessionIdRef.current) return
+      quizSessionApi.recordTabEvent(sessionIdRef.current, document.hidden ? 'left' : 'returned').catch(console.error)
+    }
+    document.addEventListener('visibilitychange', handleVis)
+    return () => document.removeEventListener('visibilitychange', handleVis)
+  }, [finished])
+
   const resetRun = useCallback((nextBattery = battery) => {
+    flushPartialSession()
     setBattery(nextBattery)
     setPuzzleIndex(0)
     setSelectedId(null)
@@ -58,7 +144,16 @@ function Cat4LabPage() {
     setStreak(0)
     setFinished(false)
     setSecondsLeft(EXAM_PACE_SECONDS)
-  }, [battery])
+    sessionIdRef.current = null
+    sessionPromiseRef.current = null
+    sessionStartRef.current = 0
+    questionStartRef.current = Date.now()
+    bestStreakRef.current = 0
+    scoreRef.current = 0
+    answeredCountRef.current = 0
+    correctCountRef.current = 0
+    completedRef.current = false
+  }, [battery, flushPartialSession])
 
   const handleSubmitChoice = useCallback((choiceId) => {
     if (!currentPuzzle || checked) return
@@ -69,20 +164,45 @@ function Cat4LabPage() {
     setChecked(true)
 
     const isCorrect = chosen === currentPuzzle.correctOptionId
+    const timeTakenMs = questionStartRef.current ? Math.max(200, Date.now() - questionStartRef.current) : 0
+    const batteryLabel = CAT4_BATTERIES.find(b => b.id === currentPuzzle.battery)?.label || currentPuzzle.battery
+
+    answeredCountRef.current += 1
     if (isCorrect) {
+      correctCountRef.current += 1
       const nextStreak = streak + 1
       playSound('correct', { streak })
       if (nextStreak === 4 || nextStreak === 8) playSound('streak')
       setStreak(nextStreak)
+      bestStreakRef.current = Math.max(bestStreakRef.current, nextStreak)
       setCorrectCount(c => c + 1)
       const paceBonus = examMode ? Math.max(10, secondsLeft * 2) : 0
-      setScore(s => s + 100 + paceBonus)
+      setScore(s => {
+        const next = s + 100 + paceBonus
+        scoreRef.current = next
+        return next
+      })
       recordDailyQuestAnswer(trackingId, 'CAT4')
     } else {
       playSound('wrong')
       setStreak(0)
     }
-  }, [currentPuzzle, checked, selectedId, streak, playSound, examMode, secondsLeft, trackingId])
+
+    ensureSession(battery).then(sid => {
+      if (!sid) return
+      quizSessionApi.recordAnswer(sid, {
+        questionId: currentPuzzle.id,
+        questionText: currentPuzzle.prompt,
+        correctAnswer: formatCat4Option(currentPuzzle, currentPuzzle.correctOptionId),
+        givenAnswer: formatCat4Option(currentPuzzle, chosen),
+        isCorrect,
+        outcome: isCorrect ? 'correct' : 'wrong',
+        subject: 'CAT4',
+        topic: `${batteryLabel} · ${currentPuzzle.subtype}`,
+        timeTakenMs
+      }).catch(console.error)
+    }).catch(console.error)
+  }, [currentPuzzle, checked, selectedId, streak, playSound, examMode, secondsLeft, trackingId, ensureSession, battery])
 
   // Exam pace countdown timer
   useEffect(() => {
@@ -94,13 +214,29 @@ function Cat4LabPage() {
           setChecked(true)
           setStreak(0)
           playSound('wrong')
+          answeredCountRef.current += 1
+          const batteryLabel = CAT4_BATTERIES.find(b => b.id === currentPuzzle.battery)?.label || currentPuzzle.battery
+          ensureSession(battery).then(sid => {
+            if (!sid) return
+            quizSessionApi.recordAnswer(sid, {
+              questionId: currentPuzzle.id,
+              questionText: currentPuzzle.prompt,
+              correctAnswer: formatCat4Option(currentPuzzle, currentPuzzle.correctOptionId),
+              givenAnswer: null,
+              isCorrect: false,
+              outcome: 'timeout',
+              subject: 'CAT4',
+              topic: `${batteryLabel} · ${currentPuzzle.subtype}`,
+              timeTakenMs: EXAM_PACE_SECONDS * 1000
+            }).catch(console.error)
+          }).catch(console.error)
           return 0
         }
         return prev - 1
       })
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [examMode, checked, finished, currentPuzzle, playSound])
+  }, [examMode, checked, finished, currentPuzzle, playSound, ensureSession, battery])
 
   const handleNext = () => {
     playSound('click')
@@ -110,9 +246,32 @@ function Cat4LabPage() {
       setChecked(false)
       setShowHint(false)
       setSecondsLeft(EXAM_PACE_SECONDS)
+      questionStartRef.current = Date.now()
     } else {
       playSound('focusBlockComplete')
       setFinished(true)
+      completedRef.current = true
+      const durationSeconds = sessionStartRef.current
+        ? Math.max(1, Math.floor((Date.now() - sessionStartRef.current) / 1000))
+        : 0
+      const finishPayload = {
+        score: scoreRef.current,
+        bestStreak: bestStreakRef.current,
+        correctAnswers: correctCountRef.current,
+        wrongAnswers: Math.max(0, answeredCountRef.current - correctCountRef.current),
+        durationSeconds
+      }
+      if (sessionIdRef.current) {
+        quizSessionApi.complete(sessionIdRef.current, finishPayload).catch(console.error)
+      } else if (sessionPromiseRef.current) {
+        sessionPromiseRef.current.then(sid => {
+          if (sid) quizSessionApi.complete(sid, finishPayload).catch(console.error)
+        }).catch(console.error)
+      }
+      const learner = readLearnerAccount()
+      if (learner?.id && durationSeconds > 0) {
+        learnerApi.recordTime(learner.id, durationSeconds / 60).catch(console.error)
+      }
     }
   }
 
